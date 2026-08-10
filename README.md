@@ -1,0 +1,146 @@
+# Orbis
+
+Plataforma web **multiempresa** para gestão do ciclo de trabalho de equipes de desenvolvimento: requisições, tarefas, capacidade da equipe, Kanban, timelines, sistemas, versões, releases, notificações e comunicação interna.
+
+## O que é o Orbis
+
+O Orbis é um SaaS de gestão de desenvolvimento construído do zero. O conceito central é a **Requisição** (demanda formal de trabalho), que pode possuir **tarefas** executáveis no Kanban.
+
+Principais características:
+
+- **Multiempresa (tenants)**: `Company` = tenant, `User` = identidade global, `Membership` = vínculo entre usuário e empresa.
+- **Kanban** com colunas personalizáveis (A Fazer, Em Andamento, Pausado, Concluído) e histórico de status imutável.
+- **Timelines** semanal, mensal e anual com filtros e indicadores.
+- **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
+- **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído.
+- **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
+- **Notificações configuráveis**, **chat interno**, **relatórios** e **auditoria**.
+- **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
+
+> **Regra de domínio:** o termo oficial é **Requisição**. O conceito de "ordem" do sistema original não deve ser utilizado.
+
+## Stack
+
+### API (`API/`)
+
+- Node.js + TypeScript (strict)
+- Fastify
+- Drizzle ORM
+- PostgreSQL
+- Zod
+- JWT
+- WebSocket (quando necessário)
+- Redis (opcional, somente com necessidade real)
+- Documentação de API via **Scalar** (`@scalar/fastify-api-reference` + `@fastify/swagger`)
+
+### App (`app/`)
+
+- React + Vite + TypeScript (strict)
+- shadcn/ui
+- Tailwind CSS v4
+
+`API` e `app` são aplicações independentes, cada uma com `package.json`, dependências, TypeScript, scripts e build próprios.
+
+## Estrutura do repositório
+
+```text
+/
+├── API/          → Backend (Fastify)
+├── app/          → Frontend (React/Vite)
+├── docs/         → Documentação do projeto e regras para agentes de IA
+└── README.md
+```
+
+Documentação detalhada:
+
+- `docs/AGENTS.md` — regras de desenvolvimento e nomenclatura.
+- `docs/ai_context.md` — contexto rápido e decisões fundamentais.
+- `docs/architecture.md` — arquitetura detalhada.
+- `docs/PLANO-IMPLEMENTACAO.md` — plano de implementação em módulos (M0–M18).
+- `docs/ai_handoff.md` — estado atual do projeto e próxima ação.
+
+## Como executar localmente
+
+Pré-requisitos: Node.js 20+ (recomendado 22+), npm e PostgreSQL (para M1 em diante).
+
+### 1. API
+
+```bash
+cd API
+npm install
+cp .env.example .env   # ajuste as variáveis se necessário
+npm run dev            # sobe em http://localhost:3333
+```
+
+Verificar o health check:
+
+```bash
+curl http://localhost:3333/health
+```
+
+Documentação da API (Scalar) — **todo endpoint é documentado automaticamente**:
+
+```text
+http://localhost:3333/reference             → UI interativa
+http://localhost:3333/reference/openapi.json → spec OpenAPI (JSON)
+http://localhost:3333/reference/openapi.yaml → spec OpenAPI (YAML)
+```
+
+### 2. App
+
+```bash
+cd app
+npm install
+cp .env.example .env   # ajuste VITE_API_URL se necessário
+npm run dev            # sobe em http://localhost:5173
+```
+
+## Scripts
+
+### API
+
+| Script | Descrição |
+|---|---|
+| `npm run dev` | Servidor com reload automático |
+| `npm run build` | Compilação TypeScript |
+| `npm start` | Executa o build |
+| `npm run lint` | Lint + formatação (Biome) |
+| `npm run lint:fix` | Lint + formatação com correção automática |
+| `npm run typecheck` | Verificação de tipos |
+| `npm test` | Testes (vitest) |
+| `npm run test:coverage` | Testes com relatório de cobertura |
+
+### App
+
+| Script | Descrição |
+|---|---|
+| `npm run dev` | Dev server com HMR |
+| `npm run build` | TypeScript + build Vite |
+| `npm run preview` | Pré-visualiza o build de produção |
+| `npm run lint` | Lint + formatação (Biome) |
+| `npm run lint:fix` | Lint + formatação com correção automática |
+| `npm run typecheck` | Verificação de tipos |
+| `npm test` | Testes (vitest) |
+| `npm run test:coverage` | Testes com relatório de cobertura |
+
+## Testes e cobertura
+
+A API e o app possuem cobertura de testes obrigatória, com a meta de se aproximar de **100% do código** (unitários, integração, API e frontend).
+
+```bash
+cd API && npm run test:coverage
+cd app && npm run test:coverage
+```
+
+Thresholds mínimos definidos no `vitest.config.ts` de cada aplicação (~95% de statements/lines/functions e ~90% de branches). O relatório é gerado em `coverage/`.
+
+## Estado do projeto
+
+O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENTACAO.md`:
+
+| Módulo | Descrição | Status |
+|---|---|---|
+| M0 | Fundação dos projetos (API + app, tema, responsividade) | ✅ Concluído |
+| M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ⏳ Próximo |
+
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

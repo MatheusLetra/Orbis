@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { loadEnv } from "./env.js";
+
+describe("loadEnv", () => {
+  it("aplica valores padrão quando variáveis não estão presentes", () => {
+    const env = loadEnv({ NODE_ENV: "test" });
+    expect(env.PORT).toBe(3333);
+    expect(env.HOST).toBe("0.0.0.0");
+  });
+
+  it("lê variáveis fornecidas", () => {
+    const env = loadEnv({ NODE_ENV: "production", PORT: 4000, HOST: "127.0.0.1" });
+    expect(env.NODE_ENV).toBe("production");
+    expect(env.PORT).toBe(4000);
+    expect(env.HOST).toBe("127.0.0.1");
+  });
+
+  it("lança erro para configuração inválida", () => {
+    expect(() => loadEnv({ NODE_ENV: "invalid-mode" as never })).toThrow(
+      "Configuração de ambiente inválida",
+    );
+  });
+});

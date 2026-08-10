@@ -770,6 +770,24 @@ DELETE /tasks/:id/attachments/:attachmentId
 
 Os endpoints finais devem ser definidos conforme os use cases.
 
+### 24.1 Documentação obrigatória de todos os endpoints (Scalar)
+
+**Todo e qualquer endpoint da API deve ser documentado.** A documentação é gerada automaticamente a partir dos schemas OpenAPI registrados em cada rota e exibida pelo **Scalar** (`@scalar/fastify-api-reference`).
+
+Regras:
+
+- usar `@fastify/swagger` para gerar o documento OpenAPI e `@scalar/fastify-api-reference` para servir a UI de documentação;
+- a UI fica disponível em `GET /reference` e o spec em `GET /reference/openapi.json` e `GET /reference/openapi.yaml`;
+- **cada rota deve definir `schema`** (tags, descrição, parâmetros, body e responses) no momento do registro — rota sem schema não é documentada adequadamente;
+- novos módulos/rotas devem registrar schemas completos; a doc é atualizada automaticamente;
+- validar a documentação nos testes (ex.: o documento OpenAPI contém as rotas esperadas).
+
+Dependências:
+
+```text
+API: @fastify/swagger + @scalar/fastify-api-reference
+```
+
 ## 25. Validação
 
 Toda entrada externa deve ser validada.
@@ -896,6 +914,23 @@ Obrigatórios para regras críticas:
 
 Testes de integração devem validar banco e API nos módulos críticos.
 
+### 30.1 Cobertura de testes (obrigatória)
+
+A API e o app devem possuir **cobertura de testes obrigatória**, com a meta de se aproximar de **100% do código**:
+
+- testes **unitários** (domínio puro, serviços, use cases, utilidades, componentes isolados);
+- testes de **integração** (repositories + banco, autorização, isolamento tenant);
+- testes de **API** (rotas, validação, permissões, conflitos);
+- testes de **frontend** (componentes, filtros, formulários, estados, apresentação derivada do domínio).
+
+Regras:
+
+- usar `vitest` com coverage (`@vitest/coverage-v8`) em `API/` e `app/`;
+- rodar `npm run test:coverage` em cada aplicação;
+- thresholds mínimos de cobertura definidos no `vitest.config.ts` de cada aplicação (atualmente ~95% de statements/lines/functions e ~90% de branches); o objetivo é se aproximar de 100%;
+- código novo deve vir acompanhado de testes; uma funcionalidade não é concluída com cobertura abaixo dos thresholds;
+- o relatório de cobertura deve ser gerado em `coverage/` (ignorado pelo Git).
+
 ## 31. Segurança
 
 Nunca:
@@ -957,6 +992,24 @@ Não reescrever módulos inteiros sem necessidade.
 
 Não alterar arquitetura global para resolver um problema local.
 
+### 33.1 Registro contínuo no plano de implementação
+
+**Toda e qualquer implementação deve ser registrada em `docs/PLANO-IMPLEMENTACAO.md`** para que o projeto siga um processo contínuo e retomável:
+
+- todo módulo em andamento deve ser marcado e, ao concluir, seus critérios de conclusão devem ser marcados como atendidos;
+- decisões novas ou mudanças de regra devem ser refletidas no plano;
+- mudanças que afetem decisões arquiteturais devem atualizar também `docs/ai_context.md` e `docs/architecture.md`;
+- ao final de cada etapa, atualizar `docs/ai_handoff.md` (estado atual / próxima ação).
+
+### 33.2 README na raiz do projeto
+
+**A cada etapa concluída, o `README.md` na raiz do projeto deve ser gerado ou atualizado**, contendo:
+
+- explicação do projeto (o que é o Orbis, stack, estrutura de pastas);
+- como executar localmente (instalar dependências, subir API, subir o app, banco);
+- como rodar testes e cobertura, build e lint;
+- acesso à documentação da API (Scalar) e endpoints principais.
+
 ## 34. Ordem recomendada de implementação
 
 1. fundação dos projetos `API` e `app`;
@@ -999,6 +1052,10 @@ Antes de considerar concluída:
 - não há dependência desnecessária;
 - build passa;
 - testes passam;
+- cobertura de testes atende os thresholds definidos (§30.1);
+- endpoints novos/documentados via Scalar (§24.1);
+- implementação registrada no plano de implementação (§33.1);
+- README na raiz atualizado quando aplicável (§33.2);
 - documentação foi atualizada quando a decisão arquitetural mudou.
 
 ## 36. Regra final

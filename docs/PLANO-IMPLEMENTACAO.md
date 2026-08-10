@@ -110,12 +110,15 @@ Regras estruturais:
    - `package.json`, `tsconfig.json` (strict);
    - Fastify configurado;
    - `src/main.ts` e `src/app.ts` separados (bootstrap vs. construção da aplicação);
-   - rota `/health`.
+   - rota `/health`;
+   - documentação de API via **Scalar** (`@scalar/fastify-api-reference`) + `@fastify/swagger` (`GET /reference`);
+   - cobertura de testes com `vitest` + `@vitest/coverage-v8` (`npm run test:coverage`).
 3. `app`:
    - Vite + React + TypeScript (strict);
    - shadcn/ui inicializado;
    - Tailwind configurado;
-   - shell da aplicação carregando no navegador.
+   - shell da aplicação carregando no navegador;
+   - cobertura de testes com `vitest` + `@vitest/coverage-v8` (`npm run test:coverage`).
 4. Git init (se ainda não existir) + `.gitignore` cobrindo `node_modules`, `.env`, `dist`, `coverage`.
 5. Scripts de desenvolvimento e build em cada `package.json`.
 6. Base do design system e tema (no `app`):
@@ -131,11 +134,13 @@ Regras estruturais:
 
 - `npm install` funciona em `API/` e `app/`.
 - `API` sobe e responde `GET /health`.
+- Documentação da API acessível em `GET /reference` (Scalar).
 - `app` abre no navegador sem erros.
 - TypeScript strict habilitado em ambos.
 - Shell responsivo em viewport mobile (sem quebra de layout).
 - Tema claro/escuro alterna e a escolha de aparência é persistida por usuário (via mecanismo definido).
 - Visual elegante e tecnológico proveniente dos tokens, sem depender de regra de negócio.
+- Cobertura de testes configurada e acima dos thresholds em ambas as aplicações.
 - Nenhum secret committado.
 
 **Verificação:**
@@ -928,6 +933,10 @@ M0 ──► M1 ──► M2
 - sem dependência desnecessária;
 - build passa;
 - testes passam;
+- cobertura de testes atende os thresholds (§6.1);
+- endpoints novos/documentados via Scalar (§6.2);
+- implementação registrada neste plano (§6.3);
+- README na raiz atualizado quando aplicável (§6.4);
 - documentação atualizada quando a decisão arquitetural mudou.
 
 Prioridade em conflitos (regra final do AGENTS):
@@ -937,6 +946,45 @@ Prioridade em conflitos (regra final do AGENTS):
 3. regra de negócio documentada;
 4. arquitetura;
 5. conveniência.
+
+---
+
+## 6.1 Cobertura de testes obrigatória
+
+A API e o app devem possuir cobertura de testes obrigatória, com a meta de se aproximar de **100% do código**:
+
+- testes unitários, de integração, de API e de frontend;
+- `vitest` + `@vitest/coverage-v8` em `API/` e `app/`;
+- `npm run test:coverage` em cada aplicação;
+- thresholds definidos no `vitest.config.ts` de cada aplicação (~95% statements/lines/functions, ~90% branches);
+- código novo acompanhado de testes; funcionalidade não é concluída com cobertura abaixo dos thresholds.
+
+## 6.2 Documentação da API (Scalar)
+
+**Todo e qualquer endpoint da API deve ser documentado** via `@scalar/fastify-api-reference` + `@fastify/swagger`:
+
+- UI interativa em `GET /reference`;
+- spec em `GET /reference/openapi.json` e `GET /reference/openapi.yaml`;
+- cada rota deve definir `schema` no registro (tags, descrição, parâmetros, body, responses);
+- novos módulos devem manter a documentação atualizada automaticamente pelos schemas.
+
+## 6.3 Registro no plano (processo contínuo)
+
+**Toda e qualquer implementação deve ser registrada neste plano**:
+
+- marcar o módulo como em andamento e, ao concluir, os critérios de conclusão;
+- decisões novas ou mudanças de regra refletidas no plano;
+- mudanças arquiteturais atualizam `docs/ai_context.md` e `docs/architecture.md`;
+- ao final de cada etapa, atualizar `docs/ai_handoff.md` (estado atual / próxima ação).
+
+## 6.4 README na raiz do projeto
+
+**A cada etapa concluída, o `README.md` na raiz deve ser gerado ou atualizado**, contendo:
+
+- explicação do projeto (o que é o Orbis, stack, estrutura de pastas);
+- como executar localmente (instalar dependências, subir API, subir o app, banco);
+- como rodar testes/cobertura, build e lint;
+- acesso à documentação da API (Scalar) e endpoints principais.
 
 ---
 

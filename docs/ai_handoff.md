@@ -2,11 +2,17 @@
 
 ## Status atual
 
-**Projeto em fase de arquitetura / bootstrap.**
+**M0 (Fundação) concluído.** Projeto com `API/` e `app/` funcionando localmente.
 
-O Orbis ainda não deve ser tratado como uma migração incremental do sistema antigo. A intenção é construir um produto novo, com arquitetura preparada para múltiplas empresas.
+- API: Fastify + TypeScript strict, `GET /health` respondendo, teste de health, build, lint e typecheck ok.
+- API: documentação de todos os endpoints via **Scalar** — `@fastify/swagger` + `@scalar/fastify-api-reference`; UI em `GET /reference`, spec em `/reference/openapi.json` e `/reference/openapi.yaml`.
+- API e app: cobertura de testes obrigatória com `vitest` + `@vitest/coverage-v8` (`npm run test:coverage`) — API em 100%, app em ~98,6% (thresholds de ~95% no `vitest.config.ts`); meta é se aproximar de 100%.
+- app: Vite + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui (tokens), shell responsivo mobile-first, tema claro/escuro com persistência local (`orbis:appearance`), testes de componentes (Testing Library), build, lint, typecheck e testes ok.
+- `.gitignore` na raiz, `.env.example` em ambas as aplicações.
+- README na raiz do projeto criado; deve ser atualizado a cada etapa concluída.
+- Nenhum secret committado.
 
-A especificação funcional original foi analisada e convertida para o conceito de **Requisição**. O termo "ordem" não deve ser utilizado no novo domínio.
+Próxima etapa: **M1 — Infraestrutura de dados (PostgreSQL + Drizzle + migrations + schema base)**.
 
 ## Decisões já tomadas
 
@@ -195,7 +201,7 @@ Estas decisões não devem ser inventadas silenciosamente:
 
 8. Como persistir as preferências de aparência (tema, cor, densidade)?
    - Requisito imprescindível: personalização total por usuário.
-   - Recomendação: persistir por usuário via API (acompanha entre dispositivos), com fallback temporário em armazenamento local enquanto a identidade não existir.
+   - **IMPLEMENTADO no M0:** fallback temporário em armazenamento local (`orbis:appearance`), com `ThemeProvider` no app. Quando a identidade existir (M3/M4), migrar para persistência via API por usuário.
    - A decisão final deve acompanhar o modelo de identidade (questão 3).
 
 ## Primeiro milestone recomendado

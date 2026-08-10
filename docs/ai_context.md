@@ -23,6 +23,7 @@ A especificação exige Kanban, timeline semanal, timeline mensal/anual, priorid
 - JWT
 - Zod
 - WebSocket quando necessário
+- Documentação de API via **Scalar** (`@scalar/fastify-api-reference`) + `@fastify/swagger` — **todo endpoint deve ser documentado** (UI em `/reference`)
 
 ### App
 
@@ -383,6 +384,13 @@ Construir a fundação sem tentar implementar toda a interface imediatamente:
 14. criar autorização.
 
 Depois disso, avançar por domínio.
+
+## 15.1 Requisitos transversais de qualidade
+
+- **Documentação de API obrigatória**: todo endpoint da API deve ser documentado via Scalar (`@scalar/fastify-api-reference` + `@fastify/swagger`); UI em `GET /reference`, spec em `/reference/openapi.json` e `/reference/openapi.yaml`.
+- **Cobertura de testes obrigatória**: `API/` e `app/` devem ter cobertura se aproximando de **100%** (unitários, integração, API, frontend), rodada via `npm run test:coverage` com thresholds no `vitest.config.ts`.
+- **Registro no plano de implementação**: toda implementação deve ser registrada em `docs/PLANO-IMPLEMENTACAO.md`, mantendo o processo contínuo e retomável.
+- **README na raiz**: a cada etapa concluída, gerar/atualizar o `README.md` com explicação do projeto e instruções de execução.
 
 ## 16. Fonte funcional
 

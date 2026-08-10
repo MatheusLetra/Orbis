@@ -862,6 +862,30 @@ Regras estruturais:
 - o mapeamento de conceitos de domínio para estilos (ex.: `HIGH` → vermelho) é feito na camada visual;
 - a persistência das preferências deve permitir evolução (inicialmente por usuário via API quando a identidade existir).
 
+## 23.2 Documentação da API (Scalar)
+
+**Todo e qualquer endpoint da API deve ser documentado.**
+
+Stack:
+
+- `@fastify/swagger` — gera o documento OpenAPI a partir dos schemas registrados nas rotas;
+- `@scalar/fastify-api-reference` — serve a UI de documentação (Scalar).
+
+Endpoints:
+
+```text
+GET /reference                   → UI interativa da API
+GET /reference/openapi.json      → spec OpenAPI (JSON)
+GET /reference/openapi.yaml      → spec OpenAPI (YAML)
+```
+
+Regras:
+
+- cada rota deve definir `schema` (tags, descrição, parâmetros, body, responses) no registro;
+- o documento OpenAPI é derivado dos schemas, então rota sem schema não é documentada;
+- a documentação é atualizada automaticamente ao registrar novas rotas;
+- testes devem validar que o documento OpenAPI contém as rotas esperadas.
+
 ## 24. Feature architecture
 
 Exemplo:
@@ -1150,6 +1174,16 @@ Domínio puro:
 - Kanban;
 - timeline;
 - estados.
+
+### Cobertura obrigatória
+
+A API e o app devem possuir cobertura de testes obrigatória, com a meta de se aproximar de **100% do código**:
+
+- `vitest` + `@vitest/coverage-v8` em `API/` e `app/`;
+- `npm run test:coverage` em cada aplicação;
+- thresholds definidos no `vitest.config.ts` de cada aplicação (~95% statements/lines/functions, ~90% branches);
+- o código novo deve vir acompanhado de testes; funcionalidade não é concluída com cobertura abaixo dos thresholds;
+- relatório de cobertura em `coverage/` (ignorado pelo Git).
 
 ## 38. Primeira versão do schema
 

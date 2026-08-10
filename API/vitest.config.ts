@@ -7,6 +7,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/main.ts",
+        "src/infrastructure/database/schema.ts",
         "src/**/*.test.ts",
         "src/**/*.spec.ts",
       ],

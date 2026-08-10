@@ -2,17 +2,18 @@
 
 ## Status atual
 
-**M0 (Fundação) concluído.** Projeto com `API/` e `app/` funcionando localmente.
+**M1 (Infraestrutura de dados) concluído.** Conexão PostgreSQL via Drizzle, migrations versionadas e schema base aplicado em banco local.
 
-- API: Fastify + TypeScript strict, `GET /health` respondendo, teste de health, build, lint e typecheck ok.
-- API: documentação de todos os endpoints via **Scalar** — `@fastify/swagger` + `@scalar/fastify-api-reference`; UI em `GET /reference`, spec em `/reference/openapi.json` e `/reference/openapi.yaml`.
-- API e app: cobertura de testes obrigatória com `vitest` + `@vitest/coverage-v8` (`npm run test:coverage`) — API em 100%, app em ~98,6% (thresholds de ~95% no `vitest.config.ts`); meta é se aproximar de 100%.
-- app: Vite + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui (tokens), shell responsivo mobile-first, tema claro/escuro com persistência local (`orbis:appearance`), testes de componentes (Testing Library), build, lint, typecheck e testes ok.
-- `.gitignore` na raiz, `.env.example` em ambas as aplicações.
-- README na raiz do projeto criado; deve ser atualizado a cada etapa concluída.
-- Nenhum secret committado.
+- API: conexão Drizzle (`drizzle-orm` + `postgres` driver) somente em `API/src/infrastructure/database` (`client.ts`, `schema.ts`, `health.ts`).
+- `drizzle.config.ts` na raiz da API; scripts `db:generate`, `db:migrate` e `db:studio` no `package.json`.
+- Migration `0000_eminent_wolfpack.sql` gerada, revisada e aplicada com sucesso em PostgreSQL 17 local (via Docker, banco `orbis`): 20 tabelas, enums, FKs com cascade/restrict/set null, índices compostos `(company_id, ...)` e check constraint de anexos (exatamente um proprietário).
+- `GET /health` agora inclui `database: { status, latencyMs }` quando há conexão; responde normalmente sem banco (campo omitido).
+- Cobertura de testes: 21 testes, 100% (schema.ts é declarativo e foi excluído do coverage, como main.ts).
+- **Nota técnica:** `bytea` foi removido por bug do `drizzle-orm@0.45` (issue #5184). Definido via `customType` em `schema.ts` — gera coluna `bytea` corretamente na migration.
+- **Enums provisórios** (valores finais devem ser derivados dos use cases nos módulos seguintes — ver "Questões ainda abertas"): `requisition_status = OPEN | IN_PROGRESS | PAUSED | DONE | CANCELLED`; `release_channel = STABLE | BETA`; `release_status = DRAFT | PUBLISHED`. Prioridade (`LOW | MEDIUM | HIGH`), status de tarefa (`TODO | IN_PROGRESS | PAUSED | DONE`) e `attachment_kind` (`FILE | LINK`) seguem a documentação.
+- Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
 
-Próxima etapa: **M1 — Infraestrutura de dados (PostgreSQL + Drizzle + migrations + schema base)**.
+Próxima etapa: **M2 — Núcleo compartilhado (config, erros, logging, env)**.
 
 ## Decisões já tomadas
 
@@ -203,6 +204,11 @@ Estas decisões não devem ser inventadas silenciosamente:
    - Requisito imprescindível: personalização total por usuário.
    - **IMPLEMENTADO no M0:** fallback temporário em armazenamento local (`orbis:appearance`), com `ThemeProvider` no app. Quando a identidade existir (M3/M4), migrar para persistência via API por usuário.
    - A decisão final deve acompanhar o modelo de identidade (questão 3).
+
+9. Enums provisórios criados no schema base (M1) — valores finais a validar nos use cases dos módulos correspondentes:
+   - `requisition_status` = `OPEN | IN_PROGRESS | PAUSED | DONE | CANCELLED` (M7).
+   - `release_channel` = `STABLE | BETA` e `release_status` = `DRAFT | PUBLISHED` (M6).
+   - Já definitivos conforme documentação: `priority` = `LOW | MEDIUM | HIGH`, `task_status` = `TODO | IN_PROGRESS | PAUSED | DONE`, `attachment_kind` = `FILE | LINK`.
 
 ## Primeiro milestone recomendado
 

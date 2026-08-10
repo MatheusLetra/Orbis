@@ -31,3 +31,22 @@ describe("swagger", () => {
     await app.close();
   });
 });
+
+describe("buildApp com database", () => {
+  it("repassa o database para a rota de health", async () => {
+    const database = {
+      execute: async () => undefined,
+    } as never;
+
+    const app = await buildApp({ logger: false, database });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+    });
+
+    expect(response.json().database).toMatchObject({ status: "ok" });
+
+    await app.close();
+  });
+});

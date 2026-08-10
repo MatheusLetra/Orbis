@@ -63,12 +63,41 @@ Documentação detalhada:
 
 Pré-requisitos: Node.js 20+ (recomendado 22+), npm e PostgreSQL (para M1 em diante).
 
-### 1. API
+### 1. Banco de dados (PostgreSQL)
+
+Suba um PostgreSQL local (ex.: via Docker) com banco `orbis`. Há duas opções:
+
+**Opção A — imagem pronta (schema aplicado na primeira execução):**
+
+```bash
+cd API
+docker build -t orbis-db .   # contém migrations + script de init
+docker run --name orbis-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=orbis \
+  -p 5432:5432 -d orbis-db
+```
+
+Na primeira subida com volume vazio, o script `docker/db-init.sh` aplica o SQL das migrations e registra cada uma no journal do drizzle (`drizzle.__drizzle_migrations`), então `npm run db:migrate` não reaplica nada.
+
+**Opção B — Postgres puro (aplicar migrations manualmente):**
+
+```bash
+docker run --name orbis-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=orbis \
+  -p 5432:5432 -d postgres:17-alpine
+```
+
+### 2. API
 
 ```bash
 cd API
 npm install
-cp .env.example .env   # ajuste as variáveis se necessário
+cp .env.example .env   # ajuste as variáveis se necessário (DATABASE_URL)
+npm run db:migrate     # aplica as migrations (schema base)
 npm run dev            # sobe em http://localhost:3333
 ```
 
@@ -86,7 +115,7 @@ http://localhost:3333/reference/openapi.json → spec OpenAPI (JSON)
 http://localhost:3333/reference/openapi.yaml → spec OpenAPI (YAML)
 ```
 
-### 2. App
+### 3. App
 
 ```bash
 cd app
@@ -109,6 +138,9 @@ npm run dev            # sobe em http://localhost:5173
 | `npm run typecheck` | Verificação de tipos |
 | `npm test` | Testes (vitest) |
 | `npm run test:coverage` | Testes com relatório de cobertura |
+| `npm run db:generate` | Gera migration a partir do schema |
+| `npm run db:migrate` | Aplica migrations no banco |
+| `npm run db:studio` | Abre o Drizzle Studio |
 
 ### App
 
@@ -141,6 +173,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | Módulo | Descrição | Status |
 |---|---|---|
 | M0 | Fundação dos projetos (API + app, tema, responsividade) | ✅ Concluído |
-| M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ⏳ Próximo |
+| M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ✅ Concluído |
+| M2 | Núcleo compartilhado (config, erros, logging, env) | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

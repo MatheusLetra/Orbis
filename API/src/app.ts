@@ -3,10 +3,12 @@ import swagger from "@fastify/swagger";
 import scalarApiReference from "@scalar/fastify-api-reference";
 import Fastify from "fastify";
 
+import type { Database } from "./infrastructure/database/client.js";
 import { registerHealthRoute } from "./modules/health/health.routes.js";
 
 export interface BuildAppOptions {
   logger?: boolean;
+  database?: Database;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -43,7 +45,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     routePrefix: "/reference",
   });
 
-  registerHealthRoute(app);
+  registerHealthRoute(app, { database: options.database });
 
   return app;
 }

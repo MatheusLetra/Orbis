@@ -20,4 +20,17 @@ describe("loadEnv", () => {
       "Configuração de ambiente inválida",
     );
   });
+
+  it("usa a URL de banco padrão quando DATABASE_URL não está presente", () => {
+    const env = loadEnv({ NODE_ENV: "test" });
+    expect(env.DATABASE_URL).toBe("postgres://postgres:postgres@localhost:5432/orbis");
+  });
+
+  it("lê a DATABASE_URL fornecida", () => {
+    const env = loadEnv({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgres://user:pass@host:5432/orbis",
+    });
+    expect(env.DATABASE_URL).toBe("postgres://user:pass@host:5432/orbis");
+  });
 });

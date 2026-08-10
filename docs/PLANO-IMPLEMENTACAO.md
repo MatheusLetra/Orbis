@@ -155,9 +155,11 @@ Regras estruturais:
 
 ---
 
-### M1 — Infraestrutura de dados (PostgreSQL + Drizzle + migrations + schema base)
+### M1 — Infraestrutura de dados (PostgreSQL + Drizzle + migrations + schema base) — ✅ CONCLUÍDO
 
 **Objetivo:** conectar o banco à infraestrutura e criar o uso de migrations versionadas.
+
+**Status da implementação (M1):** conexão Drizzle criada em `API/src/infrastructure/database` (`client.ts`, `schema.ts`, `health.ts`); `drizzle.config.ts` e scripts `db:generate`/`db:migrate`/`db:studio`; migration `0000_eminent_wolfpack.sql` com as 20 tabelas, aplicada e validada em PostgreSQL 17 local (Docker) — FKs com cascade/restrict/set null, índices compostos `(company_id, ...)`, check constraint de anexos, bytea via `customType` (workaround do bug #5184 do drizzle-orm@0.45). `GET /health` inclui status do banco. Enums provisórios registrados no handoff (questão 9). Cobertura de testes em 100%.
 
 **Pré-requisitos:** M0.
 

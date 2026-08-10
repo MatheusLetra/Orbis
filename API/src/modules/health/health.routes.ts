@@ -1,12 +1,21 @@
 import type { FastifyInstance } from "fastify";
+import type { Database } from "../../infrastructure/database/client.js";
+import { checkDatabaseHealth } from "../../infrastructure/database/health.js";
 
-export async function registerHealthRoute(app: FastifyInstance): Promise<void> {
+export interface HealthRouteOptions {
+  database?: Database;
+}
+
+export async function registerHealthRoute(
+  app: FastifyInstance,
+  options: HealthRouteOptions = {},
+): Promise<void> {
   app.get(
     "/health",
     {
       schema: {
         tags: ["Health"],
-        description: "Health check da API.",
+        description: "Health check da API, incluindo status do banco quando conectado.",
         response: {
           200: {
             type: "object",
@@ -14,6 +23,14 @@ export async function registerHealthRoute(app: FastifyInstance): Promise<void> {
               status: { type: "string", enum: ["ok"] },
               service: { type: "string" },
               timestamp: { type: "string", format: "date-time" },
+              database: {
+                type: "object",
+                properties: {
+                  status: { type: "string", enum: ["ok", "unavailable"] },
+                  latencyMs: { type: "number" },
+                },
+                required: ["status"],
+              },
             },
             required: ["status", "service", "timestamp"],
           },
@@ -21,10 +38,13 @@ export async function registerHealthRoute(app: FastifyInstance): Promise<void> {
       },
     },
     async () => {
+      const database = options.database ? await checkDatabaseHealth(options.database) : undefined;
+
       return {
         status: "ok",
         service: "orbis-api",
         timestamp: new Date().toISOString(),
+        ...(database ? { database } : {}),
       };
     },
   );

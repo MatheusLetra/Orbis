@@ -39,7 +39,7 @@ O sistema deve contemplar, progressivamente:
 
 1. autenticação e autorização;
 2. empresas/tenants;
-3. usuários e funcionários;
+3. usuários e funcionários — o cadastro de funcionários deve possuir **cargo** (posição/função, ex.: `Administrador`, `Gestor`, `Suporte`, `Testador`, `Desenvolvedor`, etc.);
 4. permissões;
 5. sistemas;
 6. versões de sistemas;
@@ -388,6 +388,24 @@ O modelo deve permitir:
 - controle de quem pode mover, editar, criar e excluir tarefas.
 
 A autorização deve ser verificada no backend, mesmo que a UI esconda ações não permitidas.
+
+### 11.1 Funcionário e cargo
+
+O cadastro de funcionários deve possuir o campo **cargo**, representando a posição/função do funcionário dentro da empresa.
+
+Cargos iniciais previstos (lista aberta, podendo evoluir):
+
+- `Administrador`
+- `Gestor`
+- `Suporte`
+- `Testador`
+- `Desenvolvedor`
+
+Regras:
+
+- o cargo é um atributo **funcional de RH**, não um mecanismo de autorização;
+- a autorização permanece **baseada em permissões** (§10) — o cargo não substitui roles/permissões nem deve acoplar permissões fixas a cargos;
+- o cargo pode ser usado para classificação/filtros e, quando aplicável, para influenciar o cálculo de capacidade (§15, ex.: quantos desenvolvedores disponíveis).
 
 ## 12. Requisições e tarefas
 

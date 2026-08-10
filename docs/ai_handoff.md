@@ -172,6 +172,7 @@ Estas decisões não devem ser inventadas silenciosamente:
 
 3. Funcionário e usuário serão entidades diferentes?
    - Recomendação: identidade `User` + perfil/membership de funcionário.
+   - **REQUISITO DOCUMENTADO:** o cadastro de funcionários deve possuir o campo **cargo** (posição/função na empresa), com cargos iniciais como `Administrador`, `Gestor`, `Suporte`, `Testador`, `Desenvolvedor`, etc. O cargo é atributo funcional de RH; a autorização continua baseada em permissões (cargo não substitui roles/permissões).
    - A decisão final deve acompanhar o modelo de RH desejado.
 
 4. Qual storage será usado para executáveis (releases)?
@@ -236,6 +237,7 @@ Implementar:
 - company;
 - user;
 - membership;
+- **cargo do funcionário** (posição/função na empresa, ex.: `Administrador`, `Gestor`, `Suporte`, `Testador`, `Desenvolvedor`, etc.) — atributo funcional de RH, distinto de roles/permissões;
 - roles/policies;
 - login;
 - refresh;

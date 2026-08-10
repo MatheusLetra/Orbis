@@ -120,6 +120,7 @@ Nunca confiar em `companyId` enviado pelo frontend.
 - identidade;
 - credenciais;
 - perfil;
+- **cargo** — posição/função do funcionário dentro da empresa, ex.: `ADMINISTRADOR`, `GESTOR`, `SUPORTE`, `TESTADOR`, `DESENVOLVEDOR`, entre outros. O cargo é um atributo funcional de RH e não deve ser confundido com roles/permissões de autorização;
 - vínculo com empresa;
 - disponibilidade/capacidade;
 - permissões;

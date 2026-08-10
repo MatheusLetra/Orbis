@@ -261,6 +261,7 @@ Regras estruturais:
    - membro de acesso `companyId`;
    - validação de acesso à empresa;
    - troca de contexto de empresa quando aplicável.
+   - perfil de funcionário com **cargo** (posição/função na empresa) — cargos iniciais: `ADMINISTRADOR`, `GESTOR`, `SUPORTE`, `TESTADOR`, `DESENVOLVEDOR`, lista aberta. O cargo é atributo funcional de RH e não substitui o mecanismo de autorização por permissões (M5).
 4. Isolamento por `company_id` já nas queries de repositórios tenant-owned.
 
 **Critérios de conclusão:**

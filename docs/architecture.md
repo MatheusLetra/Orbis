@@ -247,6 +247,24 @@ Isso permite:
 - isolamento tenant;
 - troca de contexto de empresa.
 
+### Funcionário e cargo
+
+O funcionário (perfil/membership dentro da empresa) deve possuir o atributo **cargo**, representando a posição/função dentro da empresa.
+
+Cargos iniciais previstos (lista aberta):
+
+- `ADMINISTRADOR`
+- `GESTOR`
+- `SUPORTE`
+- `TESTADOR`
+- `DESENVOLVEDOR`
+
+O cargo é um atributo **funcional de RH**, distinto do mecanismo de autorização:
+
+- a autorização permanece baseada em permissões (§19);
+- o cargo não substitui roles/permissões nem acopla permissões fixas a cargos;
+- o cargo pode ser usado para classificação/filtros e, quando aplicável, como entrada do cálculo de capacidade (§15, ex.: desenvolvedores disponíveis).
+
 ## 8. Multi-tenancy
 
 ### Regra

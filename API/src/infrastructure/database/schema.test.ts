@@ -14,6 +14,7 @@ import {
   priorityEnum,
   releases,
   requisitionAssignees,
+  requisitionNumberCounters,
   requisitions,
   systems,
   systemVersions,
@@ -32,6 +33,7 @@ const allTables = [
   systems,
   systemVersions,
   releases,
+  requisitionNumberCounters,
   requisitions,
   requisitionAssignees,
   tasks,
@@ -63,7 +65,7 @@ const tenantOwned = [
 
 describe("schema base", () => {
   it("define as 20 tabelas do schema base", () => {
-    expect(allTables).toHaveLength(20);
+    expect(allTables).toHaveLength(21);
     for (const table of allTables) {
       expect(table).toBeDefined();
     }
@@ -96,6 +98,11 @@ describe("schema base", () => {
     expect("startDate" in requisitions).toBe(true);
     expect("plannedDeliveryDate" in requisitions).toBe(true);
     expect("deliveredAt" in requisitions).toBe(true);
+  });
+
+  it("contador de requisições possui companyId e lastNumber", () => {
+    expect("companyId" in requisitionNumberCounters).toBe(true);
+    expect("lastNumber" in requisitionNumberCounters).toBe(true);
   });
 
   it("tarefas possuem status e vínculos com requisição", () => {

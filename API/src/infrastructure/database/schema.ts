@@ -149,6 +149,13 @@ export const releases = pgTable(
   ],
 );
 
+export const requisitionNumberCounters = pgTable("requisition_number_counters", {
+  companyId: uuid("company_id")
+    .primaryKey()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  lastNumber: integer("last_number").notNull(),
+});
+
 export const requisitions = pgTable(
   "requisitions",
   {

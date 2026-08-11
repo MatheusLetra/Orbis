@@ -1070,6 +1070,18 @@ Depois:
 - tracing;
 - alertas.
 
+### 33.1 Erros e envelope de resposta
+
+Erros de domínio/aplicação são classes tipadas em `API/src/shared/errors` (`AppError` + `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError`, `BusinessRuleError`), cada uma com `code` e `statusCode`.
+
+Toda resposta de erro usa o envelope:
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "...", "details": {} } }
+```
+
+`details` é opcional. O error handler global do Fastify (`API/src/infrastructure/http/error-handler.ts`) traduz: `AppError` → seu status; `ZodError` e validações de schema → 400 `VALIDATION_ERROR` com issues; erros desconhecidos → 500 `INTERNAL_ERROR`. Em produção, a mensagem de erros internos é oculta (o stack vai apenas para o log). Rota inexistente usa o mesmo envelope via `setNotFoundHandler` (404 `NOT_FOUND`).
+
 ## 34. Configuração
 
 `API/.env`:
@@ -1077,6 +1089,7 @@ Depois:
 ```text
 NODE_ENV=
 PORT=
+LOG_LEVEL=
 DATABASE_URL=
 JWT_ACCESS_SECRET=
 JWT_REFRESH_SECRET=

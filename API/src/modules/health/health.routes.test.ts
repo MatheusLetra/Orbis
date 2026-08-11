@@ -37,4 +37,24 @@ describe("GET /health", () => {
 
     await app.close();
   });
+
+  it("responde em estado de degradação quando o banco está indisponível", async () => {
+    const database = {
+      execute: async () => {
+        throw new Error("connection refused");
+      },
+    } as never;
+
+    const app = await buildApp({ logger: false, database });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().database).toMatchObject({ status: "unavailable" });
+
+    await app.close();
+  });
 });

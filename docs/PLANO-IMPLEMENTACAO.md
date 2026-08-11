@@ -210,9 +210,11 @@ Regras estruturais:
 
 ---
 
-### M2 — Núcleo compartilhado (config, erros, logging, env)
+### M2 — Núcleo compartilhado (config, erros, logging, env) — ✅ CONCLUÍDO
 
 **Objetivo:** criar os utilitários transversais que todos os módulos usarão.
+
+**Status da implementação (M2):** `config/env.ts` valida env com Zod (inclui `LOG_LEVEL`); erros tipados em `shared/errors` (`NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError`, `BusinessRuleError`) com classe base `AppError` (code, statusCode, details, cause); `shared/errors/error-response.ts` traduz `AppError` → status + body no envelope `{ error: { code, message, details? } }`; `shared/logging/logger.ts` cria logger pino estruturado (service, env, redact de senhas/tokens) e aceita `request id` do Fastify; `shared/domain` (`Entity`, `ValueObject`) e `shared/application` (`UseCase`) criados; error handler global do Fastify em `infrastructure/http/error-handler.ts` traduz erros tipados, `ZodError`, erros HTTP e desconhecidos (sem stack trace em produção), com `setNotFoundHandler` no mesmo envelope. Health responde em degradação quando o banco está indisponível. 63 testes passando; coverage 100% statements/lines/functions, 94,73% branches.
 
 **Pré-requisitos:** M0.
 
@@ -233,10 +235,10 @@ Regras estruturais:
 
 **Critérios de conclusão:**
 
-- `.env.example` existe em `API/` e `app/`.
-- Erros tipados são lançáveis dos use cases e convertidos para HTTP corretamente.
-- Logs estruturados contêm `request id`.
-- Health check responde mesmo com banco indisponível na API (estado de degradação).
+- `.env.example` existe em `API/` e `app/`. ✅
+- Erros tipados são lançáveis dos use cases e convertidos para HTTP corretamente. ✅
+- Logs estruturados contêm `request id`. ✅
+- Health check responde mesmo com banco indisponível na API (estado de degradação). ✅
 
 **Verificação:**
 

@@ -8,7 +8,7 @@ const env = loadEnv();
 
 async function main() {
   const database = createDb(env.DATABASE_URL);
-  const app = await buildApp({ database });
+  const app = await buildApp({ database, config: env });
   try {
     await app.listen({ port: env.PORT, host: env.HOST });
   } catch (err) {

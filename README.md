@@ -28,6 +28,8 @@ Principais características:
 - Drizzle ORM
 - PostgreSQL
 - Zod
+- Logger estruturado (pino) com `request id` e redact de segredos
+- Erros tipados com envelope de resposta `{ error: { code, message, details? } }`
 - JWT
 - WebSocket (quando necessário)
 - Redis (opcional, somente com necessidade real)
@@ -174,6 +176,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 |---|---|---|
 | M0 | Fundação dos projetos (API + app, tema, responsividade) | ✅ Concluído |
 | M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ✅ Concluído |
-| M2 | Núcleo compartilhado (config, erros, logging, env) | ⏳ Próximo |
+| M2 | Núcleo compartilhado (config, erros, logging, env) | ✅ Concluído |
+| M3 | Identidade: companies / users / memberships | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

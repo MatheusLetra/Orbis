@@ -2,18 +2,32 @@
 
 ## Status atual
 
-**M1 (Infraestrutura de dados) concluído.** Conexão PostgreSQL via Drizzle, migrations versionadas e schema base aplicado em banco local.
+**M1 (Infraestrutura de dados) concluído.**
 
 - API: conexão Drizzle (`drizzle-orm` + `postgres` driver) somente em `API/src/infrastructure/database` (`client.ts`, `schema.ts`, `health.ts`).
 - `drizzle.config.ts` na raiz da API; scripts `db:generate`, `db:migrate` e `db:studio` no `package.json`.
 - Migration `0000_eminent_wolfpack.sql` gerada, revisada e aplicada com sucesso em PostgreSQL 17 local (via Docker, banco `orbis`): 20 tabelas, enums, FKs com cascade/restrict/set null, índices compostos `(company_id, ...)` e check constraint de anexos (exatamente um proprietário).
-- `GET /health` agora inclui `database: { status, latencyMs }` quando há conexão; responde normalmente sem banco (campo omitido).
-- Cobertura de testes: 21 testes, 100% (schema.ts é declarativo e foi excluído do coverage, como main.ts).
+- `GET /health` inclui `database: { status, latencyMs }` quando há conexão; responde normalmente sem banco (campo omitido).
 - **Nota técnica:** `bytea` foi removido por bug do `drizzle-orm@0.45` (issue #5184). Definido via `customType` em `schema.ts` — gera coluna `bytea` corretamente na migration.
 - **Enums provisórios** (valores finais devem ser derivados dos use cases nos módulos seguintes — ver "Questões ainda abertas"): `requisition_status = OPEN | IN_PROGRESS | PAUSED | DONE | CANCELLED`; `release_channel = STABLE | BETA`; `release_status = DRAFT | PUBLISHED`. Prioridade (`LOW | MEDIUM | HIGH`), status de tarefa (`TODO | IN_PROGRESS | PAUSED | DONE`) e `attachment_kind` (`FILE | LINK`) seguem a documentação.
-- Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
 
-Próxima etapa: **M2 — Núcleo compartilhado (config, erros, logging, env)**.
+**M2 (Núcleo compartilhado) concluído.** Config, erros, logging e env transversais prontos:
+
+- `config/env.ts` valida variáveis de ambiente com Zod (inclui `LOG_LEVEL`); `.env.example` em `API/` e `app/`.
+- Erros tipados em `API/src/shared/errors`: `AppError` (base, com `code`/`statusCode`/`details`/`cause`) e `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError`, `BusinessRuleError`.
+- Envelope de erro da API: `{ error: { code, message, details? } }`, gerado por `shared/errors/error-response.ts` e aplicado pelo error handler global (`infrastructure/http/error-handler.ts`), que traduz erros tipados, `ZodError`, validações do schema Fastify e erros desconhecidos — **sem stack trace em produção** (mensagem oculta, apenas logada). `setNotFoundHandler` usa o mesmo envelope.
+- Logger estruturado pino em `shared/logging/logger.ts` (service `orbis-api`, env, redact de senhas/tokens) integrado ao Fastify com `request id` nos logs.
+- Primitivas base: `shared/domain` (`Entity`, `ValueObject`) e `shared/application` (`UseCase`).
+- Health responde em degradação quando o banco está indisponível.
+- 63 testes passando; coverage 100% statements/lines/functions, 94,73% branches.
+
+Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
+
+Próxima etapa: **M3 — Identidade: companies / users / memberships**.
+
+## Nota sobre o banco via Docker
+
+Além do fluxo manual (`docker run` + `npm run db:migrate`), agora existe `API/Dockerfile` + `API/docker/db-init.sh`: na primeira subida com volume vazio, a imagem aplica as migrations e registra cada uma no journal do drizzle (`drizzle.__drizzle_migrations`), então `npm run db:migrate` não reaplica nada. Validado empiricamente (build + container de teste em 5433).
 
 ## Decisões já tomadas
 

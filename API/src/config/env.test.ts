@@ -33,4 +33,20 @@ describe("loadEnv", () => {
     });
     expect(env.DATABASE_URL).toBe("postgres://user:pass@host:5432/orbis");
   });
+
+  it("usa LOG_LEVEL padrão info quando não presente", () => {
+    const env = loadEnv({ NODE_ENV: "test" });
+    expect(env.LOG_LEVEL).toBe("info");
+  });
+
+  it("lê LOG_LEVEL fornecido", () => {
+    const env = loadEnv({ NODE_ENV: "test", LOG_LEVEL: "debug" });
+    expect(env.LOG_LEVEL).toBe("debug");
+  });
+
+  it("rejeita LOG_LEVEL inválido", () => {
+    expect(() => loadEnv({ NODE_ENV: "test", LOG_LEVEL: "verboso" as never })).toThrow(
+      "Configuração de ambiente inválida",
+    );
+  });
 });

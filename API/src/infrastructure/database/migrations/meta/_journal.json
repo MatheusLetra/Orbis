@@ -15,6 +15,13 @@
       "when": 1786456671929,
       "tag": "0001_supreme_wong",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786460819129,
+      "tag": "0002_small_nighthawk",
+      "breakpoints": true
     }
   ]
 }

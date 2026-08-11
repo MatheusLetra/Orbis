@@ -2,10 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { getCurrentUserId } from "@/infrastructure/http/current-user";
 import type { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
 import type { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 
 export interface MembershipRouteOptions {
   createMembership: CreateMembership;
   listMemberships: ListMemberships;
+  permissionResolver: PermissionResolver;
 }
 
 const userHeader = {
@@ -58,7 +60,15 @@ export async function registerMembershipRoutes(
       },
     },
     async (request, reply) => {
-      const output = await options.createMembership.execute(request.body as never);
+      const body = request.body as { companyId: string };
+      const actor = await options.permissionResolver.resolve(
+        getCurrentUserId(request),
+        body.companyId,
+      );
+      const output = await options.createMembership.execute({
+        actor,
+        data: request.body as never,
+      });
       return reply.status(201).send(output);
     },
   );

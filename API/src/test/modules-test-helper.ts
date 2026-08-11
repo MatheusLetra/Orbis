@@ -10,6 +10,8 @@ import { UpdateCompany } from "@/modules/companies/application/use-cases/update-
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
+import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import {
   fakePasswordHasher,
@@ -38,6 +40,8 @@ export function buildTestModules(): TestModules {
   const memberships = new InMemoryMembershipRepository();
   const refreshTokens = new InMemoryRefreshTokenRepository();
   const accessService = new MembershipAccessService(memberships);
+  const authorization = new AuthorizationService();
+  const permissionResolver = new MembershipPermissionResolver(memberships);
   const tokenService = new JoseTokenService({
     accessSecret: TEST_ACCESS_SECRET,
     refreshSecret: TEST_REFRESH_SECRET,
@@ -49,11 +53,18 @@ export function buildTestModules(): TestModules {
     repositories: { users, companies, memberships, refreshTokens },
     createUser: new CreateUser(users, fakePasswordHasher),
     createCompany: new CreateCompany(companies, memberships),
-    getCompany: new GetCompany(companies, accessService),
+    getCompany: new GetCompany(companies, accessService, authorization),
     listCompanies: new ListCompanies(companies),
-    updateCompany: new UpdateCompany(companies, accessService),
-    createMembership: new CreateMembership(memberships, companies, users),
+    updateCompany: new UpdateCompany(companies, accessService, authorization),
+    createMembership: new CreateMembership(
+      memberships,
+      companies,
+      users,
+      accessService,
+      authorization,
+    ),
     listMemberships: new ListMemberships(memberships),
+    permissionResolver,
     tokenService,
     auth: {
       login: new Login(users, fakePasswordHasher, tokenService, refreshTokens, {

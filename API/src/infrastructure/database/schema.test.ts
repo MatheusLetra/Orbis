@@ -84,6 +84,7 @@ describe("schema base", () => {
     expect("companyId" in memberships).toBe(true);
     expect("userId" in memberships).toBe(true);
     expect("position" in memberships).toBe(true);
+    expect("permissions" in memberships).toBe(true);
   });
 
   it("requisições possuem número único por empresa e campos de negócio", () => {

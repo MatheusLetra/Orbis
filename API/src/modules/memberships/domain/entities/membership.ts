@@ -1,4 +1,5 @@
 import { Position } from "@/modules/memberships/domain/value-objects/position";
+import { type Permission, toPermissions } from "@/modules/permissions/domain/permission";
 import { Entity } from "@/shared/domain/entity";
 
 export interface MembershipProps {
@@ -6,6 +7,7 @@ export interface MembershipProps {
   companyId: string;
   userId: string;
   position: string;
+  permissions: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -31,6 +33,7 @@ export class Membership extends Entity<string> {
       companyId: data.companyId,
       userId: data.userId,
       position: position.get(),
+      permissions: [],
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -53,6 +56,10 @@ export class Membership extends Entity<string> {
     return this.props.position;
   }
 
+  get permissions(): Permission[] {
+    return toPermissions(this.props.permissions);
+  }
+
   get isActive(): boolean {
     return this.props.isActive;
   }
@@ -67,6 +74,11 @@ export class Membership extends Entity<string> {
 
   changePosition(position: string): void {
     this.props.position = new Position(position).get();
+    this.touch();
+  }
+
+  changePermissions(permissions: readonly string[]): void {
+    this.props.permissions = toPermissions(permissions);
     this.touch();
   }
 

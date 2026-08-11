@@ -141,6 +141,24 @@ describe("GET /companies/:companyId", () => {
     expect(response.json().error.code).toBe("FORBIDDEN");
     await app.close();
   });
+
+  it("retorna 403 quando o usuário não possui company.read", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: OWNER_ID, position: "ESTAGIARIO" }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}`,
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("FORBIDDEN");
+    await app.close();
+  });
 });
 
 describe("PATCH /companies/:companyId", () => {
@@ -179,6 +197,25 @@ describe("PATCH /companies/:companyId", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("retorna 403 quando o usuário não possui company.update", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: OWNER_ID, position: "ESTAGIARIO" }),
+    );
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}`,
+      headers: await authHeaders(modules, OWNER_ID),
+      payload: { name: "Orbis SA" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("FORBIDDEN");
     await app.close();
   });
 });

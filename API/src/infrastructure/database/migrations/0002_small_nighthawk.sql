@@ -1,0 +1,1 @@
+ALTER TABLE "memberships" ADD COLUMN "permissions" jsonb DEFAULT '[]'::jsonb NOT NULL;

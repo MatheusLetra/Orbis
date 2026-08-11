@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { Company } from "@/modules/companies/domain/entities/company";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
+import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
+import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 import {
   InMemoryCompanyRepository,
@@ -16,7 +19,9 @@ function build() {
   const companyRepository = new InMemoryCompanyRepository();
   const membershipRepository = new InMemoryMembershipRepository();
   const accessService = new MembershipAccessService(membershipRepository);
-  return { companyRepository, membershipRepository, accessService };
+  const authorization = new AuthorizationService();
+  const resolver = new MembershipPermissionResolver(membershipRepository);
+  return { companyRepository, membershipRepository, accessService, authorization, resolver };
 }
 
 function seedCompany(name: string) {
@@ -27,10 +32,9 @@ async function linkUser(
   membershipRepository: InMemoryMembershipRepository,
   userId: string,
   companyId: string,
+  position = "ADMINISTRADOR",
 ) {
-  await membershipRepository.create(
-    Membership.create({ companyId, userId, position: "ADMINISTRADOR" }),
-  );
+  await membershipRepository.create(Membership.create({ companyId, userId, position }));
 }
 
 describe("CreateCompany", () => {
@@ -96,64 +100,71 @@ describe("ListCompanies", () => {
 });
 
 describe("GetCompany", () => {
-  it("retorna a empresa quando o usuário tem acesso", async () => {
-    const { companyRepository, membershipRepository } = build();
+  it("retorna a empresa quando o usuário tem acesso e permissão", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
     const company = await companyRepository.create(seedCompany("Orbis"));
     await linkUser(membershipRepository, "user-1", company.id);
+    const actor = await resolver.resolve("user-1", company.id);
 
-    const useCase = new GetCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    const useCase = new GetCompany(companyRepository, accessService, authorization);
 
-    const output = await useCase.execute({ userId: "user-1", companyId: company.id });
+    const output = await useCase.execute({ actor, companyId: company.id });
 
     expect(output.id).toBe(company.id);
     expect(output.name).toBe("Orbis");
   });
 
   it("lança ForbiddenError quando o usuário não tem membership", async () => {
-    const { companyRepository, membershipRepository } = build();
+    const { companyRepository, resolver } = build();
     const company = await companyRepository.create(seedCompany("Orbis"));
 
-    const useCase = new GetCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    await expect(resolver.resolve("user-1", company.id)).rejects.toBeInstanceOf(ForbiddenError);
+  });
 
-    await expect(
-      useCase.execute({ userId: "user-1", companyId: company.id }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+  it("lança ForbiddenError quando o usuário não possui company.read", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
+    const company = await companyRepository.create(seedCompany("Orbis"));
+    await linkUser(membershipRepository, "user-1", company.id, "ESTAGIARIO");
+    const actor = await resolver.resolve("user-1", company.id);
+
+    const useCase = new GetCompany(companyRepository, accessService, authorization);
+
+    await expect(useCase.execute({ actor, companyId: company.id })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 
   it("lança NotFoundError quando a empresa não existe mesmo com acesso", async () => {
-    const { companyRepository, membershipRepository } = build();
+    const { companyRepository, membershipRepository, accessService, authorization } = build();
     await linkUser(membershipRepository, "user-1", "company-inexistente");
+    const actor: AuthenticatedUser = {
+      userId: "user-1",
+      companyId: "company-inexistente",
+      permissions: ["company.read"],
+    };
 
-    const useCase = new GetCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    const useCase = new GetCompany(companyRepository, accessService, authorization);
 
     await expect(
-      useCase.execute({ userId: "user-1", companyId: "company-inexistente" }),
+      useCase.execute({ actor, companyId: "company-inexistente" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
 describe("UpdateCompany", () => {
-  it("atualiza campos quando o usuário tem acesso", async () => {
-    const { companyRepository, membershipRepository } = build();
+  it("atualiza campos quando o usuário tem acesso e permissão", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
     const company = await companyRepository.create(seedCompany("Orbis"));
     await linkUser(membershipRepository, "user-1", company.id);
+    const actor = await resolver.resolve("user-1", company.id);
 
-    const useCase = new UpdateCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    const useCase = new UpdateCompany(companyRepository, accessService, authorization);
 
     const output = await useCase.execute({
-      userId: "user-1",
+      actor,
       companyId: company.id,
       changes: { name: "Orbis SA", timezone: "America/New_York" },
     });
@@ -163,46 +174,68 @@ describe("UpdateCompany", () => {
   });
 
   it("rejeita mudanças vazias", async () => {
-    const { companyRepository, membershipRepository } = build();
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
     const company = await companyRepository.create(seedCompany("Orbis"));
     await linkUser(membershipRepository, "user-1", company.id);
+    const actor = await resolver.resolve("user-1", company.id);
 
-    const useCase = new UpdateCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    const useCase = new UpdateCompany(companyRepository, accessService, authorization);
 
     await expect(
-      useCase.execute({ userId: "user-1", companyId: company.id, changes: {} }),
+      useCase.execute({ actor, companyId: company.id, changes: {} }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("lança ForbiddenError sem membership", async () => {
-    const { companyRepository, membershipRepository } = build();
+    const { companyRepository, resolver } = build();
     const company = await companyRepository.create(seedCompany("Orbis"));
 
-    const useCase = new UpdateCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    await expect(resolver.resolve("user-1", company.id)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("lança ForbiddenError quando o usuário não possui company.update", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
+    const company = await companyRepository.create(seedCompany("Orbis"));
+    await linkUser(membershipRepository, "user-1", company.id, "ESTAGIARIO");
+    const actor = await resolver.resolve("user-1", company.id);
+
+    const useCase = new UpdateCompany(companyRepository, accessService, authorization);
 
     await expect(
-      useCase.execute({ userId: "user-1", companyId: company.id, changes: { name: "X" } }),
+      useCase.execute({ actor, companyId: company.id, changes: { name: "X" } }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("lança ForbiddenError quando o contexto de empresa diverge", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
+    const company = await companyRepository.create(seedCompany("Orbis"));
+    await linkUser(membershipRepository, "user-1", company.id);
+    const actor = await resolver.resolve("user-1", company.id);
+
+    const useCase = new UpdateCompany(companyRepository, accessService, authorization);
+
+    await expect(
+      useCase.execute({ actor, companyId: "outra-empresa", changes: { name: "X" } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("lança NotFoundError quando a empresa não existe com acesso", async () => {
-    const { companyRepository, membershipRepository } = build();
+    const { companyRepository, membershipRepository, accessService, authorization } = build();
     await linkUser(membershipRepository, "user-1", "company-inexistente");
+    const actor: AuthenticatedUser = {
+      userId: "user-1",
+      companyId: "company-inexistente",
+      permissions: ["company.read", "company.update"],
+    };
 
-    const useCase = new UpdateCompany(
-      companyRepository,
-      new MembershipAccessService(membershipRepository),
-    );
+    const useCase = new UpdateCompany(companyRepository, accessService, authorization);
 
     await expect(
       useCase.execute({
-        userId: "user-1",
+        actor,
         companyId: "company-inexistente",
         changes: { name: "X" },
       }),

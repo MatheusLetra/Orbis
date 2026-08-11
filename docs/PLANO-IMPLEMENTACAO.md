@@ -56,7 +56,7 @@ M1  Infraestrutura de dados (PostgreSQL/Drizzle/migrations/schema base)  ✅
 M2  Núcleo compartilhado (config, erros, logging, health, env)  ✅
 M3  Identidade: companies / users / memberships  ✅
 M4  Autenticação (JWT, login, refresh, logout)  ✅
-M5  Autorização por permissões
+M5  Autorização por permissões  ✅  ✅
 M6  Catálogo de software: systems / versions / releases / storage
 M7  Requisições
 M8  Tarefas + histórico de status
@@ -336,7 +336,7 @@ Regras estruturais:
 
 ---
 
-### M5 — Autorização por permissões
+### M5 — Autorização por permissões — ✅ CONCLUÍDO
 
 **Objetivo:** controle de acesso baseado em permissões explícitas.
 
@@ -344,27 +344,28 @@ Regras estruturais:
 
 **Escopo (passos):**
 
-1. Modelo de permissões (lista inicial definida em `docs/AGENTS.md §10`).
-2. Vínculo de permissões ao membership (roles/policies).
-3. Mecanismo de verificação no nível de use case: cada use case recebe `AuthenticatedUser` e valida permissão.
-4. Permitir política padrão da empresa + permissões específicas por função/usário para o dashboard (requisito §11 do AGENTS): contemplar a possibilidade de o funcionário gerenciar o próprio quadro sem poder alterar o quadro global.
-5. Aplicar verificação no backend mesmo que a UI esconda ações não permitidas.
+1. ✅ Modelo de permissões (lista inicial definida em `docs/AGENTS.md §10`) — `modules/permissions/domain/permission.ts` (`Permission`, `ALL_PERMISSIONS`, `isPermission`, `toPermissions`) e `role.ts` (presets `ROLE_PERMISSIONS` por cargo: `ADMINISTRADOR`, `GESTOR`, `SUPORTE`, `TESTADOR`, `DESENVOLVEDOR`).
+2. ✅ Vínculo de permissões ao membership — coluna `memberships.permissions` (jsonb, migration `0002_small_nighthawk.sql`); permissões explícitas na membership têm precedência; membership vazia cai para o preset do cargo (`permissionsForPosition`); `MembershipPermissionResolver` aplica a política de dashboard por cima.
+3. ✅ Mecanismo de verificação no nível de use case — `AuthenticatedUser` (`shared/application/authenticated-user.ts`) injetado nas rotas via `PermissionResolver` (`modules/permissions/application/ports/permission-resolver.ts`); `AuthorizationService.assertPermission` + `assertCompanyContext`; use cases `GetCompany` (`company.read`), `UpdateCompany` (`company.update`), `CreateMembership` (`users.manage`) validam permissão e contexto.
+4. ✅ Política padrão da empresa + permissões por função/usário para o dashboard (§11) — `DashboardPolicy` (`domain/dashboard-policy.ts`) com `companyDefault`, `rolePermissions`, `userPermissions`, `userDenied` e `allowPersonalKanbanManagement`; `canManageBoard(role, userId, scope)` distingue quadro da empresa (`company`) do próprio quadro (`own`) — funcionário gerencia o próprio quadro sem alterar o global.
+5. ✅ Verificação no backend mesmo que a UI esconda ações não permitidas — toda checagem acontece no use case/rota; a UI (quando existir) apenas esconde ações.
 
 **Critérios de conclusão:**
 
-- Permissões resolvidas e verificadas em cada use case protegido.
-- Testes de permissão: usuário sem permissão recebe `ForbiddenError`/403.
-- Regras de dashboard (empresa x funcional) modeladas.
+- ✅ Permissões resolvidas e verificadas em cada use case protegido (`GetCompany`, `UpdateCompany`, `CreateMembership`; `ListCompanies`/`ListMemberships` são dados do próprio usuário; `CreateCompany` é bootstrap).
+- ✅ Testes de permissão: usuário sem permissão recebe `ForbiddenError`/403 (use cases + rotas `GET/PATCH /companies/:companyId`, `POST /memberships`).
+- ✅ Regras de dashboard (empresa x funcional) modeladas (`DashboardPolicy` + testes de precedência e `canManageBoard`).
 
 **Verificação:**
 
-- Testes de autorização por módulo.
-- Cenário: usuário sem `requisitions.create` não cria requisição via API.
+- ✅ Testes de autorização por módulo (`permission.test.ts`, `dashboard-policy.test.ts`, `authorization-service.test.ts`, `membership-permission-resolver.test.ts`).
+- Cenário "usuário sem `requisitions.create` não cria requisição" será coberto quando o módulo de requisições existir (M7) — o mecanismo (`assertPermission`) já está pronto e testado.
+- 232 testes passando (36 arquivos); coverage 96.21% statements / 92.27% branches / 98.78% functions / 96.2% lines.
 
 **Pontos de atenção:**
 
-- Permitir predefinições de roles mas manter modelo permission-based.
-- Evitar cachear autorização sem estratégia clara.
+- ✅ Permitir predefinições de roles mas manter modelo permission-based — presets são *defaults* de conveniência (usados quando a membership não tem permissões explícitas); a autorização sempre lê as permissões resolvidas, não o cargo.
+- ✅ Evitar cachear autorização sem estratégia clara — a resolução é feita por requisição (sem cache).
 
 ---
 

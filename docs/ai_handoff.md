@@ -26,9 +26,24 @@
 - **Nota técnica:** `refresh-token.ts` cria o novo token **antes** de revogar o anterior para respeitar a FK `refresh_tokens.replaced_by_id → refresh_tokens.id`.
 - 189 testes passando (32 arquivos); coverage ~96% statements/lines/functions, ~90% branches.
 
+**M5 (Autorização por permissões) concluído.**
+
+- Módulo `permissions`:
+  - `domain/permission.ts` — tipo `Permission` com a lista inicial do AGENTS §10, `ALL_PERMISSIONS`, `isPermission` e `toPermissions`.
+  - `domain/role.ts` — cargos iniciais (§11.1) e presets `ROLE_PERMISSIONS` (ADMINISTRADOR, GESTOR, SUPORTE, TESTADOR, DESENVOLVEDOR) usados como **default de resolução** (não acoplam permissões fixas a cargos).
+  - `domain/dashboard-policy.ts` — `DashboardPolicy` (política padrão da empresa + permissões por função + por usuário + negação por usuário + `allowPersonalKanbanManagement`) e `canManageBoard(role, userId, scope)` que distingue quadro da empresa (`company`) do quadro próprio (`own`) — requisito §11 atendido.
+  - `application/ports/permission-resolver.ts` — porta `PermissionResolver.resolve(userId, companyId) → AuthenticatedUser`.
+  - `application/services/authorization-service.ts` — `assertPermission` (lança `ForbiddenError` 403) e `assertCompanyContext`.
+- `AuthenticatedUser` (`shared/application/authenticated-user.ts`): `{ userId, companyId, permissions }` — contexto resolvido nas rotas e validado nos use cases.
+- Persistência: coluna `memberships.permissions` (jsonb) na migration `0002_small_nighthawk.sql`; permissões explícitas têm precedência e membership vazia cai para o preset do cargo.
+- `MembershipPermissionResolver` (`memberships/infrastructure/resolvers`): membership ativa + permissões explícitas (ou preset) + política de dashboard.
+- Use cases protegidos: `GetCompany` (`company.read`), `UpdateCompany` (`company.update`), `CreateMembership` (`users.manage` + acesso à empresa). `ListCompanies`/`ListMemberships` (dados do próprio usuário) e `CreateCompany` (bootstrap) não exigem permissão adicional.
+- Rotas: `GET/PATCH /companies/:companyId` e `POST /memberships` resolvem o `AuthenticatedUser` via `PermissionResolver`; usuário sem permissão recebe 403 `FORBIDDEN`.
+- 232 testes passando (36 arquivos); coverage 96.21% statements / 92.27% branches / 98.78% functions / 96.2% lines.
+
 Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
 
-Próxima etapa: **M5 — Autorização por permissões** (contexto `AuthenticatedUser` com permissões resolvidas por membership).
+Próxima etapa: **M6 — Catálogo de software: systems / versions / releases / storage** (domínio `System → SystemVersion → Release`, porta `ArtifactStorage` com `LocalArtifactStorage` dev, e `PublishRelease`).
 
 ## Nota sobre o banco via Docker
 

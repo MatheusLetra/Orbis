@@ -32,11 +32,18 @@ async function seedUser(modules: TestModules) {
   );
 }
 
+async function seedActorMembership(modules: TestModules, companyId: string, position = "GESTOR") {
+  return modules.repositories.memberships.create(
+    Membership.create({ companyId, userId: USER_ID, position }),
+  );
+}
+
 describe("POST /memberships", () => {
-  it("vincula o usuário à empresa", async () => {
+  it("vincula o usuário à empresa quando o ator possui users.manage", async () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);
     const user = await seedUser(modules);
+    await seedActorMembership(modules, company.id);
 
     const response = await app.inject({
       method: "POST",
@@ -55,16 +62,53 @@ describe("POST /memberships", () => {
     await app.close();
   });
 
-  it("retorna 404 quando a empresa não existe", async () => {
+  it("retorna 403 quando o ator não possui acesso à empresa", async () => {
     const { app, modules } = await build();
+    const company = await seedCompany(modules);
     const user = await seedUser(modules);
 
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
       headers: await authHeaders(modules, USER_ID),
+      payload: { companyId: company.id, userId: user.id, position: "SUPORTE" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("FORBIDDEN");
+    await app.close();
+  });
+
+  it("retorna 403 quando o ator não possui users.manage", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    const user = await seedUser(modules);
+    await seedActorMembership(modules, company.id, "SUPORTE");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/memberships",
+      headers: await authHeaders(modules, USER_ID),
+      payload: { companyId: company.id, userId: user.id, position: "SUPORTE" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("FORBIDDEN");
+    await app.close();
+  });
+
+  it("retorna 404 quando a empresa não existe (ator com acesso)", async () => {
+    const { app, modules } = await build();
+    const user = await seedUser(modules);
+    const missingCompanyId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    await seedActorMembership(modules, missingCompanyId);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/memberships",
+      headers: await authHeaders(modules, USER_ID),
       payload: {
-        companyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        companyId: missingCompanyId,
         userId: user.id,
         position: "SUPORTE",
       },
@@ -78,6 +122,7 @@ describe("POST /memberships", () => {
   it("retorna 404 quando o usuário não existe", async () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);
+    await seedActorMembership(modules, company.id);
 
     const response = await app.inject({
       method: "POST",
@@ -98,6 +143,7 @@ describe("POST /memberships", () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);
     const user = await seedUser(modules);
+    await seedActorMembership(modules, company.id);
     const payload = { companyId: company.id, userId: user.id, position: "SUPORTE" };
 
     await app.inject({

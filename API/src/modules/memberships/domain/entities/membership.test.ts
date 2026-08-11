@@ -19,6 +19,7 @@ describe("Membership", () => {
     const membership = Membership.restore({
       id: "m-1",
       ...base,
+      permissions: ["company.read"],
       isActive: false,
       createdAt: now,
       updatedAt: now,
@@ -26,6 +27,20 @@ describe("Membership", () => {
 
     expect(membership.id).toBe("m-1");
     expect(membership.isActive).toBe(false);
+    expect(membership.permissions).toEqual(["company.read"]);
+  });
+
+  it("inicia sem permissões explícitas", () => {
+    const membership = Membership.create(base);
+    expect(membership.permissions).toEqual([]);
+  });
+
+  it("altera as permissões filtrando inválidas", () => {
+    const membership = Membership.create(base);
+
+    membership.changePermissions(["company.update", "invented.perm"]);
+
+    expect(membership.permissions).toEqual(["company.update"]);
   });
 
   it("altera o cargo", () => {

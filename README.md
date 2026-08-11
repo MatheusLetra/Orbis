@@ -200,6 +200,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M2 | Núcleo compartilhado (config, erros, logging, env) | ✅ Concluído |
 | M3 | Identidade: companies / users / memberships | ✅ Concluído |
 | M4 | Autenticação (JWT, login, refresh, logout) | ✅ Concluído |
-| M5 | Autorização por permissões | ⏳ Próximo |
+| M5 | Autorização por permissões | ✅ Concluído |
+| M6 | Catálogo de software: systems / versions / releases / storage | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

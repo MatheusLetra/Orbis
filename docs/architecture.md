@@ -729,6 +729,20 @@ audit.read
 
 A lista deve evoluir com os use cases.
 
+### 19.1 Modelo implementado (M5)
+
+A autorização é baseada em permissões e resolvida por requisição:
+
+- `Permission` (lista inicial em `API/src/modules/permissions/domain/permission.ts`), com guard `isPermission` e `toPermissions`.
+- `AuthenticatedUser` (`shared/application/authenticated-user.ts`): `{ userId, companyId, permissions }` — o contexto que as rotas resolvem e os use cases validam.
+- `PermissionResolver` (porta em `application/ports`) produz o `AuthenticatedUser` a partir de `(userId, companyId)`; implementação `MembershipPermissionResolver`:
+  1. membership ativa do usuário na empresa (senão → `ForbiddenError`);
+  2. base = permissões explícitas de `memberships.permissions` (jsonb, migration `0002`); se vazia, usa o preset do cargo (`ROLE_PERMISSIONS`) como **default de resolução** — o cargo (§11.1) continua sendo atributo de RH e não acopla permissões fixas;
+  3. soma as permissões de dashboard da `DashboardPolicy` (sem duplicar).
+- `AuthorizationService` (`assertPermission` → `ForbiddenError` 403; `assertCompanyContext`): cada use case protegido recebe o `AuthenticatedUser` e valida a permissão exigida (ex.: `company.read`, `company.update`, `users.manage`), além de conferir que `actor.companyId === companyId` (nunca confiar em `companyId` do cliente).
+- `DashboardPolicy` (`domain/dashboard-policy.ts`): política do Kanban/timeline (§11) com padrão da empresa (`companyDefault`), por função (`rolePermissions`), por usuário (`userPermissions`/`userDenied`) e `allowPersonalKanbanManagement`; `canManageBoard(role, userId, scope)` distingue quadro da empresa (`company`) do quadro próprio (`own`) — o funcionário gerencia o próprio quadro sem alterar o global.
+- As permissões são resolvidas por requisição a partir do repositório (sem cache por enquanto).
+
 ## 20. Notificações
 
 Modelo:

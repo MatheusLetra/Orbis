@@ -5,6 +5,7 @@ export type MembershipRow = {
   companyId: string;
   userId: string;
   position: string | null;
+  permissions: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -16,6 +17,7 @@ export function toEntity(row: MembershipRow): Membership {
     companyId: row.companyId,
     userId: row.userId,
     position: row.position ?? "",
+    permissions: row.permissions,
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -28,6 +30,7 @@ export function toInsertValues(membership: Membership): MembershipRow {
     companyId: membership.companyId,
     userId: membership.userId,
     position: membership.position,
+    permissions: membership.permissions,
     isActive: membership.isActive,
     createdAt: membership.createdAt,
     updatedAt: membership.updatedAt,

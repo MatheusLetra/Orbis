@@ -4,12 +4,14 @@ import type { CreateCompany } from "@/modules/companies/application/use-cases/cr
 import type { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import type { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
 import type { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
+import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 
 export interface CompanyRouteOptions {
   createCompany: CreateCompany;
   getCompany: GetCompany;
   listCompanies: ListCompanies;
   updateCompany: UpdateCompany;
+  permissionResolver: PermissionResolver;
 }
 
 const companyIdParam = {
@@ -104,10 +106,8 @@ export async function registerCompanyRoutes(
     },
     async (request) => {
       const { companyId } = request.params as { companyId: string };
-      return options.getCompany.execute({
-        userId: getCurrentUserId(request),
-        companyId,
-      });
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.getCompany.execute({ actor, companyId });
     },
   );
 
@@ -133,8 +133,9 @@ export async function registerCompanyRoutes(
     },
     async (request) => {
       const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
       return options.updateCompany.execute({
-        userId: getCurrentUserId(request),
+        actor,
         companyId,
         changes: request.body as never,
       });

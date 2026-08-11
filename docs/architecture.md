@@ -586,6 +586,8 @@ LocalArtifactStorage
 S3ArtifactStorage
 ```
 
+> **Implementado (M6):** a porta `ArtifactStorage` (`modules/releases/application/ports`) está implementada com `LocalArtifactStorage` (`modules/releases/infrastructure/storage`) para desenvolvimento, gravando os artefatos no filesystem local em `ARTIFACT_STORAGE_PATH` (default `./storage/releases`, fora do banco e do controle de versão). `PublishRelease` (`modules/releases/application/use-cases`) valida a release em rascunho, grava o conteúdo base64 decodificado, calcula o checksum SHA-256 e preenche `storageKey`, `sizeBytes`, `publishedAt` e o status `PUBLISHED`. Em produção, implementar `S3ArtifactStorage` (ou equivalente S3-compatible) na mesma porta sem alterar o domínio. Esta porta é exclusiva de releases/executáveis; anexos de requisições/tarefas usam PostgreSQL (BYTEA, ver §17.1/§17.2).
+
 ### 17.1 Anexos de requisições e tarefas
 
 Requisições e tarefas podem possuir anexos:

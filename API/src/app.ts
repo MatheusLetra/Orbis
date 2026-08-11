@@ -13,7 +13,10 @@ import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
+import { registerReleaseRoutes } from "./modules/releases/http/release.routes";
+import { registerSystemRoutes } from "./modules/systems/http/system.routes";
 import { registerUserRoutes } from "./modules/users/http/user.routes";
+import { registerSystemVersionRoutes } from "./modules/versions/http/system-version.routes";
 import { createLoggerConfig } from "./shared/logging/logger";
 
 export interface BuildAppOptions {
@@ -91,6 +94,18 @@ export async function buildApp(options: BuildAppOptions = {}) {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
       await registerCompanyRoutes(protectedRoutes, modules);
       await registerMembershipRoutes(protectedRoutes, modules);
+      await registerSystemRoutes(protectedRoutes, {
+        ...modules.systems,
+        permissionResolver: modules.permissionResolver,
+      });
+      await registerSystemVersionRoutes(protectedRoutes, {
+        ...modules.versions,
+        permissionResolver: modules.permissionResolver,
+      });
+      await registerReleaseRoutes(protectedRoutes, {
+        ...modules.releases,
+        permissionResolver: modules.permissionResolver,
+      });
     });
   }
 

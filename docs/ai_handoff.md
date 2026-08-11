@@ -43,7 +43,18 @@
 
 Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
 
-Próxima etapa: **M6 — Catálogo de software: systems / versions / releases / storage** (domínio `System → SystemVersion → Release`, porta `ArtifactStorage` com `LocalArtifactStorage` dev, e `PublishRelease`).
+**M6 (Catálogo de software: systems / versions / releases / storage) concluído.**
+
+- Módulos `systems`, `versions` e `releases` com entidades, use cases, repositórios Drizzle e rotas HTTP:
+  - `POST/GET /companies/:companyId/systems`, `GET/PATCH/DELETE /companies/:companyId/systems/:systemId` — CRUD de `System` (tenant-owned), isolamento por `MembershipAccessService`.
+  - `POST/GET /companies/:companyId/systems/:systemId/versions`, `GET/PATCH/DELETE /companies/:companyId/versions/:versionId` — CRUD de `SystemVersion` vinculado a um sistema.
+  - `POST/GET /companies/:companyId/releases`, `GET/DELETE /companies/:companyId/releases/:releaseId`, `POST /companies/:companyId/releases/:releaseId/publish` — `Release` em rascunho que, ao publicar, grava o artefato no storage e preenche metadados (status `PUBLISHED`, checksum SHA-256, `sizeBytes`, `storageKey`, `publishedAt`).
+- Porta `ArtifactStorage` (`application/ports`) com implementação `LocalArtifactStorage` (dev) que grava fora do PostgreSQL em `ARTIFACT_STORAGE_PATH` (default `./storage/releases`); preparada para `S3ArtifactStorage` em produção. A porta é restrita a releases/executáveis — anexos de requisições/tarefas ficam no PostgreSQL (M8.5).
+- Permissionamento: `systems.read`/`systems.manage`, `versions.manage`, `releases.manage` (presets de `GESTOR`; `SUPORTE`/`TESTADOR` só leem `systems.read`); usuário sem permissão recebe 403 `FORBIDDEN`; recurso de outro tenant é tratado como 404 `NOT_FOUND`.
+- Tabelas `systems`, `system_versions` e `releases` já existiam no schema base (migration `0000_eminent_wolfpack.sql`) — nenhuma migration nova foi necessária.
+- 314 testes passando (46 arquivos).
+
+Próxima etapa: **M7 — Requisições** (CRUD, prioridade `LOW | MEDIUM | HIGH`, responsável, sistema/versão opcionais, `estimatedHours`, datas e histórico).
 
 ## Nota sobre o banco via Docker
 
@@ -217,9 +228,9 @@ Estas decisões não devem ser inventadas silenciosamente:
    - A decisão final deve acompanhar o modelo de RH desejado.
 
 4. Qual storage será usado para executáveis (releases)?
-   - Dev: filesystem pode ser suficiente.
-   - Produção: storage S3-compatible é recomendado.
-   - Criar uma porta para não acoplar o domínio.
+   - Dev: **IMPLEMENTADO no M6** — `LocalArtifactStorage` grava no filesystem local (`ARTIFACT_STORAGE_PATH`).
+   - Produção: storage S3-compatible é recomendado (porta `ArtifactStorage` já permite implementar `S3ArtifactStorage` sem alterar o domínio).
+   - Criar uma porta para não acoplar o domínio. ✅
    - **DECIDIDO:** anexos de requisições/tarefas (imagens, PDFs e links) NÃO usam essa porta — ficam no próprio PostgreSQL, em BYTEA numa tabela dedicada (`attachment_blobs`), com limite de tamanho por arquivo. Análise e vereditos em `docs/architecture.md §17.2`.
 
 5. Quais canais de notificação serão suportados inicialmente?
@@ -241,7 +252,7 @@ Estas decisões não devem ser inventadas silenciosamente:
 
 9. Enums provisórios criados no schema base (M1) — valores finais a validar nos use cases dos módulos correspondentes:
    - `requisition_status` = `OPEN | IN_PROGRESS | PAUSED | DONE | CANCELLED` (M7).
-   - `release_channel` = `STABLE | BETA` e `release_status` = `DRAFT | PUBLISHED` (M6).
+   - `release_channel` = `STABLE | BETA` e `release_status` = `DRAFT | PUBLISHED` — **validados no M6** (entidade `Release`, `Release.create` default `STABLE`/`DRAFT`).
    - Já definitivos conforme documentação: `priority` = `LOW | MEDIUM | HIGH`, `task_status` = `TODO | IN_PROGRESS | PAUSED | DONE`, `attachment_kind` = `FILE | LINK`.
 
 ## Primeiro milestone recomendado

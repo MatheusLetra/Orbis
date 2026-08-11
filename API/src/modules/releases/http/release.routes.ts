@@ -1,0 +1,214 @@
+import type { FastifyInstance } from "fastify";
+
+import { getCurrentUserId } from "@/infrastructure/http/current-user";
+import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
+import type { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
+import type { DeleteRelease } from "@/modules/releases/application/use-cases/delete-release";
+import type { GetRelease } from "@/modules/releases/application/use-cases/get-release";
+import type { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
+import type { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+
+export interface ReleaseRouteOptions {
+  createRelease: CreateRelease;
+  listReleases: ListReleases;
+  getRelease: GetRelease;
+  publishRelease: PublishRelease;
+  deleteRelease: DeleteRelease;
+  permissionResolver: PermissionResolver;
+}
+
+const userHeader = {
+  type: "object",
+  properties: {
+    authorization: { type: "string", description: "Token de acesso: Bearer <token>" },
+  },
+} as const;
+
+const releaseResponse = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    companyId: { type: "string" },
+    systemVersionId: { type: "string" },
+    versionLabel: { type: "string" },
+    channel: { type: "string" },
+    status: { type: "string" },
+    artifactName: { type: ["string", "null"] },
+    storageKey: { type: ["string", "null"] },
+    checksum: { type: ["string", "null"] },
+    sizeBytes: { type: ["integer", "null"] },
+    publishedAt: { type: ["string", "null"], format: "date-time" },
+    createdBy: { type: "string" },
+    createdAt: { type: "string", format: "date-time" },
+  },
+  required: [
+    "id",
+    "companyId",
+    "systemVersionId",
+    "versionLabel",
+    "channel",
+    "status",
+    "artifactName",
+    "storageKey",
+    "checksum",
+    "sizeBytes",
+    "publishedAt",
+    "createdBy",
+    "createdAt",
+  ],
+} as const;
+
+const releaseListResponse = {
+  type: "array",
+  items: releaseResponse,
+} as const;
+
+export async function registerReleaseRoutes(
+  app: FastifyInstance,
+  options: ReleaseRouteOptions,
+): Promise<void> {
+  app.post(
+    "/companies/:companyId/releases",
+    {
+      schema: {
+        tags: ["Releases"],
+        description: "Cria uma release em rascunho vinculada a uma versão.",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: { companyId: { type: "string", format: "uuid" } },
+          required: ["companyId"],
+        },
+        body: {
+          type: "object",
+          properties: {
+            systemVersionId: { type: "string", format: "uuid" },
+            versionLabel: { type: "string" },
+            channel: { type: "string", enum: ["STABLE", "BETA"] },
+          },
+          required: ["systemVersionId", "versionLabel"],
+        },
+        response: { 201: releaseResponse },
+      },
+    },
+    async (request, reply) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      const output = await options.createRelease.execute({
+        actor,
+        data: request.body as never,
+      });
+      return reply.status(201).send(output);
+    },
+  );
+
+  app.get(
+    "/companies/:companyId/releases",
+    {
+      schema: {
+        tags: ["Releases"],
+        description: "Lista as releases da empresa.",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: { companyId: { type: "string", format: "uuid" } },
+          required: ["companyId"],
+        },
+        response: { 200: releaseListResponse },
+      },
+    },
+    async (request) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.listReleases.execute({ actor });
+    },
+  );
+
+  app.get(
+    "/companies/:companyId/releases/:releaseId",
+    {
+      schema: {
+        tags: ["Releases"],
+        description: "Obtém uma release pelo id.",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: {
+            companyId: { type: "string", format: "uuid" },
+            releaseId: { type: "string", format: "uuid" },
+          },
+          required: ["companyId", "releaseId"],
+        },
+        response: { 200: releaseResponse },
+      },
+    },
+    async (request) => {
+      const { companyId, releaseId } = request.params as { companyId: string; releaseId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.getRelease.execute({ actor, releaseId });
+    },
+  );
+
+  app.post(
+    "/companies/:companyId/releases/:releaseId/publish",
+    {
+      schema: {
+        tags: ["Releases"],
+        description:
+          "Publica uma release: grava o artefato no storage e atualiza os metadados (status, checksum, tamanho, data).",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: {
+            companyId: { type: "string", format: "uuid" },
+            releaseId: { type: "string", format: "uuid" },
+          },
+          required: ["companyId", "releaseId"],
+        },
+        body: {
+          type: "object",
+          properties: {
+            artifactName: { type: "string" },
+            contentBase64: { type: "string", description: "Conteúdo do artefato em base64" },
+          },
+          required: ["artifactName", "contentBase64"],
+        },
+        response: { 200: releaseResponse },
+      },
+    },
+    async (request) => {
+      const { companyId, releaseId } = request.params as { companyId: string; releaseId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.publishRelease.execute({
+        actor,
+        releaseId,
+        data: request.body as never,
+      });
+    },
+  );
+
+  app.delete(
+    "/companies/:companyId/releases/:releaseId",
+    {
+      schema: {
+        tags: ["Releases"],
+        description: "Remove uma release.",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: {
+            companyId: { type: "string", format: "uuid" },
+            releaseId: { type: "string", format: "uuid" },
+          },
+          required: ["companyId", "releaseId"],
+        },
+        response: { 200: { type: "object", properties: { id: { type: "string" } } } },
+      },
+    },
+    async (request) => {
+      const { companyId, releaseId } = request.params as { companyId: string; releaseId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.deleteRelease.execute({ actor, releaseId });
+    },
+  );
+}

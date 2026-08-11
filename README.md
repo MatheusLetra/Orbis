@@ -13,7 +13,7 @@ Principais características:
 - **Kanban** com colunas personalizáveis (A Fazer, Em Andamento, Pausado, Concluído) e histórico de status imutável.
 - **Timelines** semanal, mensal e anual com filtros e indicadores.
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
-- **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído.
+- **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído (`ArtifactStorage`); em desenvolvimento os executáveis são gravados no filesystem local (`ARTIFACT_STORAGE_PATH`, default `./storage/releases`), fora do PostgreSQL.
 - **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
 - **Notificações configuráveis**, **chat interno**, **relatórios** e **auditoria**.
 - **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
@@ -134,9 +134,27 @@ PATCH  /companies/:companyId             → atualiza empresa
 
 POST   /memberships                      → vincula usuário a empresa
 GET    /memberships                      → lista memberships do usuário autenticado
+
+POST   /companies/:companyId/systems                → cria um sistema
+GET    /companies/:companyId/systems                → lista sistemas da empresa
+GET    /companies/:companyId/systems/:systemId      → obtém um sistema
+PATCH  /companies/:companyId/systems/:systemId      → atualiza um sistema
+DELETE /companies/:companyId/systems/:systemId      → remove um sistema
+
+POST   /companies/:companyId/systems/:systemId/versions → cria uma versão para o sistema
+GET    /companies/:companyId/systems/:systemId/versions → lista versões do sistema
+GET    /companies/:companyId/versions/:versionId       → obtém uma versão
+PATCH  /companies/:companyId/versions/:versionId       → atualiza uma versão
+DELETE /companies/:companyId/versions/:versionId       → remove uma versão
+
+POST   /companies/:companyId/releases                → cria uma release em rascunho
+GET    /companies/:companyId/releases                → lista releases da empresa
+GET    /companies/:companyId/releases/:releaseId     → obtém uma release
+POST   /companies/:companyId/releases/:releaseId/publish → publica a release (grava artefato no storage)
+DELETE /companies/:companyId/releases/:releaseId     → remove uma release
 ```
 
-As rotas de negócio (`/companies`, `/memberships`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
+As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
 
 ### 3. App
 
@@ -201,6 +219,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M3 | Identidade: companies / users / memberships | ✅ Concluído |
 | M4 | Autenticação (JWT, login, refresh, logout) | ✅ Concluído |
 | M5 | Autorização por permissões | ✅ Concluído |
-| M6 | Catálogo de software: systems / versions / releases / storage | ⏳ Próximo |
+| M6 | Catálogo de software: systems / versions / releases / storage | ✅ Concluído |
+| M7 | Requisições | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

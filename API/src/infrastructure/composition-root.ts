@@ -18,8 +18,27 @@ import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructur
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
+import { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
+import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-release";
+import { GetRelease } from "@/modules/releases/application/use-cases/get-release";
+import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
+import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import { DrizzleReleaseRepository } from "@/modules/releases/infrastructure/repositories/drizzle-release-repository";
+import { LocalArtifactStorage } from "@/modules/releases/infrastructure/storage/local-artifact-storage";
+import { CreateSystem } from "@/modules/systems/application/use-cases/create-system";
+import { DeleteSystem } from "@/modules/systems/application/use-cases/delete-system";
+import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
+import { ListSystems } from "@/modules/systems/application/use-cases/list-systems";
+import { UpdateSystem } from "@/modules/systems/application/use-cases/update-system";
+import { DrizzleSystemRepository } from "@/modules/systems/infrastructure/repositories/drizzle-system-repository";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
+import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
+import { DeleteSystemVersion } from "@/modules/versions/application/use-cases/delete-system-version";
+import { GetSystemVersion } from "@/modules/versions/application/use-cases/get-system-version";
+import { ListSystemVersions } from "@/modules/versions/application/use-cases/list-system-versions";
+import { UpdateSystemVersion } from "@/modules/versions/application/use-cases/update-system-version";
+import { DrizzleSystemVersionRepository } from "@/modules/versions/infrastructure/repositories/drizzle-system-version-repository";
 import { parseTtlToMs } from "@/shared/utils/ttl";
 
 export interface OrbisModules {
@@ -32,6 +51,27 @@ export interface OrbisModules {
   listMemberships: ListMemberships;
   permissionResolver: PermissionResolver;
   tokenService: JoseTokenService;
+  systems: {
+    createSystem: CreateSystem;
+    listSystems: ListSystems;
+    getSystem: GetSystem;
+    updateSystem: UpdateSystem;
+    deleteSystem: DeleteSystem;
+  };
+  versions: {
+    createSystemVersion: CreateSystemVersion;
+    listSystemVersions: ListSystemVersions;
+    getSystemVersion: GetSystemVersion;
+    updateSystemVersion: UpdateSystemVersion;
+    deleteSystemVersion: DeleteSystemVersion;
+  };
+  releases: {
+    createRelease: CreateRelease;
+    listReleases: ListReleases;
+    getRelease: GetRelease;
+    publishRelease: PublishRelease;
+    deleteRelease: DeleteRelease;
+  };
   auth: {
     login: Login;
     refreshToken: RefreshToken;
@@ -44,10 +84,14 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
   const refreshTokenRepository = new DrizzleRefreshTokenRepository(database);
+  const systemRepository = new DrizzleSystemRepository(database);
+  const systemVersionRepository = new DrizzleSystemVersionRepository(database);
+  const releaseRepository = new DrizzleReleaseRepository(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(membershipRepository);
+  const artifactStorage = new LocalArtifactStorage(env.ARTIFACT_STORAGE_PATH);
   const tokenService = new JoseTokenService({
     accessSecret: env.JWT_ACCESS_SECRET,
     refreshSecret: env.JWT_REFRESH_SECRET,
@@ -72,6 +116,55 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     listMemberships: new ListMemberships(membershipRepository),
     permissionResolver,
     tokenService,
+    systems: {
+      createSystem: new CreateSystem(systemRepository, accessService, authorization),
+      listSystems: new ListSystems(systemRepository, accessService, authorization),
+      getSystem: new GetSystem(systemRepository, accessService, authorization),
+      updateSystem: new UpdateSystem(systemRepository, accessService, authorization),
+      deleteSystem: new DeleteSystem(systemRepository, accessService, authorization),
+    },
+    versions: {
+      createSystemVersion: new CreateSystemVersion(
+        systemVersionRepository,
+        systemRepository,
+        accessService,
+        authorization,
+      ),
+      listSystemVersions: new ListSystemVersions(
+        systemVersionRepository,
+        systemRepository,
+        accessService,
+        authorization,
+      ),
+      getSystemVersion: new GetSystemVersion(systemVersionRepository, accessService, authorization),
+      updateSystemVersion: new UpdateSystemVersion(
+        systemVersionRepository,
+        accessService,
+        authorization,
+      ),
+      deleteSystemVersion: new DeleteSystemVersion(
+        systemVersionRepository,
+        accessService,
+        authorization,
+      ),
+    },
+    releases: {
+      createRelease: new CreateRelease(
+        releaseRepository,
+        systemVersionRepository,
+        accessService,
+        authorization,
+      ),
+      listReleases: new ListReleases(releaseRepository, accessService, authorization),
+      getRelease: new GetRelease(releaseRepository, accessService, authorization),
+      publishRelease: new PublishRelease(
+        releaseRepository,
+        artifactStorage,
+        accessService,
+        authorization,
+      ),
+      deleteRelease: new DeleteRelease(releaseRepository, accessService, authorization),
+    },
     auth: {
       login: new Login(userRepository, scryptPasswordHasher, tokenService, refreshTokenRepository, {
         refreshTokenTtlMs,

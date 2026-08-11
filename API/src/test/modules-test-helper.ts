@@ -12,7 +12,28 @@ import { CreateMembership } from "@/modules/memberships/application/use-cases/cr
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
+import { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
+import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-release";
+import { GetRelease } from "@/modules/releases/application/use-cases/get-release";
+import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
+import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import { CreateSystem } from "@/modules/systems/application/use-cases/create-system";
+import { DeleteSystem } from "@/modules/systems/application/use-cases/delete-system";
+import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
+import { ListSystems } from "@/modules/systems/application/use-cases/list-systems";
+import { UpdateSystem } from "@/modules/systems/application/use-cases/update-system";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
+import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
+import { DeleteSystemVersion } from "@/modules/versions/application/use-cases/delete-system-version";
+import { GetSystemVersion } from "@/modules/versions/application/use-cases/get-system-version";
+import { ListSystemVersions } from "@/modules/versions/application/use-cases/list-system-versions";
+import { UpdateSystemVersion } from "@/modules/versions/application/use-cases/update-system-version";
+import {
+  InMemoryArtifactStorage,
+  InMemoryReleaseRepository,
+  InMemorySystemRepository,
+  InMemorySystemVersionRepository,
+} from "./fakes/catalog-fakes";
 import {
   fakePasswordHasher,
   InMemoryCompanyRepository,
@@ -31,7 +52,11 @@ export interface TestModules extends OrbisModules {
     companies: InMemoryCompanyRepository;
     memberships: InMemoryMembershipRepository;
     refreshTokens: InMemoryRefreshTokenRepository;
+    systems: InMemorySystemRepository;
+    systemVersions: InMemorySystemVersionRepository;
+    releases: InMemoryReleaseRepository;
   };
+  artifactStorage: InMemoryArtifactStorage;
 }
 
 export function buildTestModules(): TestModules {
@@ -39,6 +64,10 @@ export function buildTestModules(): TestModules {
   const companies = new InMemoryCompanyRepository();
   const memberships = new InMemoryMembershipRepository();
   const refreshTokens = new InMemoryRefreshTokenRepository();
+  const systems = new InMemorySystemRepository();
+  const systemVersions = new InMemorySystemVersionRepository();
+  const releases = new InMemoryReleaseRepository();
+  const artifactStorage = new InMemoryArtifactStorage();
   const accessService = new MembershipAccessService(memberships);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(memberships);
@@ -50,7 +79,16 @@ export function buildTestModules(): TestModules {
   });
 
   return {
-    repositories: { users, companies, memberships, refreshTokens },
+    repositories: {
+      users,
+      companies,
+      memberships,
+      refreshTokens,
+      systems,
+      systemVersions,
+      releases,
+    },
+    artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
     createCompany: new CreateCompany(companies, memberships),
     getCompany: new GetCompany(companies, accessService, authorization),
@@ -66,6 +104,37 @@ export function buildTestModules(): TestModules {
     listMemberships: new ListMemberships(memberships),
     permissionResolver,
     tokenService,
+    systems: {
+      createSystem: new CreateSystem(systems, accessService, authorization),
+      listSystems: new ListSystems(systems, accessService, authorization),
+      getSystem: new GetSystem(systems, accessService, authorization),
+      updateSystem: new UpdateSystem(systems, accessService, authorization),
+      deleteSystem: new DeleteSystem(systems, accessService, authorization),
+    },
+    versions: {
+      createSystemVersion: new CreateSystemVersion(
+        systemVersions,
+        systems,
+        accessService,
+        authorization,
+      ),
+      listSystemVersions: new ListSystemVersions(
+        systemVersions,
+        systems,
+        accessService,
+        authorization,
+      ),
+      getSystemVersion: new GetSystemVersion(systemVersions, accessService, authorization),
+      updateSystemVersion: new UpdateSystemVersion(systemVersions, accessService, authorization),
+      deleteSystemVersion: new DeleteSystemVersion(systemVersions, accessService, authorization),
+    },
+    releases: {
+      createRelease: new CreateRelease(releases, systemVersions, accessService, authorization),
+      listReleases: new ListReleases(releases, accessService, authorization),
+      getRelease: new GetRelease(releases, accessService, authorization),
+      publishRelease: new PublishRelease(releases, artifactStorage, accessService, authorization),
+      deleteRelease: new DeleteRelease(releases, accessService, authorization),
+    },
     auth: {
       login: new Login(users, fakePasswordHasher, tokenService, refreshTokens, {
         refreshTokenTtlMs: TEST_REFRESH_TTL_MS,

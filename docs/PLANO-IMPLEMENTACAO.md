@@ -57,7 +57,7 @@ M2  Núcleo compartilhado (config, erros, logging, health, env)  ✅
 M3  Identidade: companies / users / memberships  ✅
 M4  Autenticação (JWT, login, refresh, logout)  ✅
 M5  Autorização por permissões  ✅  ✅
-M6  Catálogo de software: systems / versions / releases / storage
+M6  Catálogo de software: systems / versions / releases / storage  ✅
 M7  Requisições
 M8  Tarefas + histórico de status
 M8.5 Anexos de requisições e tarefas (imagens, PDFs e links externos)
@@ -369,46 +369,48 @@ Regras estruturais:
 
 ---
 
-### M6 — Catálogo de software: systems / versions / releases / storage
+### M6 — Catálogo de software: systems / versions / releases / storage — ✅ CONCLUÍDO
 
 **Objetivo:** domínio `System → SystemVersion → Release` com storage abstraído.
+
+**Status da implementação (M6):** módulos `systems`, `versions` e `releases` com entidades, use cases, repositórios Drizzle e rotas HTTP protegidas (`/companies/:companyId/systems*`, `/versions*` e `/releases*`). `PublishRelease` grava o artefato no `LocalArtifactStorage` (filesystem, fora do PostgreSQL, em `ARTIFACT_STORAGE_PATH` default `./storage/releases`), calcula checksum SHA-256 e preenche `storageKey`, `sizeBytes`, `publishedAt` e status `PUBLISHED`. Permissionamento e isolamento tenant validados por testes (use cases + rotas HTTP); tabelas `systems`, `system_versions` e `releases` já existiam no schema base (migration `0000`). 314 testes passando (46 arquivos).
 
 **Pré-requisitos:** M3, M4 e M5.
 
 **Escopo (passos):**
 
-1. Módulo `systems`:
-   - entidade `System` (tenant-owned);
-   - CRUD.
-2. Módulo `versions`:
-   - `SystemVersion` pertencente a um sistema;
-   - CRUD.
-3. Módulo `releases`:
-   - `Release` vinculada a uma versão;
-   - metadados (versionLabel, channel, status, artifactName, storageKey, checksum, sizeBytes, publishedAt);
-   - use case `PublishRelease`.
-4. Porta `ArtifactStorage`:
-   - implementação `LocalArtifactStorage` (dev);
-   - preparação para `S3ArtifactStorage` (produção, ambiente);
-   - artefato físico fica **fora** do PostgreSQL.
-5. Escopo da porta: destina-se **apenas a releases/executáveis**. Anexos de requisições/tarefas (`M8.5`) **não** usam esta porta — são armazenados no próprio PostgreSQL (BYTEA em tabela dedicada; ver `docs/architecture.md §17.2`).
+1. ✅ Módulo `systems`:
+   - ✅ entidade `System` (tenant-owned);
+   - ✅ CRUD.
+2. ✅ Módulo `versions`:
+   - ✅ `SystemVersion` pertencente a um sistema;
+   - ✅ CRUD.
+3. ✅ Módulo `releases`:
+   - ✅ `Release` vinculada a uma versão;
+   - ✅ metadados (versionLabel, channel, status, artifactName, storageKey, checksum, sizeBytes, publishedAt);
+   - ✅ use case `PublishRelease`.
+4. ✅ Porta `ArtifactStorage`:
+   - ✅ implementação `LocalArtifactStorage` (dev);
+   - ✅ preparação para `S3ArtifactStorage` (produção, ambiente);
+   - ✅ artefato físico fica **fora** do PostgreSQL.
+5. ✅ Escopo da porta: destina-se **apenas a releases/executáveis**. Anexos de requisições/tarefas (`M8.5`) **não** usam esta porta — são armazenados no próprio PostgreSQL (BYTEA em tabela dedicada; ver `docs/architecture.md §17.2`).
 
 **Critérios de conclusão:**
 
-- CRUD de sistemas/versões com isolamento tenant.
-- Publicação de release cria metadados e grava artefato no storage local.
-- Testes de permissionamento (ex.: `systems.manage`, `releases.manage`).
-- `ArtifactStorage` restrita a releases; anexos seguem a decisão de `M8.5` (PostgreSQL).
+- ✅ CRUD de sistemas/versões com isolamento tenant.
+- ✅ Publicação de release cria metadados e grava artefato no storage local.
+- ✅ Testes de permissionamento (ex.: `systems.manage`, `releases.manage`).
+- ✅ `ArtifactStorage` restrita a releases; anexos seguem a decisão de `M8.5` (PostgreSQL).
 
 **Verificação:**
 
-- Publicar release e conferir metadados + arquivo no storage.
-- Testes de isolamento entre tenants.
+- ✅ Publicar release e conferir metadados + arquivo no storage.
+- ✅ Testes de isolamento entre tenants.
 
 **Pontos de atenção:**
 
-- Decisão pendente sobre storage de produção para releases (filesystem vs S3) — registrar em `ai_handoff.md`.
-- Anexos não criam segunda estratégia: eles ficam no PostgreSQL, não em storage externo.
+- ✅ Decisão de dev resolvida no M6 (`LocalArtifactStorage`); storage de produção (filesystem vs S3) continua registrado como questão aberta em `ai_handoff.md`.
+- ✅ Anexos não criam segunda estratégia: eles ficam no PostgreSQL, não em storage externo.
 
 ---
 
@@ -1006,7 +1008,7 @@ Registradas em `docs/ai_handoff.md §"Questões ainda abertas"`. Impactam módul
 | Usuário em múltiplas empresas (UX) | M3/M4 | antes de consolidar UX de troca de contexto |
 | Conjunto final de roles | M5 | durante M5 |
 | Funcionário vs usuário como entity | M3 | antes de M3 (modelo RH) |
-| Storage de executáveis em produção | M6 | antes de M6 |
+| Storage de executáveis em produção | M6 | dev resolvido no M6 (`LocalArtifactStorage`); definir storage de produção (S3) antes do deploy |
 | Canais de notificação iniciais | M14 | antes de M14 |
 | Feriados globais vs por empresa | M11 | antes de M11 |
 | Conclusão de tarefa pausada | M8/M10 | antes de M8 (regra estrutural) |

@@ -14,6 +14,14 @@ async function build(): Promise<{ app: FastifyInstance; modules: TestModules }> 
   return { app, modules };
 }
 
+async function authHeaders(
+  modules: TestModules,
+  userId: string,
+): Promise<{ authorization: string }> {
+  const token = await modules.tokenService.signAccessToken(userId);
+  return { authorization: `Bearer ${token}` };
+}
+
 async function seedCompany(modules: TestModules) {
   return modules.repositories.companies.create(Company.create({ name: "Orbis" }));
 }
@@ -33,7 +41,7 @@ describe("POST /memberships", () => {
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload: { companyId: company.id, userId: user.id, position: "SUPORTE" },
     });
 
@@ -54,7 +62,7 @@ describe("POST /memberships", () => {
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload: {
         companyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         userId: user.id,
@@ -74,7 +82,7 @@ describe("POST /memberships", () => {
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload: {
         companyId: company.id,
         userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -95,13 +103,13 @@ describe("POST /memberships", () => {
     await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload,
     });
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload,
     });
 
@@ -111,11 +119,11 @@ describe("POST /memberships", () => {
   });
 
   it("retorna 400 para corpo inválido", async () => {
-    const { app } = await build();
+    const { app, modules } = await build();
     const response = await app.inject({
       method: "POST",
       url: "/memberships",
-      headers: { "x-user-id": USER_ID },
+      headers: await authHeaders(modules, USER_ID),
       payload: { companyId: "nao-e-uuid", userId: "nao-e-uuid", position: "" },
     });
 
@@ -137,7 +145,7 @@ describe("GET /memberships", () => {
     const response = await app.inject({
       method: "GET",
       url: "/memberships",
-      headers: { "x-user-id": user.id },
+      headers: await authHeaders(modules, user.id),
     });
 
     expect(response.statusCode).toBe(200);

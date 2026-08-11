@@ -2,28 +2,33 @@
 
 ## Status atual
 
-**M1 (Infraestrutura de dados) concluído.**
+**M3 (Identidade: companies / users / memberships) concluído.**
 
-- API: conexão Drizzle (`drizzle-orm` + `postgres` driver) somente em `API/src/infrastructure/database` (`client.ts`, `schema.ts`, `health.ts`).
-- `drizzle.config.ts` na raiz da API; scripts `db:generate`, `db:migrate` e `db:studio` no `package.json`.
-- Migration `0000_eminent_wolfpack.sql` gerada, revisada e aplicada com sucesso em PostgreSQL 17 local (via Docker, banco `orbis`): 20 tabelas, enums, FKs com cascade/restrict/set null, índices compostos `(company_id, ...)` e check constraint de anexos (exatamente um proprietário).
-- `GET /health` inclui `database: { status, latencyMs }` quando há conexão; responde normalmente sem banco (campo omitido).
-- **Nota técnica:** `bytea` foi removido por bug do `drizzle-orm@0.45` (issue #5184). Definido via `customType` em `schema.ts` — gera coluna `bytea` corretamente na migration.
-- **Enums provisórios** (valores finais devem ser derivados dos use cases nos módulos seguintes — ver "Questões ainda abertas"): `requisition_status = OPEN | IN_PROGRESS | PAUSED | DONE | CANCELLED`; `release_channel = STABLE | BETA`; `release_status = DRAFT | PUBLISHED`. Prioridade (`LOW | MEDIUM | HIGH`), status de tarefa (`TODO | IN_PROGRESS | PAUSED | DONE`) e `attachment_kind` (`FILE | LINK`) seguem a documentação.
+- Módulos `companies`, `users` e `memberships` com entidades, use cases, repositórios Drizzle e rotas HTTP:
+  - `POST /users` — cria usuário (identidade global) com hash de senha via `scryptPasswordHasher`.
+  - `POST /companies` — cria empresa e a membership `GESTOR` do dono na mesma operação.
+  - `GET /companies`, `GET /companies/:companyId`, `PATCH /companies/:companyId` — isolamento por membership (`MembershipAccessService`); usuário sem membership ativa recebe 403.
+  - `POST /memberships`, `GET /memberships` — vínculo `User ↔ Company` com posição (`GESTOR`, `SUPORTE`, etc.) e validação de existência de empresa/usuário (404) e unicidade (409).
+- Rotas protegidas: exigem header `Authorization: Bearer <access token>` (JWT, M4) e o contexto autenticado resolve o `userId`.
+- Testes de isolamento entre tenants: usuário do tenant A não lê empresas/memberships do tenant B.
 
-**M2 (Núcleo compartilhado) concluído.** Config, erros, logging e env transversais prontos:
+**M4 (Autenticação JWT) concluído.**
 
-- `config/env.ts` valida variáveis de ambiente com Zod (inclui `LOG_LEVEL`); `.env.example` em `API/` e `app/`.
-- Erros tipados em `API/src/shared/errors`: `AppError` (base, com `code`/`statusCode`/`details`/`cause`) e `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ValidationError`, `ConflictError`, `BusinessRuleError`.
-- Envelope de erro da API: `{ error: { code, message, details? } }`, gerado por `shared/errors/error-response.ts` e aplicado pelo error handler global (`infrastructure/http/error-handler.ts`), que traduz erros tipados, `ZodError`, validações do schema Fastify e erros desconhecidos — **sem stack trace em produção** (mensagem oculta, apenas logada). `setNotFoundHandler` usa o mesmo envelope.
-- Logger estruturado pino em `shared/logging/logger.ts` (service `orbis-api`, env, redact de senhas/tokens) integrado ao Fastify com `request id` nos logs.
-- Primitivas base: `shared/domain` (`Entity`, `ValueObject`) e `shared/application` (`UseCase`).
-- Health responde em degradação quando o banco está indisponível.
-- 63 testes passando; coverage 100% statements/lines/functions, 94,73% branches.
+- Módulo `auth`:
+  - Portas `TokenService` e `RefreshTokenRepository` (`application/ports`).
+  - Use cases `Login`, `RefreshToken` (com rotação e revogação) e `Logout` (`application/use-cases`).
+  - `JoseTokenService` (`infrastructure/security`) — HS256 via `jose`, segredos e TTLs de access/refresh vindos de env.
+  - `DrizzleRefreshTokenRepository` + tabela `refresh_tokens` (`token_hash`, `user_id`, `expires_at`, `revoked_at`, `replaced_by_id`, `created_at`) na migration `0001_supreme_wong.sql`.
+  - Rotas `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout` documentadas via Scalar.
+- **Fluxo:** login valida credenciais (hash seguro, nunca texto puro) e emite access + refresh; refresh rotaciona (revoga o antigo e grava o novo na mesma transação lógica); logout revoga o refresh; token já revogado/reutilizado é recusado com 401.
+- **Proteção das rotas:** `createAuthenticateHook` (`infrastructure/http/authenticate.ts`) valida `Authorization: Bearer <access token>` e injeta `request.auth = { userId }`; rotas sem token recebem 401 `UNAUTHORIZED`.
+- Env: `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (obrigatórios com ≥ 32 caracteres; defaults de desenvolvimento), `JWT_ACCESS_TTL` (default `15m`), `JWT_REFRESH_TTL` (default `30d`). Em produção, os defaults de desenvolvimento são rejeitados.
+- **Nota técnica:** `refresh-token.ts` cria o novo token **antes** de revogar o anterior para respeitar a FK `refresh_tokens.replaced_by_id → refresh_tokens.id`.
+- 189 testes passando (32 arquivos); coverage ~96% statements/lines/functions, ~90% branches.
 
 Para subir o banco localmente: `docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d postgres:17-alpine`, depois `npm run db:migrate` na API.
 
-Próxima etapa: **M3 — Identidade: companies / users / memberships**.
+Próxima etapa: **M5 — Autorização por permissões** (contexto `AuthenticatedUser` com permissões resolvidas por membership).
 
 ## Nota sobre o banco via Docker
 

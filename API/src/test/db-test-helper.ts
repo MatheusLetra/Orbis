@@ -30,5 +30,5 @@ export async function createTestDatabase(): Promise<Database> {
 }
 
 export async function resetIdentityTables(db: Database): Promise<void> {
-  await db.execute(sql`TRUNCATE companies, users, memberships CASCADE;`);
+  await db.execute(sql`TRUNCATE companies, users, memberships, refresh_tokens CASCADE;`);
 }

@@ -1,3 +1,7 @@
+import type {
+  RefreshTokenRecord,
+  RefreshTokenRepository,
+} from "@/modules/auth/application/ports/refresh-token-repository";
 import type { Company } from "@/modules/companies/domain/entities/company";
 import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
 import type { Membership } from "@/modules/memberships/domain/entities/membership";
@@ -109,3 +113,32 @@ export const fakePasswordHasher: PasswordHasher = {
   hash: async (password: string) => `scrypt:${password}`,
   verify: async (password: string, storedHash: string) => storedHash === `scrypt:${password}`,
 };
+
+export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
+  private readonly items = new Map<string, RefreshTokenRecord>();
+
+  async create(token: RefreshTokenRecord): Promise<RefreshTokenRecord> {
+    this.items.set(token.id, { ...token });
+    return token;
+  }
+
+  async findByTokenHash(tokenHash: string): Promise<RefreshTokenRecord | null> {
+    for (const token of this.items.values()) {
+      if (token.tokenHash === tokenHash) {
+        return { ...token };
+      }
+    }
+    return null;
+  }
+
+  async revoke(id: string, replacedById?: string): Promise<void> {
+    const token = this.items.get(id);
+    if (token) {
+      this.items.set(id, {
+        ...token,
+        revokedAt: new Date(),
+        ...(replacedById ? { replacedById } : {}),
+      });
+    }
+  }
+}

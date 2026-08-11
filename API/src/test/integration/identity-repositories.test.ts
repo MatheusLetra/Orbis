@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { Database } from "@/infrastructure/database/client";
+import { DrizzleRefreshTokenRepository } from "@/modules/auth/infrastructure/repositories/drizzle-refresh-token-repository";
 import { Company } from "@/modules/companies/domain/entities/company";
 import { DrizzleCompanyRepository } from "@/modules/companies/infrastructure/repositories/drizzle-company-repository";
 import { Membership } from "@/modules/memberships/domain/entities/membership";
@@ -20,12 +21,14 @@ describe.skipIf(!available)("repositórios de identidade (drizzle + PostgreSQL)"
   let companyRepository: DrizzleCompanyRepository;
   let userRepository: DrizzleUserRepository;
   let membershipRepository: DrizzleMembershipRepository;
+  let refreshTokenRepository: DrizzleRefreshTokenRepository;
 
   beforeAll(async () => {
     db = await createTestDatabase();
     companyRepository = new DrizzleCompanyRepository(db);
     userRepository = new DrizzleUserRepository(db);
     membershipRepository = new DrizzleMembershipRepository(db);
+    refreshTokenRepository = new DrizzleRefreshTokenRepository(db);
   });
 
   beforeEach(async () => {
@@ -177,6 +180,67 @@ describe.skipIf(!available)("repositórios de identidade (drizzle + PostgreSQL)"
 
       expect(updated.position).toBe("GESTOR");
       expect(updated.isActive).toBe(false);
+    });
+  });
+
+  describe("RefreshTokenRepository", () => {
+    it("cria e encontra refresh token por hash", async () => {
+      const user = await userRepository.create(
+        User.create({ email: "rt@orbis.com", name: "Ana", passwordHash: "scrypt:x" }),
+      );
+      const record = {
+        id: "11111111-1111-4111-8111-111111111111",
+        userId: user.id,
+        tokenHash: "hash-do-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+        replacedById: null,
+        createdAt: new Date(),
+      };
+
+      await refreshTokenRepository.create(record);
+      const found = await refreshTokenRepository.findByTokenHash("hash-do-token");
+
+      expect(found?.id).toBe(record.id);
+      expect(found?.userId).toBe(user.id);
+      expect(found?.revokedAt).toBeNull();
+    });
+
+    it("retorna null quando o hash não existe", async () => {
+      expect(await refreshTokenRepository.findByTokenHash("hash-inexistente")).toBeNull();
+    });
+
+    it("revoga o token e registra a substituição", async () => {
+      const user = await userRepository.create(
+        User.create({ email: "rt2@orbis.com", name: "Ana", passwordHash: "scrypt:x" }),
+      );
+      await refreshTokenRepository.create({
+        id: "22222222-2222-4222-8222-222222222222",
+        userId: user.id,
+        tokenHash: "hash-antigo",
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+        replacedById: null,
+        createdAt: new Date(),
+      });
+
+      await refreshTokenRepository.create({
+        id: "33333333-3333-4333-8333-333333333333",
+        userId: user.id,
+        tokenHash: "hash-novo",
+        expiresAt: new Date(Date.now() + 60_000),
+        revokedAt: null,
+        replacedById: null,
+        createdAt: new Date(),
+      });
+      await refreshTokenRepository.revoke(
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+      );
+
+      const found = await refreshTokenRepository.findByTokenHash("hash-antigo");
+      expect(found?.revokedAt).not.toBeNull();
+      expect(found?.replacedById).toBe("33333333-3333-4333-8333-333333333333");
     });
   });
 });

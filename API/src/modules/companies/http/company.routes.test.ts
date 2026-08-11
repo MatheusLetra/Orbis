@@ -13,13 +13,21 @@ async function build(): Promise<{ app: FastifyInstance; modules: TestModules }> 
   return { app, modules };
 }
 
+async function authHeaders(
+  modules: TestModules,
+  userId: string,
+): Promise<{ authorization: string }> {
+  const token = await modules.tokenService.signAccessToken(userId);
+  return { authorization: `Bearer ${token}` };
+}
+
 describe("POST /companies", () => {
   it("cria a empresa e a membership GESTOR do dono", async () => {
     const { app, modules } = await build();
     const response = await app.inject({
       method: "POST",
       url: "/companies",
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
       payload: { name: "Orbis Corp" },
     });
 
@@ -53,11 +61,11 @@ describe("POST /companies", () => {
   });
 
   it("retorna 400 para corpo inválido", async () => {
-    const { app } = await build();
+    const { app, modules } = await build();
     const response = await app.inject({
       method: "POST",
       url: "/companies",
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
       payload: { name: "  " },
     });
 
@@ -78,7 +86,7 @@ describe("GET /companies", () => {
     const response = await app.inject({
       method: "GET",
       url: "/companies",
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
     });
 
     expect(response.statusCode).toBe(200);
@@ -111,7 +119,7 @@ describe("GET /companies/:companyId", () => {
     const response = await app.inject({
       method: "GET",
       url: `/companies/${company.id}`,
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
     });
 
     expect(response.statusCode).toBe(200);
@@ -126,7 +134,7 @@ describe("GET /companies/:companyId", () => {
     const response = await app.inject({
       method: "GET",
       url: `/companies/${company.id}`,
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
     });
 
     expect(response.statusCode).toBe(403);
@@ -146,7 +154,7 @@ describe("PATCH /companies/:companyId", () => {
     const response = await app.inject({
       method: "PATCH",
       url: `/companies/${company.id}`,
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
       payload: { name: "Orbis SA", timezone: "America/New_York" },
     });
 
@@ -165,7 +173,7 @@ describe("PATCH /companies/:companyId", () => {
     const response = await app.inject({
       method: "PATCH",
       url: `/companies/${company.id}`,
-      headers: { "x-user-id": OWNER_ID },
+      headers: await authHeaders(modules, OWNER_ID),
       payload: {},
     });
 

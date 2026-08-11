@@ -41,6 +41,9 @@ describe("swagger", () => {
 
     expect(doc.paths).toHaveProperty("/health");
     expect(doc.paths).toHaveProperty("/users");
+    expect(doc.paths).toHaveProperty("/auth/login");
+    expect(doc.paths).toHaveProperty("/auth/refresh");
+    expect(doc.paths).toHaveProperty("/auth/logout");
     expect(doc.paths).toHaveProperty("/companies");
     expect(doc.paths).toHaveProperty("/companies/{companyId}");
     expect(doc.paths).toHaveProperty("/memberships");

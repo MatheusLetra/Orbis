@@ -51,11 +51,11 @@ Os módulos são ordenados preservando dependências. Não adiantar módulos que
 ## 3. Mapa geral dos módulos
 
 ```text
-M0  Fundação dos projetos (API + app, design system, tema e base responsiva)  [base de tudo]
-M1  Infraestrutura de dados (PostgreSQL/Drizzle/migrations/schema base)
-M2  Núcleo compartilhado (config, erros, logging, health, env)
-M3  Identidade: companies / users / memberships
-M4  Autenticação (JWT, login, refresh, logout)
+M0  Fundação dos projetos (API + app, design system, tema e base responsiva)  [base de tudo]  ✅
+M1  Infraestrutura de dados (PostgreSQL/Drizzle/migrations/schema base)  ✅
+M2  Núcleo compartilhado (config, erros, logging, health, env)  ✅
+M3  Identidade: companies / users / memberships  ✅
+M4  Autenticação (JWT, login, refresh, logout)  ✅
 M5  Autorização por permissões
 M6  Catálogo de software: systems / versions / releases / storage
 M7  Requisições
@@ -252,9 +252,11 @@ Regras estruturais:
 
 ---
 
-### M3 — Identidade: companies / users / memberships
+### M3 — Identidade: companies / users / memberships — ✅ CONCLUÍDO
 
 **Objetivo:** criar o modelo de multiempresa e identidade.
+
+**Status da implementação (M3):** módulos `companies`, `users` e `memberships` com entidades, use cases, repositórios Drizzle e rotas HTTP. `POST /users` cria a identidade global com senha hasheada (`scrypt`). `POST /companies` cria a empresa e a membership `GESTOR` do dono; `GET /companies`, `GET /companies/:companyId` e `PATCH /companies/:companyId` validam acesso via `MembershipAccessService` (403 sem membership ativa). `POST /memberships` e `GET /memberships` gerenciam o vínculo `User ↔ Company`. Isolamento entre tenants validado por testes. As rotas exigem token JWT (M4).
 
 **Pré-requisitos:** M1 e M2.
 
@@ -291,9 +293,11 @@ Regras estruturais:
 
 ---
 
-### M4 — Autenticação (JWT, login, refresh, logout)
+### M4 — Autenticação (JWT, login, refresh, logout) — ✅ CONCLUÍDO
 
 **Objetivo:** fluxo de autenticação completo.
+
+**Status da implementação (M4):** módulo `auth` completo. Use cases `Login`, `RefreshToken` (rotação com revogação) e `Logout`; `JoseTokenService` (HS256 via `jose`, segredos/TTLs de env); tabela `refresh_tokens` na migration `0001_supreme_wong.sql` (hash do token, `revoked_at`, `replaced_by_id`). Endpoints `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout` documentados via Scalar. Rotas de negócio protegidas por `createAuthenticateHook` (`Authorization: Bearer <access token>`); sem token → 401 `UNAUTHORIZED`. Senha sempre com hash seguro; tokens nunca logados. 189 testes passando; coverage ~96% statements/lines/functions.
 
 **Pré-requisitos:** M3.
 

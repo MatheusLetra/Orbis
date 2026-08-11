@@ -9,6 +9,7 @@ O Orbis é um SaaS de gestão de desenvolvimento construído do zero. O conceito
 Principais características:
 
 - **Multiempresa (tenants)**: `Company` = tenant, `User` = identidade global, `Membership` = vínculo entre usuário e empresa.
+- **Autenticação JWT**: login, refresh token com rotação/revogação e logout; rotas protegidas exigem `Authorization: Bearer <access token>`.
 - **Kanban** com colunas personalizáveis (A Fazer, Em Andamento, Pausado, Concluído) e histórico de status imutável.
 - **Timelines** semanal, mensal e anual com filtros e indicadores.
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
@@ -98,7 +99,7 @@ docker run --name orbis-postgres \
 ```bash
 cd API
 npm install
-cp .env.example .env   # ajuste as variáveis se necessário (DATABASE_URL)
+cp .env.example .env   # ajuste as variáveis se necessário (DATABASE_URL, JWT secrets)
 npm run db:migrate     # aplica as migrations (schema base)
 npm run dev            # sobe em http://localhost:3333
 ```
@@ -116,6 +117,26 @@ http://localhost:3333/reference             → UI interativa
 http://localhost:3333/reference/openapi.json → spec OpenAPI (JSON)
 http://localhost:3333/reference/openapi.yaml → spec OpenAPI (YAML)
 ```
+
+Endpoints já implementados:
+
+```text
+POST /auth/login                         → autentica e retorna access + refresh tokens
+POST /auth/refresh                       → rotaciona o refresh token
+POST /auth/logout                        → revoga o refresh token
+
+POST   /users                            → cria usuário (identidade global)
+
+POST   /companies                        → cria empresa + membership GESTOR do dono
+GET    /companies                        → lista empresas do usuário autenticado
+GET    /companies/:companyId             → obtém empresa com acesso
+PATCH  /companies/:companyId             → atualiza empresa
+
+POST   /memberships                      → vincula usuário a empresa
+GET    /memberships                      → lista memberships do usuário autenticado
+```
+
+As rotas de negócio (`/companies`, `/memberships`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
 
 ### 3. App
 
@@ -177,6 +198,8 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M0 | Fundação dos projetos (API + app, tema, responsividade) | ✅ Concluído |
 | M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ✅ Concluído |
 | M2 | Núcleo compartilhado (config, erros, logging, env) | ✅ Concluído |
-| M3 | Identidade: companies / users / memberships | ⏳ Próximo |
+| M3 | Identidade: companies / users / memberships | ✅ Concluído |
+| M4 | Autenticação (JWT, login, refresh, logout) | ✅ Concluído |
+| M5 | Autorização por permissões | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

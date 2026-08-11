@@ -1,3 +1,11 @@
+import type { AppEnv } from "@/config/env";
+import type { Database } from "@/infrastructure/database/client";
+import { scryptPasswordHasher } from "@/infrastructure/security/scrypt-password-hasher";
+import { Login } from "@/modules/auth/application/use-cases/login";
+import { Logout } from "@/modules/auth/application/use-cases/logout";
+import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
+import { DrizzleRefreshTokenRepository } from "@/modules/auth/infrastructure/repositories/drizzle-refresh-token-repository";
+import { JoseTokenService } from "@/modules/auth/infrastructure/security/jose-token-service";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -9,8 +17,7 @@ import { ListMemberships } from "@/modules/memberships/application/use-cases/lis
 import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
-import type { Database } from "./database/client";
-import { scryptPasswordHasher } from "./security/scrypt-password-hasher";
+import { parseTtlToMs } from "@/shared/utils/ttl";
 
 export interface OrbisModules {
   createUser: CreateUser;
@@ -20,14 +27,28 @@ export interface OrbisModules {
   updateCompany: UpdateCompany;
   createMembership: CreateMembership;
   listMemberships: ListMemberships;
+  tokenService: JoseTokenService;
+  auth: {
+    login: Login;
+    refreshToken: RefreshToken;
+    logout: Logout;
+  };
 }
 
-export function buildModules(database: Database): OrbisModules {
+export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const userRepository = new DrizzleUserRepository(database);
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
+  const refreshTokenRepository = new DrizzleRefreshTokenRepository(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
+  const tokenService = new JoseTokenService({
+    accessSecret: env.JWT_ACCESS_SECRET,
+    refreshSecret: env.JWT_REFRESH_SECRET,
+    accessTokenTtl: env.JWT_ACCESS_TTL,
+    refreshTokenTtl: env.JWT_REFRESH_TTL,
+  });
+  const refreshTokenTtlMs = parseTtlToMs(env.JWT_REFRESH_TTL);
 
   return {
     createUser: new CreateUser(userRepository, scryptPasswordHasher),
@@ -37,5 +58,15 @@ export function buildModules(database: Database): OrbisModules {
     updateCompany: new UpdateCompany(companyRepository, accessService),
     createMembership: new CreateMembership(membershipRepository, companyRepository, userRepository),
     listMemberships: new ListMemberships(membershipRepository),
+    tokenService,
+    auth: {
+      login: new Login(userRepository, scryptPasswordHasher, tokenService, refreshTokenRepository, {
+        refreshTokenTtlMs,
+      }),
+      refreshToken: new RefreshToken(tokenService, refreshTokenRepository, {
+        refreshTokenTtlMs,
+      }),
+      logout: new Logout(tokenService, refreshTokenRepository),
+    },
   };
 }

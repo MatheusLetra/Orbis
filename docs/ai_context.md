@@ -308,8 +308,9 @@ PostgreSQL continua sendo a fonte de verdade.
 ## 12. Segurança
 
 - JWT com access token curto;
-- refresh token com rotação;
-- hash seguro de senha;
+- refresh token com rotação (revoga o anterior a cada uso);
+- hash seguro de senha (scrypt);
+- hash do refresh token no banco (SHA-256 — token nunca armazenado em texto puro);
 - autorização no backend;
 - isolamento tenant;
 - validação de payload;
@@ -318,6 +319,8 @@ PostgreSQL continua sendo a fonte de verdade.
 - CORS;
 - auditoria;
 - secrets fora do Git.
+
+Implementado no M4: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`; rotas de negócio protegidas por `Authorization: Bearer <access token>`.
 
 ## 13. Banco
 
@@ -351,6 +354,7 @@ Nomes de tabelas devem preferencialmente ser plural em snake_case:
 companies
 users
 memberships
+refresh_tokens
 requisitions
 tasks
 task_status_history

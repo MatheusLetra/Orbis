@@ -7,7 +7,9 @@ import type { Logger } from "pino";
 import { type AppEnv, loadEnv } from "./config/env";
 import type { OrbisModules } from "./infrastructure/composition-root";
 import type { Database } from "./infrastructure/database/client";
+import { createAuthenticateHook } from "./infrastructure/http/authenticate";
 import { createErrorHandler } from "./infrastructure/http/error-handler";
+import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
@@ -83,8 +85,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const { modules } = options;
     const instance = app as unknown as FastifyInstance;
     await registerUserRoutes(instance, { createUser: modules.createUser });
-    await registerCompanyRoutes(instance, modules);
-    await registerMembershipRoutes(instance, modules);
+    await registerAuthRoutes(instance, modules.auth);
+
+    await instance.register(async (protectedRoutes) => {
+      protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
+      await registerCompanyRoutes(protectedRoutes, modules);
+      await registerMembershipRoutes(protectedRoutes, modules);
+    });
   }
 
   return app;

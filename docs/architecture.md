@@ -247,6 +247,8 @@ Isso permite:
 - isolamento tenant;
 - troca de contexto de empresa.
 
+**Implementação (M3/M4):** módulos `companies`, `users`, `memberships` e `auth`. O acesso às rotas de negócio é autenticado por JWT (`Authorization: Bearer`); o `userId` do contexto autenticado é a fonte de verdade para as consultas de empresas/memberships — nunca o `userId`/`companyId` enviado pelo cliente.
+
 ### Funcionário e cargo
 
 O funcionário (perfil/membership dentro da empresa) deve possuir o atributo **cargo**, representando a posição/função dentro da empresa.
@@ -656,20 +658,41 @@ issue access token
 issue refresh token
 ```
 
+**Implementação (M4):**
+
+- Módulo `auth` com portas `TokenService` e `RefreshTokenRepository` (o domínio não conhece `jose` nem Drizzle).
+- Use cases `Login`, `RefreshToken` e `Logout` em `application/use-cases`.
+- `JoseTokenService` (`infrastructure/security`) — assina e verifica tokens HS256 via `jose`; segredos e TTLs vindos de env.
+- Tabela `refresh_tokens` (`infrastructure/database/schema.ts`, migration `0001`): `token_hash` (SHA-256 do token, nunca o token em si), `user_id`, `expires_at`, `revoked_at`, `replaced_by_id`, `created_at`.
+- `createAuthenticateHook` (`infrastructure/http/authenticate.ts`) valida `Authorization: Bearer <access token>` e injeta `request.auth = { userId }`; sem token válido → 401 `UNAUTHORIZED`.
+- Endpoints: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`.
+
 Access token:
 
-- curta duração;
-- contém identidade e claims mínimas.
+- curta duração (default `15m`);
+- contém apenas `sub` (userId) — claims mínimas.
 
 Refresh token:
 
-- rotação;
-- revogável;
-- não usar como autorização de API.
+- rotação: cada uso emite um novo par e revoga o anterior (`replaced_by_id` registra a substituição);
+- revogável no logout;
+- não usar como autorização de API;
+- persistido apenas como hash (SHA-256), nunca em texto puro.
 
 Evitar colocar permissões gigantes dentro do JWT.
 
-Permissões podem ser resolvidas pelo contexto/membership.
+Permissões podem ser resolvidas pelo contexto/membership (M5).
+
+### Configuração (env)
+
+```text
+JWT_ACCESS_SECRET=   # obrigatório, mínimo 32 caracteres
+JWT_REFRESH_SECRET=  # obrigatório, mínimo 32 caracteres
+JWT_ACCESS_TTL=      # default 15m
+JWT_REFRESH_TTL=     # default 30d
+```
+
+Em `NODE_ENV=production`, os segredos de desenvolvimento padrão são rejeitados.
 
 ## 19. Autorização
 
@@ -1093,6 +1116,8 @@ LOG_LEVEL=
 DATABASE_URL=
 JWT_ACCESS_SECRET=
 JWT_REFRESH_SECRET=
+JWT_ACCESS_TTL=    # opcional, default 15m
+JWT_REFRESH_TTL=   # opcional, default 30d
 REDIS_URL=
 STORAGE_PROVIDER=
 STORAGE_BUCKET=

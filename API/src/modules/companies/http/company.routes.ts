@@ -34,7 +34,9 @@ const companyResponse = {
 
 const userHeader = {
   type: "object",
-  properties: { "x-user-id": { type: "string", format: "uuid" } },
+  properties: {
+    authorization: { type: "string", description: "Token de acesso: Bearer <token>" },
+  },
 } as const;
 
 const companyListResponse = {

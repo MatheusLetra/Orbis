@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   numeric,
+  type PgColumn,
   pgEnum,
   pgTable,
   text,
@@ -441,5 +442,26 @@ export const auditLogs = pgTable(
   (table) => [
     index("audit_logs_company_idx").on(table.companyId),
     index("audit_logs_action_idx").on(table.action),
+  ],
+);
+
+export const refreshTokens = pgTable(
+  "refresh_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    replacedById: uuid("replaced_by_id").references((): PgColumn => refreshTokens.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("refresh_tokens_token_hash_idx").on(table.tokenHash),
+    index("refresh_tokens_user_idx").on(table.userId),
   ],
 );

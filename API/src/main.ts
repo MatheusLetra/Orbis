@@ -9,7 +9,7 @@ const env = loadEnv();
 
 async function main() {
   const database = createDb(env.DATABASE_URL);
-  const modules = buildModules(database);
+  const modules = buildModules(database, env);
   const app = await buildApp({ database, modules, config: env });
   try {
     await app.listen({ port: env.PORT, host: env.HOST });

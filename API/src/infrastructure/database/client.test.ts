@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDb } from "./client.js";
+import { createDb } from "./client";
 
 describe("createDb", () => {
   it("usa a DATABASE_URL padrão quando nada é informado", () => {

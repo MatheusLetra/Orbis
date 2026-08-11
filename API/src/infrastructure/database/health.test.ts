@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDatabaseHealth } from "./health.js";
+import { checkDatabaseHealth } from "./health";
 
 const okDatabase = {
   execute: async () => undefined,

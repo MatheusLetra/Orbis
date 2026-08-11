@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppError } from "./app-error.js";
+import { AppError } from "./app-error";
 
 class FakeError extends AppError {
   readonly code = "FAKE";

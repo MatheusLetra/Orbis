@@ -1,4 +1,4 @@
-import { User } from "../../domain/entities/user.js";
+import { User } from "@/modules/users/domain/entities/user";
 
 export type UserRow = {
   id: string;

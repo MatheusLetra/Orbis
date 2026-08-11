@@ -1,14 +1,14 @@
-import type { UseCase } from "../../../../shared/application/use-case.js";
-import { ConflictError, ValidationError } from "../../../../shared/errors/typed-errors.js";
-import { User } from "../../domain/entities/user.js";
-import type { UserRepository } from "../../domain/repositories/user-repository.js";
 import {
   type CreateUserInput,
   createUserSchema,
   toUserOutput,
   type UserOutput,
-} from "../dto/user-dtos.js";
-import type { PasswordHasher } from "../ports/password-hasher.js";
+} from "@/modules/users/application/dto/user-dtos";
+import type { PasswordHasher } from "@/modules/users/application/ports/password-hasher";
+import { User } from "@/modules/users/domain/entities/user";
+import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
+import type { UseCase } from "@/shared/application/use-case";
+import { ConflictError, ValidationError } from "@/shared/errors/typed-errors";
 
 export class CreateUser implements UseCase<CreateUserInput, UserOutput> {
   constructor(

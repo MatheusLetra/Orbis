@@ -1,11 +1,14 @@
 import { and, eq } from "drizzle-orm";
 
-import type { Database } from "../../../../infrastructure/database/client.js";
-import { memberships } from "../../../../infrastructure/database/schema.js";
-import { requireRow } from "../../../../shared/utils/require-row.js";
-import type { Membership } from "../../domain/entities/membership.js";
-import type { MembershipRepository } from "../../domain/repositories/membership-repository.js";
-import { toEntity, toInsertValues } from "../mappers/membership-mapper.js";
+import type { Database } from "@/infrastructure/database/client";
+import { memberships } from "@/infrastructure/database/schema";
+import type { Membership } from "@/modules/memberships/domain/entities/membership";
+import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  toEntity,
+  toInsertValues,
+} from "@/modules/memberships/infrastructure/mappers/membership-mapper";
+import { requireRow } from "@/shared/utils/require-row";
 
 export class DrizzleMembershipRepository implements MembershipRepository {
   constructor(private readonly db: Database) {}

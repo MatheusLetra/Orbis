@@ -1,19 +1,14 @@
 import { describe, expect, it } from "vitest";
-
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../../../../shared/errors/typed-errors.js";
+import { Company } from "@/modules/companies/domain/entities/company";
+import { User } from "@/modules/users/domain/entities/user";
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 import {
   InMemoryCompanyRepository,
   InMemoryMembershipRepository,
   InMemoryUserRepository,
-} from "../../../../test/fakes/identity-fakes.js";
-import { Company } from "../../../companies/domain/entities/company.js";
-import { User } from "../../../users/domain/entities/user.js";
-import { CreateMembership } from "./create-membership.js";
-import { ListMemberships } from "./list-memberships.js";
+} from "@/test/fakes/identity-fakes";
+import { CreateMembership } from "./create-membership";
+import { ListMemberships } from "./list-memberships";
 
 async function build() {
   const companyRepository = new InMemoryCompanyRepository();

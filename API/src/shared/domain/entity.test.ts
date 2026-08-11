@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Entity } from "./entity.js";
+import { Entity } from "./entity";
 
 class FakeEntity extends Entity<string> {}
 

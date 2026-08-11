@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 
-import { createDb, type Database } from "../infrastructure/database/client.js";
+import { createDb, type Database } from "@/infrastructure/database/client";
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/orbis_test";

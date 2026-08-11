@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-
-import { ForbiddenError } from "../../../../shared/errors/typed-errors.js";
-import { InMemoryMembershipRepository } from "../../../../test/fakes/identity-fakes.js";
-import { Membership } from "../../domain/entities/membership.js";
-import { MembershipAccessService } from "./membership-access-service.js";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { ForbiddenError } from "@/shared/errors/typed-errors";
+import { InMemoryMembershipRepository } from "@/test/fakes/identity-fakes";
+import { MembershipAccessService } from "./membership-access-service";
 
 describe("MembershipAccessService", () => {
   it("permite acesso quando existe membership ativa", async () => {

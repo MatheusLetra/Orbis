@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildApp } from "../../app.js";
+import { buildApp } from "@/app";
 
 describe("GET /health", () => {
   it("responde com status ok e sem banco quando não conectado", async () => {

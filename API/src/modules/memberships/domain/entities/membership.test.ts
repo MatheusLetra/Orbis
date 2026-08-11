@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Membership } from "./membership.js";
+import { Membership } from "./membership";
 
 const base = { companyId: "company-1", userId: "user-1", position: "DESENVOLVEDOR" };
 

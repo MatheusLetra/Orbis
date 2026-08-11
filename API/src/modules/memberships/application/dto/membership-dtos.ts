@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Membership } from "../../domain/entities/membership.js";
+import type { Membership } from "@/modules/memberships/domain/entities/membership";
 
 export const createMembershipSchema = z.object({
   companyId: z.string().uuid("companyId inválido"),

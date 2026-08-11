@@ -1,4 +1,4 @@
-import { Membership } from "../../domain/entities/membership.js";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
 
 export type MembershipRow = {
   id: string;

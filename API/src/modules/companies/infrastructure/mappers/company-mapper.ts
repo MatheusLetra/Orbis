@@ -1,4 +1,4 @@
-import { Company } from "../../domain/entities/company.js";
+import { Company } from "@/modules/companies/domain/entities/company";
 
 export type CompanyRow = {
   id: string;

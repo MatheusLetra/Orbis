@@ -1,21 +1,16 @@
 import { describe, expect, it } from "vitest";
-
-import {
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from "../../../../shared/errors/typed-errors.js";
+import { Company } from "@/modules/companies/domain/entities/company";
+import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 import {
   InMemoryCompanyRepository,
   InMemoryMembershipRepository,
-} from "../../../../test/fakes/identity-fakes.js";
-import { MembershipAccessService } from "../../../memberships/application/services/membership-access-service.js";
-import { Membership } from "../../../memberships/domain/entities/membership.js";
-import { Company } from "../../domain/entities/company.js";
-import { CreateCompany } from "./create-company.js";
-import { GetCompany } from "./get-company.js";
-import { ListCompanies } from "./list-companies.js";
-import { UpdateCompany } from "./update-company.js";
+} from "@/test/fakes/identity-fakes";
+import { CreateCompany } from "./create-company";
+import { GetCompany } from "./get-company";
+import { ListCompanies } from "./list-companies";
+import { UpdateCompany } from "./update-company";
 
 function build() {
   const companyRepository = new InMemoryCompanyRepository();
@@ -39,23 +34,32 @@ async function linkUser(
 }
 
 describe("CreateCompany", () => {
-  it("cria uma empresa com timezone padrão", async () => {
-    const { companyRepository } = build();
-    const useCase = new CreateCompany(companyRepository);
+  it("cria uma empresa com timezone padrão e membership do dono", async () => {
+    const { companyRepository, membershipRepository } = build();
+    const useCase = new CreateCompany(companyRepository, membershipRepository);
 
-    const output = await useCase.execute({ name: "Orbis Corp" });
+    const output = await useCase.execute({
+      ownerId: "user-1",
+      company: { name: "Orbis Corp" },
+    });
 
     expect(output.name).toBe("Orbis Corp");
     expect(output.timezone).toBe("America/Sao_Paulo");
     expect(output.isActive).toBe(true);
     expect(output.id).toBeTypeOf("string");
+
+    const membership = await membershipRepository.findByUserAndCompany("user-1", output.id);
+    expect(membership).not.toBeNull();
+    expect(membership?.position).toBe("GESTOR");
   });
 
   it("valida entrada inválida", async () => {
-    const { companyRepository } = build();
-    const useCase = new CreateCompany(companyRepository);
+    const { companyRepository, membershipRepository } = build();
+    const useCase = new CreateCompany(companyRepository, membershipRepository);
 
-    await expect(useCase.execute({ name: "  " })).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      useCase.execute({ ownerId: "user-1", company: { name: "  " } }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });
 

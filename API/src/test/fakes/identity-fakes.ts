@@ -1,10 +1,10 @@
-import type { Company } from "../../modules/companies/domain/entities/company.js";
-import type { CompanyRepository } from "../../modules/companies/domain/repositories/company-repository.js";
-import type { Membership } from "../../modules/memberships/domain/entities/membership.js";
-import type { MembershipRepository } from "../../modules/memberships/domain/repositories/membership-repository.js";
-import type { PasswordHasher } from "../../modules/users/application/ports/password-hasher.js";
-import type { User } from "../../modules/users/domain/entities/user.js";
-import type { UserRepository } from "../../modules/users/domain/repositories/user-repository.js";
+import type { Company } from "@/modules/companies/domain/entities/company";
+import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
+import type { Membership } from "@/modules/memberships/domain/entities/membership";
+import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import type { PasswordHasher } from "@/modules/users/application/ports/password-hasher";
+import type { User } from "@/modules/users/domain/entities/user";
+import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
 
 export class InMemoryCompanyRepository implements CompanyRepository {
   private readonly items = new Map<string, Company>();

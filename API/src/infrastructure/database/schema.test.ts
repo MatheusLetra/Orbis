@@ -23,7 +23,7 @@ import {
   tasks,
   timeEntries,
   users,
-} from "./schema.js";
+} from "./schema";
 
 const allTables = [
   companies,

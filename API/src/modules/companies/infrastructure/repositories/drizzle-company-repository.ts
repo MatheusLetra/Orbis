@@ -1,10 +1,13 @@
 import { and, eq } from "drizzle-orm";
-import type { Database } from "../../../../infrastructure/database/client.js";
-import { companies, memberships } from "../../../../infrastructure/database/schema.js";
-import { requireRow } from "../../../../shared/utils/require-row.js";
-import type { Company } from "../../domain/entities/company.js";
-import type { CompanyRepository } from "../../domain/repositories/company-repository.js";
-import { toEntity, toInsertValues } from "../mappers/company-mapper.js";
+import type { Database } from "@/infrastructure/database/client";
+import { companies, memberships } from "@/infrastructure/database/schema";
+import type { Company } from "@/modules/companies/domain/entities/company";
+import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
+import {
+  toEntity,
+  toInsertValues,
+} from "@/modules/companies/infrastructure/mappers/company-mapper";
+import { requireRow } from "@/shared/utils/require-row";
 
 export class DrizzleCompanyRepository implements CompanyRepository {
   constructor(private readonly db: Database) {}

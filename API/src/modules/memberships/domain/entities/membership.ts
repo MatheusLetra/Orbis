@@ -1,5 +1,5 @@
-import { Entity } from "../../../../shared/domain/entity.js";
-import { Position } from "../value-objects/position.js";
+import { Position } from "@/modules/memberships/domain/value-objects/position";
+import { Entity } from "@/shared/domain/entity";
 
 export interface MembershipProps {
   id: string;

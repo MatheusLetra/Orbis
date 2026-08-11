@@ -1,19 +1,15 @@
-import type { UseCase } from "../../../../shared/application/use-case.js";
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../../../../shared/errors/typed-errors.js";
-import type { CompanyRepository } from "../../../companies/domain/repositories/company-repository.js";
-import type { UserRepository } from "../../../users/domain/repositories/user-repository.js";
-import { Membership } from "../../domain/entities/membership.js";
-import type { MembershipRepository } from "../../domain/repositories/membership-repository.js";
+import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
 import {
   type CreateMembershipInput,
   createMembershipSchema,
   type MembershipOutput,
   toMembershipOutput,
-} from "../dto/membership-dtos.js";
+} from "@/modules/memberships/application/dto/membership-dtos";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
+import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
+import type { UseCase } from "@/shared/application/use-case";
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 
 export class CreateMembership implements UseCase<CreateMembershipInput, MembershipOutput> {
   constructor(

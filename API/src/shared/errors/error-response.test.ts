@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { toErrorResponse } from "./error-response.js";
-import { NotFoundError, ValidationError } from "./typed-errors.js";
+import { toErrorResponse } from "./error-response";
+import { NotFoundError, ValidationError } from "./typed-errors";
 
 describe("toErrorResponse", () => {
   it("converte um AppError em status e body estruturado", () => {

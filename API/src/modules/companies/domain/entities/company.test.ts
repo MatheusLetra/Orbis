@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Company } from "./company.js";
+import { Company } from "./company";
 
 const base = { name: "Orbis Corp" };
 

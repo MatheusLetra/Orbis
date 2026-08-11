@@ -1,4 +1,4 @@
-import type { Company } from "../entities/company.js";
+import type { Company } from "@/modules/companies/domain/entities/company";
 
 export interface CompanyRepository {
   create(company: Company): Promise<Company>;

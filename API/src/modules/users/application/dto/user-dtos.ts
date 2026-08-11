@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { User } from "../../domain/entities/user.js";
+import type { User } from "@/modules/users/domain/entities/user";
 
 export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail inválido").max(320),

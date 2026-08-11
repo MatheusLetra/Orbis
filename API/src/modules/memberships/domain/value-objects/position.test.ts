@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Position } from "./position.js";
+import { Position } from "./position";
 
 describe("Position", () => {
   it("cria um cargo válido", () => {

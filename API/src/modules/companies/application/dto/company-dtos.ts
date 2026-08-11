@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Company } from "../../domain/entities/company.js";
+import type { Company } from "@/modules/companies/domain/entities/company";
 
 export const createCompanySchema = z.object({
   name: z.string().trim().min(1, "Nome da empresa é obrigatório").max(200, "Nome muito longo"),

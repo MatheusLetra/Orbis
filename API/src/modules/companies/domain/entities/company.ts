@@ -1,4 +1,4 @@
-import { Entity } from "../../../../shared/domain/entity.js";
+import { Entity } from "@/shared/domain/entity";
 
 export interface CompanyProps {
   id: string;

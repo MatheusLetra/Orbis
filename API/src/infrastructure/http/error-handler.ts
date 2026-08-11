@@ -1,8 +1,8 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 
-import { AppError } from "../../shared/errors/app-error.js";
-import { toErrorResponse } from "../../shared/errors/error-response.js";
+import { AppError } from "@/shared/errors/app-error";
+import { toErrorResponse } from "@/shared/errors/error-response";
 
 export interface ErrorHandlerOptions {
   exposeInternalDetails: boolean;

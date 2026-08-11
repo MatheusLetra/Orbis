@@ -1,6 +1,9 @@
-import type { UseCase } from "../../../../shared/application/use-case.js";
-import type { CompanyRepository } from "../../domain/repositories/company-repository.js";
-import { type CompanyOutput, toCompanyOutput } from "../dto/company-dtos.js";
+import {
+  type CompanyOutput,
+  toCompanyOutput,
+} from "@/modules/companies/application/dto/company-dtos";
+import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
+import type { UseCase } from "@/shared/application/use-case";
 
 export interface ListCompaniesInput {
   userId: string;

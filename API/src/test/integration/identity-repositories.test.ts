@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { Database } from "../../infrastructure/database/client.js";
-import { Company } from "../../modules/companies/domain/entities/company.js";
-import { DrizzleCompanyRepository } from "../../modules/companies/infrastructure/repositories/drizzle-company-repository.js";
-import { Membership } from "../../modules/memberships/domain/entities/membership.js";
-import { DrizzleMembershipRepository } from "../../modules/memberships/infrastructure/repositories/drizzle-membership-repository.js";
-import { User } from "../../modules/users/domain/entities/user.js";
-import { DrizzleUserRepository } from "../../modules/users/infrastructure/repositories/drizzle-user-repository.js";
+import type { Database } from "@/infrastructure/database/client";
+import { Company } from "@/modules/companies/domain/entities/company";
+import { DrizzleCompanyRepository } from "@/modules/companies/infrastructure/repositories/drizzle-company-repository";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
+import { User } from "@/modules/users/domain/entities/user";
+import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
 import {
   createTestDatabase,
   isTestDatabaseAvailable,
   resetIdentityTables,
-} from "../db-test-helper.js";
+} from "@/test/db-test-helper";
 
 const available = await isTestDatabaseAvailable();
 

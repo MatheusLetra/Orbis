@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { Database } from "../../infrastructure/database/client.js";
-import { checkDatabaseHealth } from "../../infrastructure/database/health.js";
+import type { Database } from "@/infrastructure/database/client";
+import { checkDatabaseHealth } from "@/infrastructure/database/health";
 
 export interface HealthRouteOptions {
   database?: Database;

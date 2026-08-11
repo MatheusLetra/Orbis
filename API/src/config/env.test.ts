@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "./env.js";
+import { loadEnv } from "./env";
 
 describe("loadEnv", () => {
   it("aplica valores padrão quando variáveis não estão presentes", () => {

@@ -1,4 +1,4 @@
-import type { AppError } from "./app-error.js";
+import type { AppError } from "./app-error";
 
 export interface ErrorResponse {
   statusCode: number;

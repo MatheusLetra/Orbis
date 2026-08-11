@@ -1,4 +1,4 @@
-import type { Membership } from "../entities/membership.js";
+import type { Membership } from "@/modules/memberships/domain/entities/membership";
 
 export interface MembershipRepository {
   create(membership: Membership): Promise<Membership>;

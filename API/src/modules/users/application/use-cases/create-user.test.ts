@@ -1,12 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-
-import { ConflictError, ValidationError } from "../../../../shared/errors/typed-errors.js";
-import {
-  fakePasswordHasher,
-  InMemoryUserRepository,
-} from "../../../../test/fakes/identity-fakes.js";
-import { User } from "../../domain/entities/user.js";
-import { CreateUser } from "./create-user.js";
+import { User } from "@/modules/users/domain/entities/user";
+import { ConflictError, ValidationError } from "@/shared/errors/typed-errors";
+import { fakePasswordHasher, InMemoryUserRepository } from "@/test/fakes/identity-fakes";
+import { CreateUser } from "./create-user";
 
 describe("CreateUser", () => {
   it("cria usuário com senha hasheada e não expõe o hash", async () => {

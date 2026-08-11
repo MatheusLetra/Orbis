@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { User } from "./user.js";
+import { User } from "./user";
 
 const base = {
   email: "dev@orbis.com",

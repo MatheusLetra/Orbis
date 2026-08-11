@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 
-import type { Database } from "../../../../infrastructure/database/client.js";
-import { users } from "../../../../infrastructure/database/schema.js";
-import { requireRow } from "../../../../shared/utils/require-row.js";
-import type { User } from "../../domain/entities/user.js";
-import type { UserRepository } from "../../domain/repositories/user-repository.js";
-import { toEntity, toInsertValues } from "../mappers/user-mapper.js";
+import type { Database } from "@/infrastructure/database/client";
+import { users } from "@/infrastructure/database/schema";
+import type { User } from "@/modules/users/domain/entities/user";
+import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
+import { toEntity, toInsertValues } from "@/modules/users/infrastructure/mappers/user-mapper";
+import { requireRow } from "@/shared/utils/require-row";
 
 export class DrizzleUserRepository implements UserRepository {
   constructor(private readonly db: Database) {}

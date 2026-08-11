@@ -1,5 +1,5 @@
-import { ForbiddenError } from "../../../../shared/errors/typed-errors.js";
-import type { MembershipRepository } from "../../domain/repositories/membership-repository.js";
+import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import { ForbiddenError } from "@/shared/errors/typed-errors";
 
 export class MembershipAccessService {
   constructor(private readonly membershipRepository: MembershipRepository) {}

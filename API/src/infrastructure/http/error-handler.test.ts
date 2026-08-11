@@ -3,8 +3,8 @@ import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { buildApp } from "../../app.js";
-import type { AppEnv } from "../../config/env.js";
+import { buildApp } from "@/app";
+import type { AppEnv } from "@/config/env";
 import {
   BusinessRuleError,
   ConflictError,
@@ -12,8 +12,8 @@ import {
   NotFoundError,
   UnauthorizedError,
   ValidationError,
-} from "../../shared/errors/typed-errors.js";
-import { createLogger } from "../../shared/logging/logger.js";
+} from "@/shared/errors/typed-errors";
+import { createLogger } from "@/shared/logging/logger";
 
 const prodConfig: AppEnv = {
   NODE_ENV: "production",

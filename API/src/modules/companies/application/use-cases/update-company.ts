@@ -1,13 +1,13 @@
-import type { UseCase } from "../../../../shared/application/use-case.js";
-import { NotFoundError, ValidationError } from "../../../../shared/errors/typed-errors.js";
-import type { MembershipAccessService } from "../../../memberships/application/services/membership-access-service.js";
-import type { CompanyRepository } from "../../domain/repositories/company-repository.js";
 import {
   type CompanyOutput,
   toCompanyOutput,
   type UpdateCompanyInput,
   updateCompanySchema,
-} from "../dto/company-dtos.js";
+} from "@/modules/companies/application/dto/company-dtos";
+import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
+import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import type { UseCase } from "@/shared/application/use-case";
+import { NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 
 export interface UpdateCompanyCommand {
   userId: string;

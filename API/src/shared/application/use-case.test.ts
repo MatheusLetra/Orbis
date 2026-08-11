@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UseCase } from "./use-case.js";
+import type { UseCase } from "./use-case";
 
 describe("UseCase", () => {
   it("define o contrato execute", async () => {

@@ -1,4 +1,4 @@
-import { ValueObject } from "../../../../shared/domain/value-object.js";
+import { ValueObject } from "@/shared/domain/value-object";
 
 const MAX_LENGTH = 50;
 

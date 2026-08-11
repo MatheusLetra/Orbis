@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ValueObject } from "./value-object.js";
+import { ValueObject } from "./value-object";
 
 class Priority extends ValueObject<string> {}
 

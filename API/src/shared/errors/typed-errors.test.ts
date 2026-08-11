@@ -6,7 +6,7 @@ import {
   NotFoundError,
   UnauthorizedError,
   ValidationError,
-} from "./typed-errors.js";
+} from "./typed-errors";
 
 const cases = [
   { ErrorClass: NotFoundError, code: "NOT_FOUND", status: 404 },

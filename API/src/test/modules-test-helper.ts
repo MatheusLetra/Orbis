@@ -1,4 +1,9 @@
 import type { OrbisModules } from "@/infrastructure/composition-root";
+import { AddFileAttachment } from "@/modules/attachments/application/use-cases/add-file-attachment";
+import { AddLinkAttachment } from "@/modules/attachments/application/use-cases/add-link-attachment";
+import { GetFileAttachment } from "@/modules/attachments/application/use-cases/get-file-attachment";
+import { ListAttachments } from "@/modules/attachments/application/use-cases/list-attachments";
+import { RemoveAttachment } from "@/modules/attachments/application/use-cases/remove-attachment";
 import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
@@ -42,6 +47,11 @@ import { GetSystemVersion } from "@/modules/versions/application/use-cases/get-s
 import { ListSystemVersions } from "@/modules/versions/application/use-cases/list-system-versions";
 import { UpdateSystemVersion } from "@/modules/versions/application/use-cases/update-system-version";
 import {
+  InMemoryAttachmentBlobRepository,
+  InMemoryAttachmentRepository,
+  InMemoryAttachmentUnitOfWork,
+} from "./fakes/attachment-fakes";
+import {
   InMemoryArtifactStorage,
   InMemoryReleaseRepository,
   InMemorySystemRepository,
@@ -83,6 +93,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     requisitionAssignees: InMemoryRequisitionAssigneeRepository;
     tasks: InMemoryTaskRepository;
     taskStatusHistory: InMemoryTaskStatusHistoryRepository;
+    attachments: InMemoryAttachmentRepository;
+    attachmentBlobs: InMemoryAttachmentBlobRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -102,6 +114,12 @@ export function buildTestModules(): TestModules {
   const tasks = new InMemoryTaskRepository();
   const taskStatusHistory = new InMemoryTaskStatusHistoryRepository();
   const taskUnitOfWork = new InMemoryTaskUnitOfWork(tasks, taskStatusHistory);
+  const attachmentRepository = new InMemoryAttachmentRepository();
+  const attachmentBlobRepository = new InMemoryAttachmentBlobRepository();
+  const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
+    attachmentRepository,
+    attachmentBlobRepository,
+  );
   const accessService = new MembershipAccessService(memberships);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(memberships);
@@ -125,6 +143,8 @@ export function buildTestModules(): TestModules {
       requisitionAssignees,
       tasks,
       taskStatusHistory,
+      attachments: attachmentRepository,
+      attachmentBlobs: attachmentBlobRepository,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -236,6 +256,44 @@ export function buildTestModules(): TestModules {
       ),
       list: new ListTasks(tasks, accessService, new AuthorizationService()),
       get: new GetTask(tasks, taskStatusHistory, accessService, new AuthorizationService()),
+    },
+    attachments: {
+      addFile: new AddFileAttachment(
+        attachmentUnitOfWork,
+        requisitions,
+        tasks,
+        accessService,
+        authorization,
+      ),
+      addLink: new AddLinkAttachment(
+        attachmentRepository,
+        requisitions,
+        tasks,
+        accessService,
+        authorization,
+      ),
+      list: new ListAttachments(
+        attachmentRepository,
+        requisitions,
+        tasks,
+        accessService,
+        authorization,
+      ),
+      getFile: new GetFileAttachment(
+        attachmentRepository,
+        attachmentBlobRepository,
+        requisitions,
+        tasks,
+        accessService,
+        authorization,
+      ),
+      remove: new RemoveAttachment(
+        attachmentRepository,
+        requisitions,
+        tasks,
+        accessService,
+        authorization,
+      ),
     },
     auth: {
       login: new Login(users, fakePasswordHasher, tokenService, refreshTokens, {

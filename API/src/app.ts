@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import swagger from "@fastify/swagger";
 import scalarApiReference from "@scalar/fastify-api-reference";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -9,6 +10,7 @@ import type { OrbisModules } from "./infrastructure/composition-root";
 import type { Database } from "./infrastructure/database/client";
 import { createAuthenticateHook } from "./infrastructure/http/authenticate";
 import { createErrorHandler } from "./infrastructure/http/error-handler";
+import { registerAttachmentRoutes } from "./modules/attachments/http/attachment.routes";
 import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
@@ -58,8 +60,37 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(cors, {
     origin: true,
   });
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024, files: 2, fields: 2, parts: 4 },
+  });
 
   await app.register(swagger, {
+    transformObject: (documentObject) => {
+      if (!("openapiObject" in documentObject)) return documentObject.swaggerObject;
+      const document = documentObject.openapiObject;
+      for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
+        if (!path.endsWith("/attachments/files")) continue;
+        const operation = (pathItem as { post?: Record<string, unknown> }).post;
+        if (!operation) continue;
+        operation.requestBody = {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  file: { type: "string", format: "binary" },
+                  title: { type: "string" },
+                },
+                required: ["file"],
+                additionalProperties: false,
+              },
+            },
+          },
+        };
+      }
+      return document;
+    },
     openapi: {
       info: {
         title: "Orbis API",
@@ -116,6 +147,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       });
       await registerTaskRoutes(protectedRoutes, {
         ...modules.tasks,
+        permissionResolver: modules.permissionResolver,
+      });
+      await registerAttachmentRoutes(protectedRoutes, {
+        ...modules.attachments,
         permissionResolver: modules.permissionResolver,
       });
     });

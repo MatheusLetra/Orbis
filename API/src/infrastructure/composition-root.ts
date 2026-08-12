@@ -1,6 +1,14 @@
 import type { AppEnv } from "@/config/env";
 import type { Database } from "@/infrastructure/database/client";
 import { scryptPasswordHasher } from "@/infrastructure/security/scrypt-password-hasher";
+import { AddFileAttachment } from "@/modules/attachments/application/use-cases/add-file-attachment";
+import { AddLinkAttachment } from "@/modules/attachments/application/use-cases/add-link-attachment";
+import { GetFileAttachment } from "@/modules/attachments/application/use-cases/get-file-attachment";
+import { ListAttachments } from "@/modules/attachments/application/use-cases/list-attachments";
+import { RemoveAttachment } from "@/modules/attachments/application/use-cases/remove-attachment";
+import { DrizzleAttachmentBlobRepository } from "@/modules/attachments/infrastructure/repositories/drizzle-attachment-blob-repository";
+import { DrizzleAttachmentRepository } from "@/modules/attachments/infrastructure/repositories/drizzle-attachment-repository";
+import { DrizzleAttachmentUnitOfWork } from "@/modules/attachments/infrastructure/unit-of-work/drizzle-attachment-unit-of-work";
 import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
@@ -108,6 +116,13 @@ export interface OrbisModules {
     list: ListTasks;
     get: GetTask;
   };
+  attachments: {
+    addFile: AddFileAttachment;
+    addLink: AddLinkAttachment;
+    list: ListAttachments;
+    getFile: GetFileAttachment;
+    remove: RemoveAttachment;
+  };
   auth: {
     login: Login;
     refreshToken: RefreshToken;
@@ -129,6 +144,9 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const taskRepository = new DrizzleTaskRepository(database);
   const taskStatusHistoryRepository = new DrizzleTaskStatusHistoryRepository(database);
   const taskUnitOfWork = new DrizzleTaskUnitOfWork(database);
+  const attachmentRepository = new DrizzleAttachmentRepository(database);
+  const attachmentBlobRepository = new DrizzleAttachmentBlobRepository(database);
+  const attachmentUnitOfWork = new DrizzleAttachmentUnitOfWork(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
@@ -271,6 +289,44 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       transition: new TransitionTaskStatus(taskUnitOfWork, accessService, authorization),
       list: new ListTasks(taskRepository, accessService, authorization),
       get: new GetTask(taskRepository, taskStatusHistoryRepository, accessService, authorization),
+    },
+    attachments: {
+      addFile: new AddFileAttachment(
+        attachmentUnitOfWork,
+        requisitionRepository,
+        taskRepository,
+        accessService,
+        authorization,
+      ),
+      addLink: new AddLinkAttachment(
+        attachmentRepository,
+        requisitionRepository,
+        taskRepository,
+        accessService,
+        authorization,
+      ),
+      list: new ListAttachments(
+        attachmentRepository,
+        requisitionRepository,
+        taskRepository,
+        accessService,
+        authorization,
+      ),
+      getFile: new GetFileAttachment(
+        attachmentRepository,
+        attachmentBlobRepository,
+        requisitionRepository,
+        taskRepository,
+        accessService,
+        authorization,
+      ),
+      remove: new RemoveAttachment(
+        attachmentRepository,
+        requisitionRepository,
+        taskRepository,
+        accessService,
+        authorization,
+      ),
     },
     auth: {
       login: new Login(userRepository, scryptPasswordHasher, tokenService, refreshTokenRepository, {

@@ -15,7 +15,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 7 | M07 — Catálogo de software | [M07.md](milestones/M07.md) | Concluída |
 | 8 | M08 — Requisições | [M08.md](milestones/M08.md) | Concluída |
 | 9 | M09 — Tarefas e histórico de status | [M09.md](milestones/M09.md) | Concluída |
-| 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Não iniciada |
+| 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Concluída |
 | 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Não iniciada |
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Não iniciada |
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Não iniciada |

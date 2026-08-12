@@ -20,7 +20,8 @@ npm-debug.log*
 coverage/
 
 # Artefatos de release (storage local, fora do PostgreSQL)
-storage/
+/storage/
+/API/storage/
 
 # Editor
 .vscode/

@@ -33,10 +33,10 @@ Não usar BUILD para auditoria read-only nem PLAN quando a tarefa definida exige
 
 Considerar custo e limites; não recomendar Sol quando Luna for suficiente.
 
-## Erro preexistente
-O typecheck permanece bloqueado pelo erro preexistente relacionado a `local-artifact-storage`.
+## Correção pré-M11
+O erro preexistente de `local-artifact-storage` foi corrigido antes da M11.
 
-Esse erro pertence a Releases, não às milestones M09/M10. Não corrigir, contornar ou modificar sem solicitação explícita.
+Foi implementado `LocalArtifactStorage` em `API/src/modules/releases/infrastructure/storage`, com armazenamento local em filesystem, contenção contra path traversal e testes reais usando diretórios temporários. A regra ampla `storage/` do `.gitignore` também foi restringida para não ignorar código-fonte.
 
 ## M09 — Tasks
 **Concluída.**
@@ -89,7 +89,7 @@ Evidências finais:
 - PostgreSQL real: 13 passed, 0 skipped com `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/orbis_test`;
 - lint aprovado;
 - `git diff --check` aprovado;
-- typecheck bloqueado somente pelo erro preexistente de `local-artifact-storage`.
+- typecheck limpo após a implementação de `LocalArtifactStorage`.
 
 Não há pendências bloqueantes. Permanece apenas a melhoria opcional de teste PostgreSQL explícito para checksum e `sizeBytes` após restauração.
 

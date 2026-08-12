@@ -46,3 +46,7 @@ Todas → M20
 - Consultar o arquivo da milestone antes de iniciar sua execução.
 - Registrar decisões ambíguas como **A confirmar**, sem inventar comportamento.
 - Aplicar às milestones as regras transversais já documentadas em `AGENTS.md`, `ai_context.md` e `architecture.md`.
+
+## Correção pré-M11
+
+Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O typecheck da API foi restaurado e o módulo Releases recebeu testes reais de filesystem. M11 permanece **Não iniciada**.

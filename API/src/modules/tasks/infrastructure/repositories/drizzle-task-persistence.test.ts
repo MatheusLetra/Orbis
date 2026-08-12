@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { Database } from "@/infrastructure/database/client";
-import { companies, users } from "@/infrastructure/database/schema";
+import { companies, memberships, requisitions, users } from "@/infrastructure/database/schema";
 import { Task } from "@/modules/tasks/domain/entities/task";
 import { TaskStatusHistory } from "@/modules/tasks/domain/entities/task-status-history";
 import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
@@ -112,7 +112,49 @@ describe.skipIf(!available)("persistência de Tasks e histórico", () => {
 
     const result = await taskRepository.listByCompany(COMPANY_A, { priority: "HIGH" });
 
-    expect(result.map((task) => task.id)).toEqual([TASK_A]);
+    expect(result.map((item) => item.task.id)).toEqual([TASK_A]);
+  });
+
+  it("pesquisa literalmente, aplica joins tenant-aware e preserva a ordenação", async () => {
+    const requisitionId = "77777777-7777-4777-8777-777777777777";
+    const membershipId = "88888888-8888-4888-8888-888888888888";
+    await db.insert(memberships).values({
+      id: membershipId,
+      companyId: COMPANY_A,
+      userId: USER_A,
+      position: "DESENVOLVEDOR",
+      permissions: [],
+    });
+    await db.insert(requisitions).values({
+      id: requisitionId,
+      companyId: COMPANY_A,
+      number: 1,
+      title: "Requisição Kanban",
+      requesterId: USER_A,
+    });
+    await taskRepository.create(
+      buildTask(TASK_A, COMPANY_A, {
+        title: "100%_literal",
+        assigneeId: USER_A,
+        requisitionId,
+        createdAt: new Date("2026-08-12T10:00:00Z"),
+      }),
+    );
+    await taskRepository.create(
+      buildTask(TASK_B, COMPANY_A, {
+        title: "100Xliteral",
+        createdAt: new Date("2026-08-12T11:00:00Z"),
+      }),
+    );
+
+    const result = await taskRepository.listByCompany(COMPANY_A, { search: "100%_LITERAL" });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      task: { id: TASK_A, title: "100%_literal" },
+      assignee: { id: USER_A, name: "User A" },
+      requisition: { id: requisitionId, number: 1, title: "Requisição Kanban" },
+    });
   });
 
   it("cria e lista histórico por Task com ordenação determinística", async () => {

@@ -73,10 +73,16 @@ describe("Task HTTP integration", () => {
     ]);
 
     const listQuery = paths["/companies/{companyId}/tasks"]?.get?.parameters;
-    expect(listQuery).toHaveLength(6);
+    expect(listQuery).toHaveLength(8);
     expect(
       listQuery?.filter((parameter) => parameter.in === "query").map((parameter) => parameter.name),
-    ).toEqual(["status", "priority", "assigneeId", "requisitionId"]);
+    ).toEqual(["scope", "status", "priority", "assigneeId", "requisitionId", "search"]);
+    expect(listQuery?.find((parameter) => parameter.name === "scope")).toMatchObject({
+      schema: { enum: ["company", "own"], default: "company" },
+    });
+    expect(listQuery?.find((parameter) => parameter.name === "search")).toMatchObject({
+      schema: { maxLength: 200 },
+    });
 
     const updateBody =
       paths["/companies/{companyId}/tasks/{taskId}"]?.patch?.requestBody?.content?.[
@@ -197,6 +203,14 @@ describe("Task HTTP integration", () => {
 
     await expect(
       app.inject({ method: "GET", url: "/companies/not-uuid/tasks", headers }),
+    ).resolves.toMatchObject({ statusCode: 400 });
+
+    await expect(
+      app.inject({
+        method: "GET",
+        url: `/companies/${COMPANY_ID}/tasks?scope=own&assigneeId=55555555-5555-4555-8555-555555555555`,
+        headers,
+      }),
     ).resolves.toMatchObject({ statusCode: 400 });
     await app.close();
   });

@@ -246,7 +246,7 @@ describe("ListRequisitions", () => {
     expect(output.createdAt).toBe("2026-08-11T10:00:00.000Z");
   });
 
-  it("não aceita companyId, paginação ou busca textual nos filtros", async () => {
+  it("não aceita companyId ou paginação nos filtros e aceita busca textual", async () => {
     const dependencies = build();
     const actor = await activeActor(dependencies.membershipRepository);
 
@@ -265,8 +265,8 @@ describe("ListRequisitions", () => {
     await expect(
       dependencies.useCase.execute({
         actor,
-        filters: { search: "requisição" } as never,
+        filters: { search: "requisição" },
       }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    ).resolves.toEqual([]);
   });
 });

@@ -3,8 +3,8 @@ import type { AuthorizationService } from "@/modules/permissions/application/ser
 import {
   type ListTasksInput,
   listTasksSchema,
-  type TaskOutput,
-  toTaskOutput,
+  type TaskCardOutput,
+  toTaskCardOutput,
 } from "@/modules/tasks/application/dto/task-dtos";
 import type { TaskRepository } from "@/modules/tasks/domain/repositories/task-repository";
 import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
@@ -16,14 +16,14 @@ export interface ListTasksCommand {
   filters?: ListTasksInput;
 }
 
-export class ListTasks implements UseCase<ListTasksCommand, TaskOutput[]> {
+export class ListTasks implements UseCase<ListTasksCommand, TaskCardOutput[]> {
   constructor(
     private readonly taskRepository: TaskRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
   ) {}
 
-  async execute(input: ListTasksCommand): Promise<TaskOutput[]> {
+  async execute(input: ListTasksCommand): Promise<TaskCardOutput[]> {
     this.authorization.assertCompanyContext(input.actor, input.actor.companyId);
     this.authorization.assertPermission(input.actor, "tasks.read");
     await this.accessService.assertAccess(input.actor.userId, input.actor.companyId);
@@ -35,7 +35,19 @@ export class ListTasks implements UseCase<ListTasksCommand, TaskOutput[]> {
       });
     }
 
-    const tasks = await this.taskRepository.listByCompany(input.actor.companyId, parsed.data);
-    return tasks.map(toTaskOutput);
+    if (
+      parsed.data.scope === "own" &&
+      parsed.data.assigneeId !== undefined &&
+      parsed.data.assigneeId !== input.actor.userId
+    ) {
+      throw new ValidationError("assigneeId incompatível com o escopo próprio");
+    }
+
+    const filters = {
+      ...parsed.data,
+      assigneeId: parsed.data.scope === "own" ? input.actor.userId : parsed.data.assigneeId,
+    };
+    const tasks = await this.taskRepository.listByCompany(input.actor.companyId, filters);
+    return tasks.map(toTaskCardOutput);
   }
 }

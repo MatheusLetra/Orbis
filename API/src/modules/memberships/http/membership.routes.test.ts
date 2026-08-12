@@ -38,6 +38,15 @@ async function seedActorMembership(modules: TestModules, companyId: string, posi
   );
 }
 
+async function seedMembership(
+  modules: TestModules,
+  companyId: string,
+  userId: string,
+  position = "SUPORTE",
+): Promise<void> {
+  await modules.repositories.memberships.create(Membership.create({ companyId, userId, position }));
+}
+
 describe("POST /memberships", () => {
   it("vincula o usuário à empresa quando o ator possui users.manage", async () => {
     const { app, modules } = await build();
@@ -83,7 +92,7 @@ describe("POST /memberships", () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);
     const user = await seedUser(modules);
-    await seedActorMembership(modules, company.id, "SUPORTE");
+    await seedActorMembership(modules, company.id, "TESTADOR");
 
     const response = await app.inject({
       method: "POST",
@@ -205,6 +214,82 @@ describe("GET /memberships", () => {
     const response = await app.inject({ method: "GET", url: "/memberships" });
 
     expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+});
+
+describe("GET /companies/:companyId/members", () => {
+  it("documenta o lookup mínimo no OpenAPI", async () => {
+    const { app } = await build();
+    await app.ready();
+    const operation = app.swagger().paths["/companies/{companyId}/members"]?.get;
+    expect(operation?.responses).toHaveProperty("200");
+    expect(operation?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "search", in: "query" })]),
+    );
+    await app.close();
+  });
+
+  it("lista somente membros ativos com identidade mínima e pesquisa", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    await seedUser(modules);
+    const active = await modules.repositories.users.create(
+      User.create({ email: "bruno@orbis.io", name: "Bruno Lima", passwordHash: "hash" }),
+    );
+    const inactive = await modules.repositories.users.create(
+      User.create({ email: "carla@orbis.io", name: "Carla Souza", passwordHash: "hash" }),
+    );
+    await seedActorMembership(modules, company.id);
+    await seedMembership(modules, company.id, active.id, "SUPORTE");
+    await modules.repositories.memberships
+      .create(
+        Membership.create({ companyId: company.id, userId: inactive.id, position: "SUPORTE" }),
+      )
+      .then((membership) => {
+        membership.deactivate();
+        return modules.repositories.memberships.update(membership);
+      });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/members?search=  bruno `,
+      headers: await authHeaders(modules, USER_ID),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([{ userId: active.id, name: "Bruno Lima" }]);
+    expect(response.json()[0]).not.toHaveProperty("permissions");
+    expect(response.json()[0]).not.toHaveProperty("passwordHash");
+    await app.close();
+  });
+
+  it("isola o tenant e exige users.read", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    const otherCompany = await modules.repositories.companies.create(
+      Company.create({ name: "Outra" }),
+    );
+    await seedUser(modules);
+    const foreign = await modules.repositories.users.create(
+      User.create({ email: "foreign@orbis.io", name: "Foreign", passwordHash: "hash" }),
+    );
+    await seedActorMembership(modules, company.id, "TESTADOR");
+    await seedMembership(modules, otherCompany.id, foreign.id, "GESTOR");
+
+    const forbidden = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/members`,
+      headers: await authHeaders(modules, USER_ID),
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const crossTenant = await app.inject({
+      method: "GET",
+      url: `/companies/${otherCompany.id}/members`,
+      headers: await authHeaders(modules, USER_ID),
+    });
+    expect(crossTenant.statusCode).toBe(403);
     await app.close();
   });
 });

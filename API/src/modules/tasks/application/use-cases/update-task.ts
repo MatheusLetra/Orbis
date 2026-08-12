@@ -8,7 +8,7 @@ import {
   type UpdateTaskInput,
   updateTaskSchema,
 } from "@/modules/tasks/application/dto/task-dtos";
-import type { TaskRepository } from "@/modules/tasks/domain/repositories/task-repository";
+import type { TaskUnitOfWork } from "@/modules/tasks/application/ports/task-unit-of-work";
 import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
 import type { UseCase } from "@/shared/application/use-case";
 import { NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
@@ -21,7 +21,7 @@ export interface UpdateTaskCommand {
 
 export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
   constructor(
-    private readonly taskRepository: TaskRepository,
+    private readonly taskUnitOfWork: TaskUnitOfWork,
     private readonly membershipRepository: MembershipRepository,
     private readonly requisitionRepository: RequisitionRepository,
     private readonly accessService: MembershipAccessService,
@@ -40,56 +40,58 @@ export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
       });
     }
 
-    const task = await this.taskRepository.findById(input.actor.companyId, input.taskId);
-    if (!task) {
-      throw new NotFoundError("Tarefa não encontrada");
-    }
-
-    const assigneeId =
-      parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : task.assigneeId;
-    const requisitionId =
-      parsed.data.requisitionId !== undefined ? parsed.data.requisitionId : task.requisitionId;
-
-    if (assigneeId !== null) {
-      const membership = await this.membershipRepository.findByUserAndCompany(
-        assigneeId,
-        input.actor.companyId,
-      );
-      if (!membership?.isActive) {
-        throw new NotFoundError("Responsável da tarefa não encontrado");
+    const updated = await this.taskUnitOfWork.execute(async ({ tasks }) => {
+      const task = await tasks.findByIdForUpdate(input.actor.companyId, input.taskId);
+      if (!task) {
+        throw new NotFoundError("Tarefa não encontrada");
       }
-    }
 
-    if (requisitionId !== null) {
-      const requisition = await this.requisitionRepository.findById(requisitionId);
-      if (!requisition || requisition.companyId !== input.actor.companyId) {
-        throw new NotFoundError("Requisição não encontrada");
+      const assigneeId =
+        parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : task.assigneeId;
+      const requisitionId =
+        parsed.data.requisitionId !== undefined ? parsed.data.requisitionId : task.requisitionId;
+
+      if (assigneeId !== null) {
+        const membership = await this.membershipRepository.findByUserAndCompany(
+          assigneeId,
+          input.actor.companyId,
+        );
+        if (!membership?.isActive) {
+          throw new NotFoundError("Responsável da tarefa não encontrado");
+        }
       }
-    }
 
-    if (parsed.data.title !== undefined) {
-      task.rename(parsed.data.title);
-    }
-    if (parsed.data.description !== undefined) {
-      task.changeDescription(parsed.data.description);
-    }
-    if (parsed.data.priority !== undefined) {
-      task.changePriority(parsed.data.priority);
-    }
-    if (parsed.data.assigneeId !== undefined) {
-      task.changeAssignee(parsed.data.assigneeId);
-    }
-    if (parsed.data.requisitionId !== undefined) {
-      task.changeRequisition(parsed.data.requisitionId);
-    }
-    if (parsed.data.startDate !== undefined) {
-      task.changeStartDate(parsed.data.startDate);
-    }
-    if (parsed.data.plannedEndDate !== undefined) {
-      task.changePlannedEndDate(parsed.data.plannedEndDate);
-    }
+      if (requisitionId !== null) {
+        const requisition = await this.requisitionRepository.findById(requisitionId);
+        if (!requisition || requisition.companyId !== input.actor.companyId) {
+          throw new NotFoundError("Requisição não encontrada");
+        }
+      }
 
-    const updated = await this.taskRepository.update(task);
+      if (parsed.data.title !== undefined) {
+        task.rename(parsed.data.title);
+      }
+      if (parsed.data.description !== undefined) {
+        task.changeDescription(parsed.data.description);
+      }
+      if (parsed.data.priority !== undefined) {
+        task.changePriority(parsed.data.priority);
+      }
+      if (parsed.data.assigneeId !== undefined) {
+        task.changeAssignee(parsed.data.assigneeId);
+      }
+      if (parsed.data.requisitionId !== undefined) {
+        task.changeRequisition(parsed.data.requisitionId);
+      }
+      if (parsed.data.startDate !== undefined) {
+        task.changeStartDate(parsed.data.startDate);
+      }
+      if (parsed.data.plannedEndDate !== undefined) {
+        task.changePlannedEndDate(parsed.data.plannedEndDate);
+      }
+
+      return tasks.update(task);
+    });
 
     return toTaskOutput(updated);
   }

@@ -16,7 +16,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 8 | M08 — Requisições | [M08.md](milestones/M08.md) | Concluída |
 | 9 | M09 — Tarefas e histórico de status | [M09.md](milestones/M09.md) | Concluída |
 | 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Concluída |
-| 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Não iniciada |
+| 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Em andamento |
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Não iniciada |
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Não iniciada |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Não iniciada |
@@ -49,4 +49,4 @@ Todas → M20
 
 ## Correção pré-M11
 
-Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O typecheck da API foi restaurado e o módulo Releases recebeu testes reais de filesystem. M11 permanece **Não iniciada**.
+Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O módulo Releases recebeu testes reais de filesystem. M11 está **Em andamento**; o hardening concorrente de Tasks e as unidades M11.2A/M11.2B foram concluídos.

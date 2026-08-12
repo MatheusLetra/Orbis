@@ -1,11 +1,12 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import type { Database } from "@/infrastructure/database/client";
-import { tasks } from "@/infrastructure/database/schema";
+import { memberships, requisitions, tasks, users } from "@/infrastructure/database/schema";
 import type { Task } from "@/modules/tasks/domain/entities/task";
 import { Task as TaskEntity } from "@/modules/tasks/domain/entities/task";
 import type {
   ListTasksFilters,
+  TaskListItem,
   TaskRepository,
 } from "@/modules/tasks/domain/repositories/task-repository";
 import { requireRow } from "@/shared/utils/require-row";
@@ -95,7 +96,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     return toEntity(requireRow(rows[0]));
   }
 
-  async listByCompany(companyId: string, filters: ListTasksFilters = {}): Promise<Task[]> {
+  async listByCompany(companyId: string, filters: ListTasksFilters = {}): Promise<TaskListItem[]> {
     const conditions = [eq(tasks.companyId, companyId)];
 
     if (filters.status !== undefined) {
@@ -111,12 +112,50 @@ export class DrizzleTaskRepository implements TaskRepository {
       conditions.push(eq(tasks.requisitionId, filters.requisitionId));
     }
 
+    if (filters.search !== undefined) {
+      conditions.push(
+        sql`${tasks.title} ILIKE ${`%${escapeLikePattern(filters.search)}%`} ESCAPE '\\'`,
+      );
+    }
+
     const rows = await this.db
-      .select()
+      .select({
+        task: tasks,
+        assigneeId: users.id,
+        assigneeName: users.name,
+        requisitionId: requisitions.id,
+        requisitionNumber: requisitions.number,
+        requisitionTitle: requisitions.title,
+      })
       .from(tasks)
+      .leftJoin(
+        memberships,
+        and(eq(memberships.companyId, tasks.companyId), eq(memberships.userId, tasks.assigneeId)),
+      )
+      .leftJoin(users, eq(users.id, memberships.userId))
+      .leftJoin(
+        requisitions,
+        and(eq(requisitions.id, tasks.requisitionId), eq(requisitions.companyId, tasks.companyId)),
+      )
       .where(and(...conditions))
       .orderBy(asc(tasks.createdAt), asc(tasks.id));
 
-    return rows.map(toEntity);
+    return rows.map((row) => ({
+      task: toEntity(row.task),
+      assignee:
+        row.assigneeId && row.assigneeName ? { id: row.assigneeId, name: row.assigneeName } : null,
+      requisition:
+        row.requisitionId && row.requisitionNumber !== null && row.requisitionTitle !== null
+          ? {
+              id: row.requisitionId,
+              number: row.requisitionNumber,
+              title: row.requisitionTitle,
+            }
+          : null,
+    }));
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
 }

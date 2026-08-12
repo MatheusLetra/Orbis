@@ -77,6 +77,9 @@ describe("Requisition HTTP integration", () => {
     );
     expect(paths["/companies/{companyId}/requisitions"]?.post?.responses).toHaveProperty("201");
     expect(paths["/companies/{companyId}/requisitions"]?.get?.responses).toHaveProperty("200");
+    expect(paths["/companies/{companyId}/requisitions"]?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "search", in: "query" })]),
+    );
     expect(
       paths["/companies/{companyId}/requisitions/{requisitionId}"]?.get?.responses,
     ).toHaveProperty("200");
@@ -157,6 +160,39 @@ describe("Requisition HTTP integration", () => {
       headers: await authHeaders(modules),
     });
     expect(responsible.json()).toHaveLength(1);
+    await app.close();
+  });
+
+  it("pesquisa por título e número com trim e preserva o tenant", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedCompany(modules, OTHER_COMPANY_ID, "Outra");
+    await seedMembership(modules, COMPANY_ID, USER_ID);
+    await createRequisition(app, modules, COMPANY_ID, { title: "Implementação Kanban" });
+    await createRequisition(app, modules, COMPANY_ID, { title: "Outra demanda" });
+    await seedMembership(modules, OTHER_COMPANY_ID, USER_ID);
+    const foreign = await createRequisition(app, modules, OTHER_COMPANY_ID, {
+      title: "Implementação Kanban",
+    });
+    expect(foreign.statusCode).toBe(201);
+
+    const title = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions?search=  kanban `,
+      headers: await authHeaders(modules),
+    });
+    expect(title.statusCode).toBe(200);
+    expect(title.json()).toHaveLength(1);
+    expect(title.json()[0].title).toBe("Implementação Kanban");
+
+    const number = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions?search=2`,
+      headers: await authHeaders(modules),
+    });
+    expect(number.statusCode).toBe(200);
+    expect(number.json()).toHaveLength(1);
+    expect(number.json()[0].number).toBe(2);
     await app.close();
   });
 

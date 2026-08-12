@@ -1,103 +1,187 @@
 # AI Handoff — Orbis
 
 ## Projeto
+
 Orbis é uma aplicação multiempresa de gestão de requisições e tarefas.
 
 - API independente em TypeScript/Node.js.
 - Fastify, PostgreSQL, Drizzle ORM, Zod, JWT e OpenAPI/Scalar.
 - Arquitetura modular com separação entre apresentação, aplicação, domínio e infraestrutura.
 
-## Forma de trabalho
-O desenvolvimento ocorre milestone por milestone:
+## Regras de continuidade
 
-1. analisar o estado atual;
-2. identificar a próxima unidade de trabalho;
-3. produzir prompt quando solicitado;
-4. executar no agente;
-5. analisar o relatório;
-6. repetir;
-7. auditar antes de encerrar milestones relevantes.
+- Ler o Prompt Mestre e este arquivo antes de trabalhar.
+- Não reauditar M09, M10, o hardening concorrente, M11.2A ou M11.2B sem evidência concreta de regressão.
+- Não assumir decisões abertas.
+- Não introduzir Board, KanbanColumn, TaskPosition, ordering persistido, reorder, WIP, swimlanes, realtime ou WebSocket para M11 sem requisito novo.
+- `commands/code_assist_agent.md` é um arquivo preexistente não relacionado à M11; não modificá-lo sem motivo concreto.
 
-Relatórios de agentes são evidências relatadas e devem ser analisados, não aceitos automaticamente.
+## Estado das milestones
 
-## PLAN / BUILD
-PLAN é investigação, auditoria, análise, desenho e definição sem alteração de código.
-
-BUILD é implementação, correção, refactor aprovado, testes e documentação.
-
-Não usar BUILD para auditoria read-only nem PLAN quando a tarefa definida exige modificar o projeto.
-
-## Modelos
-- GPT-5.6 Luna: tarefas delimitadas, implementação comum, documentação e correções moderadas.
-- GPT-5.6 Sol: investigação ou implementação de maior complexidade, ambiguidade ou risco arquitetural.
-
-Considerar custo e limites; não recomendar Sol quando Luna for suficiente.
-
-## Correção pré-M11
-O erro preexistente de `local-artifact-storage` foi corrigido antes da M11.
-
-Foi implementado `LocalArtifactStorage` em `API/src/modules/releases/infrastructure/storage`, com armazenamento local em filesystem, contenção contra path traversal e testes reais usando diretórios temporários. A regra ampla `storage/` do `.gitignore` também foi restringida para não ignorar código-fonte.
+- M09 — Tasks: **concluída**.
+- M10 — Attachments: **concluída**.
+- Correção pré-M11 de `LocalArtifactStorage`: **concluída**.
+- M11 — Kanban: **em andamento**.
+- M12 em diante: não iniciadas.
 
 ## M09 — Tasks
-**Concluída.**
 
-Inclui domínio `Task`, histórico imutável, criação, atualização, transições, listagem, consulta, repositories Drizzle, Unit of Work transacional, endpoints HTTP, composição e fakes.
+Não reabrir sem regressão comprovada. Preservar:
 
-Decisões essenciais:
-- status inicial `TODO`;
-- criação registra `null → TODO`;
-- `PAUSED → DONE` é proibido;
-- `DONE` é terminal;
-- histórico append-only;
-- status usa `SELECT ... FOR UPDATE`;
-- operações são tenant-aware.
-
-Evidências finais conhecidas: Tasks 112 testes aprovados; PostgreSQL específico 11/11 passed, 0 skipped; lint e `git diff --check` aprovados. O typecheck só falha pelo erro preexistente de `local-artifact-storage`.
+- statuses `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`;
+- matriz oficial de transições;
+- `PAUSED → DONE` proibida;
+- `DONE` terminal;
+- `completedAt` controlado pelo domínio;
+- histórico append-only e evento inicial `null → TODO`;
+- UoW, `SELECT ... FOR UPDATE`, atomicidade;
+- tenant isolation e autorização.
 
 ## M10 — Attachments
-**Concluída.**
 
-Garantias essenciais:
-- Attachment imutável FILE/LINK;
-- owner exclusivo Requisition ou Task;
-- metadata separada de `attachment_blobs` em PostgreSQL `BYTEA`;
-- MIME detectado por magic bytes;
-- whitelist PDF/JPEG/PNG/GIF/WebP;
-- SHA-256 e tamanho calculados sobre o Buffer real;
-- limite de 1 byte a 10 MB;
-- filename seguro e URL LINK normalizada;
-- atomicidade metadata/blob FILE com Unit of Work;
-- rollback e cascades PostgreSQL;
-- isolamento por tenant e autorização herdada do parent;
-- membership ativa exigida;
-- cinco use cases e dez rotas HTTP;
-- download valida blob, tamanho e checksum;
-- composição root e TestModules integrados.
+Não reabrir sem regressão comprovada. Preservar:
 
-Contratos HTTP fechados:
-- upload FILE aceita somente field `file` e title opcional;
-- partes inesperadas, arquivo ausente, title duplicado, field name incorreto e múltiplos arquivos retornam 400;
-- arquivo acima de 10 MB retorna 413;
-- upload FILE é documentado como multipart com file binário obrigatório, title opcional e `additionalProperties: false`;
-- owner é documentado como união discriminada Requisition/Task;
-- download usa MIME persistido, tamanho real e Content-Disposition seguro;
-- inconsistência `sizeBytes !== data.length` retorna 422.
+- owners Requisition/Task;
+- FILE/LINK;
+- metadata separada de `attachment_blobs`/BYTEA;
+- download separado;
+- attachments carregados sob demanda no detalhe;
+- Kanban sem metadata de anexos ou BYTEA na listagem.
 
-Evidências finais:
-- testes HTTP: 7 passed, 0 skipped;
-- suíte M10 sem banco: 77 passed, 13 skipped exclusivamente por PostgreSQL condicional;
-- PostgreSQL real: 13 passed, 0 skipped com `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/orbis_test`;
-- lint aprovado;
-- `git diff --check` aprovado;
-- typecheck limpo após a implementação de `LocalArtifactStorage`.
+## M11 concluído até aqui
 
-Não há pendências bloqueantes. Permanece apenas a melhoria opcional de teste PostgreSQL explícito para checksum e `sizeBytes` após restauração.
+### Hardening concorrente
 
-## Estado atual
-- M09 concluída.
-- M10 concluída.
-- M11 ainda não iniciada.
-- Próxima milestone: **M11 — Kanban**.
+`UpdateTask` usa `TaskUnitOfWork`, carrega com `findByIdForUpdate`, aplica apenas campos permitidos e persiste na mesma transação. `TransitionTaskStatus` continua autoridade exclusiva do status.
 
-## Próximo passo
-A próxima sessão deve começar pela análise da especificação e do roadmap existentes de M11. Não assumir requisitos ausentes e não iniciar implementação antes de compreender o escopo documentado.
+Teste PostgreSQL real da corrida edição/transição confirmou que uma edição stale não regrava `DONE`, `completedAt` ou o histórico.
+
+Validação relatada para a suíte de Tasks após o hardening: 113 passed, 0 failed, 0 skipped com PostgreSQL real.
+
+### M11.2A — Projeção, escopo de leitura e pesquisa
+
+Concluída.
+
+`GET /companies/:companyId/tasks` agora suporta:
+
+- `scope=company|own`, default `company`;
+- `scope=own` restringido no backend a `assigneeId === actor.userId`;
+- rejeição HTTP 400 para `scope=own` com outro `assigneeId`;
+- `search` somente em `Task.title`;
+- substring case-insensitive, trim, vazio como ausência e máximo de 200 caracteres;
+- `%` e `_` literais;
+- combinação AND com os filtros existentes;
+- ordenação `createdAt ASC, id ASC`;
+- `TaskCardOutput` com summaries de assignee e Requisition.
+
+Os comandos/detalhe continuam com seus contratos anteriores. A listagem não carrega histórico, Attachments ou BYTEA. A resolução é feita em uma query tenant-aware, sem N+1.
+
+Validação:
+
+- Tasks sem PostgreSQL: 103 passed, 0 failed, 13 skipped.
+- Tasks com PostgreSQL real: 116 passed, 0 failed, 0 skipped.
+- typecheck, lint, API build e `git diff --check`: aprovados.
+- nenhuma migration ou índice criado.
+
+### M11.2B — Lookups
+
+Concluída.
+
+Responsáveis:
+
+- `GET /companies/:companyId/members` no módulo de Memberships;
+- permissão `users.read`;
+- somente memberships ativas do tenant;
+- saída mínima `{ userId, name }`;
+- pesquisa por nome, substring case-insensitive, trim, máximo de 200, `%` e `_` literais;
+- query única com `INNER JOIN memberships + users`.
+
+Requisitions:
+
+- `GET /companies/:companyId/requisitions` foi estendida com `search`;
+- texto pesquisa `title` por substring case-insensitive;
+- termo numérico pesquisa `title` ou `number`;
+- trim, vazio como ausência, máximo de 200 e escaping literal;
+- filtros e tenant isolation preservados.
+
+Nenhum autofill de Task foi implementado. `CreateTask` e `UpdateTask` continuam validando assignee e Requisition no backend.
+
+Validação:
+
+- Memberships/Requisitions sem PostgreSQL: 150 passed, 0 failed, 24 skipped.
+- HTTP/OpenAPI: 19 passed, 0 failed, 0 skipped.
+- Memberships/Requisitions com PostgreSQL real: 174 passed, 0 failed, 0 skipped.
+- typecheck, lint, API build e `git diff --check`: aprovados.
+- nenhuma migration, índice ou dependência nova.
+
+## Contrato mínimo do Kanban
+
+- Uma Task = um card.
+- Colunas: `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`, nessa ordem.
+- Drag e ações rápidas reutilizam `PATCH /companies/:companyId/tasks/:taskId/status`.
+- Criação reutiliza `POST /companies/:companyId/tasks`.
+- Edição reutiliza `PATCH /companies/:companyId/tasks/:taskId`.
+- Detalhe reutiliza `GET /companies/:companyId/tasks/:taskId`.
+- Attachments do detalhe usam as rotas existentes sob demanda.
+- Não existe reorder persistido.
+
+## Decisões abertas
+
+### Primeira decisão da próxima sessão: sessão frontend
+
+Escolher o contrato de persistência/transporte da sessão frontend antes de `M11.3A`.
+
+Opções:
+
+1. memória ou `sessionStorage`: menor alteração backend, mas sessão pode ser perdida no reload ou manter token acessível ao JavaScript;
+2. `localStorage`: persistente, mas deixa refresh token persistentemente acessível ao JavaScript;
+3. refresh token em cookie `HttpOnly`: exige alteração coordenada de API/frontend e análise de CORS/CSRF.
+
+Recomendação atual: **opção 3, cookie `HttpOnly`**, mas isso é recomendação, não decisão aprovada.
+
+### Customização das colunas
+
+Ainda não decidido se usuários autorizados poderão alterar somente label/ordem ou também visibilidade/aparência, nem se a configuração será da empresa ou também pessoal.
+
+Limites já derivados: quatro statuses permanecem fixos, sem novos workflows.
+
+Recomendação atual: configuração por empresa somente de label e ordem, com quatro colunas sempre visíveis e permissão `kanban.manage`.
+
+### Mutações `own/company`
+
+O escopo de leitura está implementado; a autorização de criação, edição, transição e reatribuição ainda está aberta.
+
+Recomendação atual: manter permissões operacionais (`tasks.create/update`), restringir own por `assigneeId === actor.userId`, impedir reatribuição em own-only e exigir capacidade global para Tasks alheias. Não tratar como decisão aprovada.
+
+### Autofill de Requisition
+
+Ainda não decidido quais campos devem ser sugeridos ao selecionar uma Requisition. O lookup apenas disponibiliza a seleção; não copiar título, prioridade, descrição, datas ou responsável automaticamente.
+
+## Próxima unidade
+
+`M11.3A — Auth, HTTP e empresa ativa`.
+
+Antes de implementá-la:
+
+1. ler o Prompt Mestre;
+2. ler este `docs/ai_handoff.md`;
+3. não reauditar M09/M10/hardening/M11.2A/M11.2B sem evidência;
+4. decidir o contrato de persistência/transporte da sessão frontend;
+5. após a decisão, gerar o BUILD de M11.3A.
+
+## Riscos relevantes
+
+- escolher sessão frontend sem resolver refresh token e segurança;
+- tratar permissões own/company somente na UI;
+- implementar customização antes de definir ownership;
+- introduzir N+1 ao integrar selectors/cards;
+- oferecer drag para transições proibidas pela M09;
+- carregar BYTEA no board.
+
+## Estado do frontend
+
+O frontend ainda deve ser revalidado na próxima sessão. O último estado conhecido tinha shell/tema parciais, sem routing, autenticação, empresa ativa, HTTP client, cache, forms, Kanban ou DnD. Não assumir que esse estado não mudou.
+
+## Próximo passo operacional
+
+A próxima sessão deve começar pela decisão da sessão frontend. Nenhuma funcionalidade deve ser implementada nesta troca de sessão antes dessa decisão.

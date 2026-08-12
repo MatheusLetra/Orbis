@@ -12,7 +12,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/shared/errors/typed-errors";
-import { InMemoryTaskRepository } from "@/test/fakes/task-fakes";
+import { InMemoryTaskRepository, InMemoryTaskUnitOfWork } from "@/test/fakes/task-fakes";
 
 const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const OTHER_COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -101,8 +101,9 @@ function buildSut() {
   const memberships = new FakeMembershipRepository();
   const requisitions = new FakeRequisitionRepository();
   const tasks = new InMemoryTaskRepository();
+  const taskUnitOfWork = new InMemoryTaskUnitOfWork(tasks);
   const useCase = new UpdateTask(
-    tasks,
+    taskUnitOfWork,
     memberships,
     requisitions,
     new MembershipAccessService(memberships),

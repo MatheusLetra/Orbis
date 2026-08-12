@@ -21,7 +21,9 @@ import { UpdateCompany } from "@/modules/companies/application/use-cases/update-
 import { DrizzleCompanyRepository } from "@/modules/companies/infrastructure/repositories/drizzle-company-repository";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
+import { ListCompanyMembers } from "@/modules/memberships/application/use-cases/list-company-members";
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import { DrizzleCompanyMemberLookupRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-company-member-lookup-repository";
 import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
@@ -76,6 +78,7 @@ export interface OrbisModules {
   updateCompany: UpdateCompany;
   createMembership: CreateMembership;
   listMemberships: ListMemberships;
+  listCompanyMembers: ListCompanyMembers;
   permissionResolver: PermissionResolver;
   tokenService: JoseTokenService;
   requisitions: {
@@ -134,6 +137,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const userRepository = new DrizzleUserRepository(database);
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
+  const companyMemberLookupRepository = new DrizzleCompanyMemberLookupRepository(database);
   const refreshTokenRepository = new DrizzleRefreshTokenRepository(database);
   const systemRepository = new DrizzleSystemRepository(database);
   const systemVersionRepository = new DrizzleSystemVersionRepository(database);
@@ -174,6 +178,11 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       authorization,
     ),
     listMemberships: new ListMemberships(membershipRepository),
+    listCompanyMembers: new ListCompanyMembers(
+      companyMemberLookupRepository,
+      accessService,
+      authorization,
+    ),
     permissionResolver,
     tokenService,
     requisitions: {
@@ -280,7 +289,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         authorization,
       ),
       update: new UpdateTask(
-        taskRepository,
+        taskUnitOfWork,
         membershipRepository,
         requisitionRepository,
         accessService,

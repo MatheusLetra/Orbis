@@ -39,7 +39,10 @@ export class InMemoryRequisitionRepository implements RequisitionRepository {
           (filters.status === undefined || requisition.status === filters.status) &&
           (filters.priority === undefined || requisition.priority === filters.priority) &&
           (filters.responsibleId === undefined ||
-            requisition.responsibleId === filters.responsibleId),
+            requisition.responsibleId === filters.responsibleId) &&
+          (filters.search === undefined ||
+            requisition.title.toLocaleLowerCase().includes(filters.search.toLocaleLowerCase()) ||
+            (/^\d+$/.test(filters.search) && requisition.number === Number(filters.search))),
       )
       .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
   }

@@ -77,6 +77,33 @@ const taskResponse = {
   additionalProperties: false,
 } as const;
 
+const taskCardResponse = {
+  ...taskResponse,
+  properties: {
+    ...taskResponse.properties,
+    assignee: {
+      type: ["object", "null"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        name: { type: "string" },
+      },
+      required: ["id", "name"],
+      additionalProperties: false,
+    },
+    requisition: {
+      type: ["object", "null"],
+      properties: {
+        id: { type: "string", format: "uuid" },
+        number: { type: "integer" },
+        title: { type: "string" },
+      },
+      required: ["id", "number", "title"],
+      additionalProperties: false,
+    },
+  },
+  required: [...taskResponse.required, "assignee", "requisition"],
+} as const;
+
 const historyResponse = {
   type: "object",
   properties: {
@@ -137,10 +164,12 @@ const statusBody = {
 const listQuery = {
   type: "object",
   properties: {
+    scope: { type: "string", enum: ["company", "own"], default: "company" },
     status: { type: "string", enum: ["TODO", "IN_PROGRESS", "PAUSED", "DONE"] },
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
     assigneeId: { type: "string", format: "uuid" },
     requisitionId: { type: "string", format: "uuid" },
+    search: { type: "string", maxLength: 200 },
   },
   additionalProperties: false,
 } as const;
@@ -228,12 +257,19 @@ export async function registerTaskRoutes(
         headers: userHeader,
         params: taskParams,
         querystring: listQuery,
-        response: { 200: { type: "array", items: taskResponse } },
+        response: { 200: { type: "array", items: taskCardResponse } },
       },
     },
     async (request) => {
       const { companyId } = request.params as { companyId: string };
-      assertAllowedQuery(request, ["status", "priority", "assigneeId", "requisitionId"]);
+      assertAllowedQuery(request, [
+        "scope",
+        "status",
+        "priority",
+        "assigneeId",
+        "requisitionId",
+        "search",
+      ]);
       const actor = await actorFor(request, companyId, options.permissionResolver);
       return options.list.execute({ actor, filters: request.query as never });
     },

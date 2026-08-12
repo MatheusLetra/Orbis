@@ -6,6 +6,7 @@ import { type Task, Task as TaskEntity } from "@/modules/tasks/domain/entities/t
 import type { TaskStatusHistory } from "@/modules/tasks/domain/entities/task-status-history";
 import type {
   ListTasksFilters,
+  TaskListItem,
   TaskRepository,
 } from "@/modules/tasks/domain/repositories/task-repository";
 import type { TaskStatusHistoryRepository } from "@/modules/tasks/domain/repositories/task-status-history-repository";
@@ -41,15 +42,19 @@ export class InMemoryTaskRepository implements TaskRepository {
     return task;
   }
 
-  async listByCompany(companyId: string, filters: ListTasksFilters = {}): Promise<Task[]> {
-    return [...this.items.values()].filter(
-      (task) =>
-        task.companyId === companyId &&
-        (filters.status === undefined || task.status === filters.status) &&
-        (filters.priority === undefined || task.priority === filters.priority) &&
-        (filters.assigneeId === undefined || task.assigneeId === filters.assigneeId) &&
-        (filters.requisitionId === undefined || task.requisitionId === filters.requisitionId),
-    );
+  async listByCompany(companyId: string, filters: ListTasksFilters = {}): Promise<TaskListItem[]> {
+    return [...this.items.values()]
+      .filter(
+        (task) =>
+          task.companyId === companyId &&
+          (filters.status === undefined || task.status === filters.status) &&
+          (filters.priority === undefined || task.priority === filters.priority) &&
+          (filters.assigneeId === undefined || task.assigneeId === filters.assigneeId) &&
+          (filters.requisitionId === undefined || task.requisitionId === filters.requisitionId) &&
+          (filters.search === undefined ||
+            task.title.toLocaleLowerCase().includes(filters.search.toLocaleLowerCase())),
+      )
+      .map((task) => ({ task, assignee: null, requisition: null }));
   }
 }
 

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 
 import type { Database } from "@/infrastructure/database/client";
 import { requisitions } from "@/infrastructure/database/schema";
@@ -102,6 +102,16 @@ export class DrizzleRequisitionRepository implements RequisitionRepository {
     if (filters.responsibleId !== undefined) {
       conditions.push(eq(requisitions.responsibleId, filters.responsibleId));
     }
+    const normalizedSearch = filters.search?.trim();
+    if (normalizedSearch) {
+      const titleSearch = sql`${requisitions.title} ILIKE ${`%${escapeLikePattern(normalizedSearch)}%`} ESCAPE '\\'`;
+      const numericSearch = /^\d+$/.test(normalizedSearch)
+        ? eq(requisitions.number, Number(normalizedSearch))
+        : undefined;
+      conditions.push(
+        numericSearch ? (or(titleSearch, numericSearch) ?? titleSearch) : titleSearch,
+      );
+    }
 
     const rows = await this.db
       .select()
@@ -111,4 +121,8 @@ export class DrizzleRequisitionRepository implements RequisitionRepository {
 
     return rows.map(toEntity);
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
 }

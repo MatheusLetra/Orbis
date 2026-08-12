@@ -46,6 +46,12 @@ export const listRequisitionsSchema = z
     status: z.enum(REQUISITION_STATUSES).optional(),
     priority: z.enum(REQUISITION_PRIORITIES).optional(),
     responsibleId: z.string().uuid("responsibleId inválido").optional(),
+    search: z
+      .string()
+      .trim()
+      .max(200, "Pesquisa não pode exceder 200 caracteres")
+      .transform((value) => value || undefined)
+      .optional(),
   })
   .strict();
 

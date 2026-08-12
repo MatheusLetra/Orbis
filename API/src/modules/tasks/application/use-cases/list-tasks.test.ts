@@ -146,7 +146,68 @@ describe("ListTasks", () => {
     ).resolves.toHaveLength(1);
   });
 
-  it("rejeita filtros inválidos e campos extras", async () => {
+  it("aplica scope own no backend e rejeita assignee estrangeiro ao escopo", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.tasks.create(
+      task("66666666-6666-4666-8666-666666666666", COMPANY_ID, "2026-08-12T10:00:00Z", {
+        assigneeId: ACTOR_ID,
+      }),
+    );
+    await sut.tasks.create(
+      task("77777777-7777-4777-8777-777777777777", COMPANY_ID, "2026-08-12T11:00:00Z", {
+        assigneeId: ASSIGNEE_ID,
+      }),
+    );
+    await sut.tasks.create(
+      task("88888888-8888-4888-8888-888888888888", COMPANY_ID, "2026-08-12T12:00:00Z"),
+    );
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), filters: { scope: "own" } }),
+    ).resolves.toEqual([expect.objectContaining({ assigneeId: ACTOR_ID })]);
+    await expect(
+      sut.useCase.execute({
+        actor: actor(),
+        filters: { scope: "own", assigneeId: ASSIGNEE_ID },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("normaliza pesquisa, combina filtros e preserva summaries no contrato", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.tasks.create(
+      task("66666666-6666-4666-8666-666666666666", COMPANY_ID, "2026-08-12T10:00:00Z", {
+        title: "Implementar Kanban",
+        status: "IN_PROGRESS",
+        priority: "HIGH",
+      }),
+    );
+    await sut.tasks.create(
+      task("77777777-7777-4777-8777-777777777777", COMPANY_ID, "2026-08-12T11:00:00Z", {
+        title: "Outra tarefa",
+        status: "IN_PROGRESS",
+        priority: "HIGH",
+      }),
+    );
+
+    const result = await sut.useCase.execute({
+      actor: actor(),
+      filters: { search: "  kanban ", status: "IN_PROGRESS", priority: "HIGH" },
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      title: "Implementar Kanban",
+      assignee: null,
+      requisition: null,
+    });
+    await expect(
+      sut.useCase.execute({ actor: actor(), filters: { search: "x".repeat(201) } }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejeita filtros inválidos e aceita pesquisa", async () => {
     const sut = buildSut();
     await seedActor(sut.memberships);
 
@@ -154,8 +215,8 @@ describe("ListTasks", () => {
       sut.useCase.execute({ actor: actor(), filters: { status: "INVALID" } as never }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
-      sut.useCase.execute({ actor: actor(), filters: { search: "text" } as never }),
-    ).rejects.toBeInstanceOf(ValidationError);
+      sut.useCase.execute({ actor: actor(), filters: { search: "text" } }),
+    ).resolves.toEqual([]);
   });
 
   it("retorna lista vazia e preserva ordenação do repository", async () => {

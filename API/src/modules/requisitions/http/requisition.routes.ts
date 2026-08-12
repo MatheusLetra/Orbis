@@ -157,6 +157,7 @@ const listQuery = {
     status: { type: "string", enum: ["OPEN", "IN_PROGRESS", "PAUSED", "DONE", "CANCELLED"] },
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
     responsibleId: { type: "string", format: "uuid" },
+    search: { type: "string", maxLength: 200 },
   },
   additionalProperties: false,
 } as const;
@@ -248,7 +249,7 @@ export async function registerRequisitionRoutes(
     },
     async (request) => {
       const { companyId } = request.params as { companyId: string };
-      assertAllowedQuery(request, ["status", "priority", "responsibleId"]);
+      assertAllowedQuery(request, ["status", "priority", "responsibleId", "search"]);
       const actor = await actorFor(request, companyId, options.permissionResolver);
       return options.list.execute({ actor, filters: request.query as never });
     },

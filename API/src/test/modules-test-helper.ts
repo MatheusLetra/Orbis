@@ -14,7 +14,10 @@ import { ListCompanies } from "@/modules/companies/application/use-cases/list-co
 import { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
+import { ListCompanyMembers } from "@/modules/memberships/application/use-cases/list-company-members";
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import type { Membership } from "@/modules/memberships/domain/entities/membership";
+import type { CompanyMemberLookupRepository } from "@/modules/memberships/domain/repositories/company-member-lookup-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
@@ -99,6 +102,36 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
   artifactStorage: InMemoryArtifactStorage;
 }
 
+class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupRepository {
+  constructor(
+    private readonly memberships: InMemoryMembershipRepository,
+    private readonly users: InMemoryUserRepository,
+  ) {}
+
+  async listActiveByCompany(
+    companyId: string,
+    search?: string,
+  ): Promise<{ userId: string; name: string }[]> {
+    const normalized = search?.toLocaleLowerCase();
+    const companyMemberships: Membership[] = await this.memberships.listByCompany(companyId);
+    const entries = await Promise.all(
+      companyMemberships
+        .filter((membership) => membership.isActive)
+        .map(async (membership) => ({
+          membership,
+          user: await this.users.findById(membership.userId),
+        })),
+    );
+    return entries
+      .filter(
+        ({ user }) =>
+          user !== null &&
+          (normalized === undefined || user.name.toLocaleLowerCase().includes(normalized)),
+      )
+      .map(({ membership, user }) => ({ userId: membership.userId, name: user?.name ?? "" }));
+  }
+}
+
 export function buildTestModules(): TestModules {
   const users = new InMemoryUserRepository();
   const companies = new InMemoryCompanyRepository();
@@ -160,6 +193,11 @@ export function buildTestModules(): TestModules {
       authorization,
     ),
     listMemberships: new ListMemberships(memberships),
+    listCompanyMembers: new ListCompanyMembers(
+      new InMemoryCompanyMemberLookupRepository(memberships, users),
+      accessService,
+      authorization,
+    ),
     permissionResolver,
     tokenService,
     requisitions: {
@@ -243,7 +281,7 @@ export function buildTestModules(): TestModules {
         new AuthorizationService(),
       ),
       update: new UpdateTask(
-        tasks,
+        taskUnitOfWork,
         memberships,
         requisitions,
         accessService,

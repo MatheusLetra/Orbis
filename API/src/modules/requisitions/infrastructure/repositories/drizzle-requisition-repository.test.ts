@@ -192,6 +192,22 @@ describe.skipIf(!available)("DrizzleRequisitionRepository", () => {
     ).resolves.toHaveLength(1);
   });
 
+  it("pesquisa título e número com escaping literal", async () => {
+    await repository.create(
+      buildRequisition(REQUISITION_A, COMPANY_A, { number: 10, title: "100%_literal" }),
+    );
+    await repository.create(
+      buildRequisition(REQUISITION_B, COMPANY_A, { number: 42, title: "Outra" }),
+    );
+
+    await expect(
+      repository.listByCompany(COMPANY_A, { search: "100%_literal" }),
+    ).resolves.toHaveLength(1);
+    await expect(repository.listByCompany(COMPANY_A, { search: "42" })).resolves.toMatchObject([
+      { number: 42 },
+    ]);
+  });
+
   it("ordena por createdAt ascendente", async () => {
     await repository.create(
       buildRequisition(REQUISITION_A, COMPANY_A, {

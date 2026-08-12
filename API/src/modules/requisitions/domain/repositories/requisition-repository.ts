@@ -8,6 +8,7 @@ export interface ListRequisitionsFilters {
   status?: RequisitionStatus;
   priority?: RequisitionPriority;
   responsibleId?: string;
+  search?: string;
 }
 
 export interface RequisitionRepository {

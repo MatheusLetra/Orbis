@@ -14,7 +14,7 @@ import { TaskStatusHistory } from "@/modules/tasks/domain/entities/task-status-h
 import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
 import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
 import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
-import { BusinessRuleError } from "@/shared/errors/typed-errors";
+import { BusinessRuleError, ForbiddenError } from "@/shared/errors/typed-errors";
 import { createTestDatabase, isTestDatabaseAvailable } from "@/test/db-test-helper";
 
 const available = await isTestDatabaseAvailable();
@@ -80,7 +80,7 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
         description: "Descrição original",
         priority: "LOW",
         status: "IN_PROGRESS",
-        assigneeId: null,
+        assigneeId: USER_ID,
         startDate: null,
         plannedEndDate: null,
         completedAt: null,
@@ -164,5 +164,55 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
     ]);
     expect(history[2]?.changedAt).toEqual(finalTask?.completedAt);
     expect(history[2]?.changedAt).toEqual(finalTask?.updatedAt);
+  });
+
+  it("aplica own/global usando o assignee carregado sob lock", async () => {
+    const ownActor = {
+      userId: USER_ID,
+      companyId: COMPANY_ID,
+      permissions: ["tasks.update"],
+    } as const;
+    const otherUserId = "55555555-5555-4555-8555-555555555555";
+    await db.insert(users).values({
+      id: otherUserId,
+      email: "other@example.com",
+      name: "Other",
+      passwordHash: "hash",
+    });
+    const task = await taskRepository.findById(COMPANY_ID, TASK_ID);
+    if (!task) throw new Error("Task não criada");
+    task.changeAssignee(otherUserId);
+    await taskRepository.update(task);
+
+    await expect(
+      transitionTaskStatus.execute({ actor: ownActor, taskId: TASK_ID, status: "DONE" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(2);
+
+    await expect(
+      transitionTaskStatus.execute({
+        actor: { ...ownActor, permissions: ["tasks.update", "kanban.manage"] },
+        taskId: TASK_ID,
+        status: "DONE",
+      }),
+    ).resolves.toMatchObject({ status: "DONE", completedAt: expect.any(String) });
+    expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(3);
+  });
+
+  it("mantém matriz de transição e rollback no PostgreSQL real", async () => {
+    const actor = {
+      userId: USER_ID,
+      companyId: COMPANY_ID,
+      permissions: ["tasks.update"],
+    } as const;
+
+    await expect(
+      transitionTaskStatus.execute({ actor, taskId: TASK_ID, status: "TODO" }),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+    expect(await taskRepository.findById(COMPANY_ID, TASK_ID)).toMatchObject({
+      status: "IN_PROGRESS",
+      completedAt: null,
+    });
+    expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(2);
   });
 });

@@ -44,6 +44,10 @@ export class TransitionTaskStatus implements UseCase<TransitionTaskStatusCommand
         throw new NotFoundError("Tarefa não encontrada");
       }
 
+      if (task.assigneeId !== input.actor.userId) {
+        this.authorization.assertPermission(input.actor, "kanban.manage");
+      }
+
       const fromStatus = task.status;
       const transitionAt = input.occurredAt ?? new Date();
       task.transitionTo(parsed.data.status, transitionAt);

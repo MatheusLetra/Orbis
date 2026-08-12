@@ -48,15 +48,18 @@ class FakeMembershipRepository {
   }
 }
 
-function actor(permissions: "all" | "none" = "all") {
+function actor(permissions: readonly ("tasks.update" | "kanban.manage")[] = ["tasks.update"]) {
   return {
     userId: ACTOR_ID,
     companyId: COMPANY_ID,
-    permissions: permissions === "all" ? ["tasks.update"] : [],
+    permissions,
   } as const;
 }
 
-function buildTask(status: Parameters<typeof Task.restore>[0]["status"] = "TODO") {
+function buildTask(
+  status: Parameters<typeof Task.restore>[0]["status"] = "TODO",
+  assigneeId: string | null = ACTOR_ID,
+) {
   const createdAt = new Date("2026-08-12T10:00:00Z");
   return Task.restore({
     id: TASK_ID,
@@ -66,7 +69,7 @@ function buildTask(status: Parameters<typeof Task.restore>[0]["status"] = "TODO"
     description: null,
     priority: "MEDIUM",
     status,
-    assigneeId: null,
+    assigneeId,
     startDate: null,
     plannedEndDate: null,
     completedAt: status === "DONE" ? new Date("2026-08-12T09:00:00Z") : null,
@@ -229,7 +232,7 @@ describe("TransitionTaskStatus", () => {
     await seedActor(forbidden.memberships);
     await forbidden.taskRepository.create(buildTask());
     await expect(
-      forbidden.useCase.execute({ actor: actor("none"), taskId: TASK_ID, status: "IN_PROGRESS" }),
+      forbidden.useCase.execute({ actor: actor([]), taskId: TASK_ID, status: "IN_PROGRESS" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     const inactive = buildSut();
@@ -238,6 +241,51 @@ describe("TransitionTaskStatus", () => {
     await expect(
       inactive.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "IN_PROGRESS" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("permite alcance global somente com tasks.update e kanban.manage", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("TODO", "55555555-5555-4555-8555-555555555555"));
+
+    await expect(
+      sut.useCase.execute({
+        actor: actor(["tasks.update", "kanban.manage"]),
+        taskId: TASK_ID,
+        status: "IN_PROGRESS",
+      }),
+    ).resolves.toMatchObject({ status: "IN_PROGRESS" });
+  });
+
+  it.each([
+    ["outro responsável", "55555555-5555-4555-8555-555555555555"],
+    ["sem responsável", null],
+  ])("nega own-only para Task %s após o load bloqueado", async (_case, assigneeId) => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("TODO", assigneeId));
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "IN_PROGRESS" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(sut.taskRepository.findByIdForUpdateCalls).toBe(1);
+    expect(sut.taskRepository.updateCalls).toBe(0);
+    expect(sut.historyRepository.items).toHaveLength(0);
+  });
+
+  it("não permite que kanban.manage substitua tasks.update", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("TODO", null));
+
+    await expect(
+      sut.useCase.execute({
+        actor: actor(["kanban.manage"]),
+        taskId: TASK_ID,
+        status: "IN_PROGRESS",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(sut.unitOfWork.executeCalls).toBe(0);
   });
 
   it("usa findByIdForUpdate e não findById", async () => {

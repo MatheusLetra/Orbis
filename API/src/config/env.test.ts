@@ -6,6 +6,7 @@ describe("loadEnv", () => {
     const env = loadEnv({ NODE_ENV: "test" });
     expect(env.PORT).toBe(3333);
     expect(env.HOST).toBe("0.0.0.0");
+    expect(env.FRONTEND_ORIGIN).toBe("http://localhost:5173");
   });
 
   it("lê variáveis fornecidas", () => {

@@ -49,4 +49,19 @@ Todas → M20
 
 ## Correção pré-M11
 
-Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O módulo Releases recebeu testes reais de filesystem. M11 está **Em andamento**; o hardening concorrente de Tasks e as unidades M11.2A/M11.2B foram concluídos.
+Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O módulo Releases recebeu testes reais de filesystem. M11 está **Em andamento**; o hardening concorrente e as unidades M11.2A, M11.2B, M11.3A, M11.3B, M11.4 e M11.5 foram concluídos.
+
+## Progresso M11
+
+- [x] Hardening concorrente `UpdateTask × TransitionTaskStatus`.
+- [x] M11.2A — projeção de cards, scope, search e summaries.
+- [x] M11.2B — lookup de membros e pesquisa de Requisitions.
+- [x] M11.3A — auth, HTTP, sessão por cookie HttpOnly e empresa ativa.
+- [x] M11.3B — server state, clients, query keys tenant-aware e primitives.
+- [x] M11.4 — board fixo, quatro colunas e cards somente leitura.
+- [x] M11.5 — DnD, ações rápidas, optimistic update e autorização own/company.
+- [ ] Criação rápida e edição de Tasks.
+- [ ] Autofill de Requisition — decisão aberta.
+- [ ] Customização das colunas — decisão aberta.
+
+Pendências transversais preservadas: coverage global abaixo dos thresholds; deadlocks da suíte PostgreSQL paralela com `TRUNCATE ... CASCADE`; auditoria manual browser ainda não executada.

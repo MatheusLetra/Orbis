@@ -54,14 +54,9 @@ describe("AppShell", () => {
 });
 
 describe("App", () => {
-  it("renderiza a página inicial do Orbis", () => {
+  it("aguarda o bootstrap da sessão antes de decidir a rota", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Bem-vindo ao Orbis" })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Plataforma multiempresa para gestão de requisições, tarefas, capacidade da equipe, Kanban e timelines.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Restaurando sessão...")).toBeInTheDocument();
   });
 });

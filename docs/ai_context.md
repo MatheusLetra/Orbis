@@ -320,7 +320,7 @@ PostgreSQL continua sendo a fonte de verdade.
 - auditoria;
 - secrets fora do Git.
 
-Implementado no M4: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`; rotas de negócio protegidas por `Authorization: Bearer <access token>`.
+Implementado: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`; rotas de negócio protegidas por `Authorization: Bearer <access token>`. O access token frontend fica somente em memória; o refresh token é transportado exclusivamente pelo cookie HttpOnly `orbis_refresh_token`, com rotação/revogação preservadas.
 
 ## 13. Banco
 
@@ -430,4 +430,3 @@ Os requisitos adicionais definidos para o novo Orbis são:
 3. **Personalização por usuário** — tema claro/escuro, cor de destaque e densidade visual configuráveis por usuário, persistidos por usuário (para acompanhá-lo entre dispositivos quando a identidade existir).
 
 Esses requisitos pertencem à camada de apresentação. O domínio não conhece CSS, cores ou temas.
-

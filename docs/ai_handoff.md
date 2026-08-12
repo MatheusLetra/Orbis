@@ -1,187 +1,153 @@
 # AI Handoff — Orbis
 
-## Projeto
+## Retomada
 
-Orbis é uma aplicação multiempresa de gestão de requisições e tarefas.
+Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este handoff descreve o estado pós-M11.5. Não reauditar M09, M10, hardening, M11.2A ou M11.2B sem regressão concreta.
 
-- API independente em TypeScript/Node.js.
-- Fastify, PostgreSQL, Drizzle ORM, Zod, JWT e OpenAPI/Scalar.
-- Arquitetura modular com separação entre apresentação, aplicação, domínio e infraestrutura.
+`commands/code_assist_agent.md` e arquivo preexistente fora da M11.
 
-## Regras de continuidade
+## Estado
 
-- Ler o Prompt Mestre e este arquivo antes de trabalhar.
-- Não reauditar M09, M10, o hardening concorrente, M11.2A ou M11.2B sem evidência concreta de regressão.
-- Não assumir decisões abertas.
-- Não introduzir Board, KanbanColumn, TaskPosition, ordering persistido, reorder, WIP, swimlanes, realtime ou WebSocket para M11 sem requisito novo.
-- `commands/code_assist_agent.md` é um arquivo preexistente não relacionado à M11; não modificá-lo sem motivo concreto.
+- M09 — Tasks: concluida.
+- M10 — Attachments: concluida.
+- Correcao pre-M11 de `LocalArtifactStorage`: concluida.
+- M11 — Kanban: em andamento.
+- M12 em diante: nao iniciadas.
 
-## Estado das milestones
+Concluidos em M11:
 
-- M09 — Tasks: **concluída**.
-- M10 — Attachments: **concluída**.
-- Correção pré-M11 de `LocalArtifactStorage`: **concluída**.
-- M11 — Kanban: **em andamento**.
-- M12 em diante: não iniciadas.
+- hardening concorrente `UpdateTask x TransitionTaskStatus`;
+- M11.2A — projecao, scope, search e summaries;
+- M11.2B — lookup de membros e pesquisa de Requisitions;
+- M11.3A — auth, HTTP e empresa ativa;
+- M11.3B — server state e primitives;
+- M11.4 — board fixo e cards;
+- M11.5 — movimento, acoes rapidas e autorizacao own/company.
 
-## M09 — Tasks
+## Contratos vigentes
 
-Não reabrir sem regressão comprovada. Preservar:
+### M09 Tasks
 
-- statuses `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`;
-- matriz oficial de transições;
-- `PAUSED → DONE` proibida;
-- `DONE` terminal;
-- `completedAt` controlado pelo domínio;
-- histórico append-only e evento inicial `null → TODO`;
-- UoW, `SELECT ... FOR UPDATE`, atomicidade;
-- tenant isolation e autorização.
+Statuses: `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`.
 
-## M10 — Attachments
+Transicoes validas:
 
-Não reabrir sem regressão comprovada. Preservar:
+```text
+TODO        -> IN_PROGRESS
+IN_PROGRESS -> PAUSED | DONE
+PAUSED      -> IN_PROGRESS
+DONE        -> nenhuma
+```
 
-- owners Requisition/Task;
-- FILE/LINK;
-- metadata separada de `attachment_blobs`/BYTEA;
-- download separado;
-- attachments carregados sob demanda no detalhe;
-- Kanban sem metadata de anexos ou BYTEA na listagem.
+`PAUSED -> DONE` e proibida; `DONE` e terminal. `completedAt` e controlado pelo dominio. Historico e append-only, com evento inicial `null -> TODO`. UoW, `FOR UPDATE`, atomicidade e tenant isolation sao obrigatorios.
 
-## M11 concluído até aqui
+### M10 Attachments
 
-### Hardening concorrente
+Owners Requisition/Task, tipos FILE/LINK, metadata separada de `attachment_blobs`/BYTEA, download separado e carregamento sob demanda no detalhe. O Kanban nao carrega BYTEA. Releases usam `ArtifactStorage`; anexos nao.
 
-`UpdateTask` usa `TaskUnitOfWork`, carrega com `findByIdForUpdate`, aplica apenas campos permitidos e persiste na mesma transação. `TransitionTaskStatus` continua autoridade exclusiva do status.
+## M11.2A e M11.2B
 
-Teste PostgreSQL real da corrida edição/transição confirmou que uma edição stale não regrava `DONE`, `completedAt` ou o histórico.
+`GET /companies/:companyId/tasks` suporta `scope=company|own`, search trimado por titulo, filtros combinados, summaries de assignee/Requisition, query tenant-aware sem N+1 e ordem `createdAt ASC, id ASC`. Nao carrega historico, Attachments ou BYTEA.
 
-Validação relatada para a suíte de Tasks após o hardening: 113 passed, 0 failed, 0 skipped com PostgreSQL real.
+`GET /companies/:companyId/members` exige `users.read`, retorna membros ativos `{ userId, name }` e suporta search. `GET /companies/:companyId/requisitions` suporta search por titulo e, para termos numericos, tambem por numero. Nao existe autofill aprovado.
 
-### M11.2A — Projeção, escopo de leitura e pesquisa
+Validacoes PostgreSQL reais registradas: M11.2A 116 passed, 0 failed, 0 skipped; M11.2B 174 passed, 0 failed, 0 skipped.
 
-Concluída.
+## M11.3A — sessao e empresa ativa
 
-`GET /companies/:companyId/tasks` agora suporta:
+- access token somente em memoria no `ApiClient`;
+- nunca em `localStorage`/`sessionStorage`;
+- refresh token somente no cookie HttpOnly `orbis_refresh_token`;
+- refresh token nao aparece em JSON nem e acessivel ao JavaScript;
+- login estabelece cookie e retorna access token + user;
+- refresh preserva rotacao, hash e revogacao;
+- logout revoga e limpa cookie;
+- bootstrap tenta `/auth/refresh` antes de concluir ausencia de sessao.
 
-- `scope=company|own`, default `company`;
-- `scope=own` restringido no backend a `assigneeId === actor.userId`;
-- rejeição HTTP 400 para `scope=own` com outro `assigneeId`;
-- `search` somente em `Task.title`;
-- substring case-insensitive, trim, vazio como ausência e máximo de 200 caracteres;
-- `%` e `_` literais;
-- combinação AND com os filtros existentes;
-- ordenação `createdAt ASC, id ASC`;
-- `TaskCardOutput` com summaries de assignee e Requisition.
+Cookie: `HttpOnly=true`, `SameSite=Lax`, `Path=/auth`, `Secure=true` em producao e `false` em dev/test, `Max-Age` derivado de `JWT_REFRESH_TTL`, padrao 30 dias.
 
-Os comandos/detalhe continuam com seus contratos anteriores. A listagem não carrega histórico, Attachments ou BYTEA. A resolução é feita em uma query tenant-aware, sem N+1.
+CORS usa `FRONTEND_ORIGIN` explicita e credentials. Refresh/logout validam `Origin` quando presente. Nao ha token CSRF adicional no contrato atual.
 
-Validação:
+Frontend possui router, `/login`, `AuthProvider`, `ApiClient`, `ApiError`, refresh single-flight, `ActiveCompanyProvider` e selecao de empresa.
 
-- Tasks sem PostgreSQL: 103 passed, 0 failed, 13 skipped.
-- Tasks com PostgreSQL real: 116 passed, 0 failed, 0 skipped.
-- typecheck, lint, API build e `git diff --check`: aprovados.
-- nenhuma migration ou índice criado.
+Validacoes registradas: backend sem PostgreSQL 602 passed, 0 failed, 64 skipped; frontend 35 passed, 0 failed, 0 skipped; identidade/refresh PostgreSQL 14 passed, 0 failed, 0 skipped; typecheck, lint e builds aprovados.
 
-### M11.2B — Lookups
+## M11.3B — server state
 
-Concluída.
+Usa `@tanstack/react-query`: stale time 30s, sem refetch em window focus, 4xx sem retry e rede/5xx ate duas tentativas. Query keys tenant-aware: `taskKeys`, `memberKeys`, `requisitionKeys`; `companyId` participa de toda key tenant-dependent.
 
-Responsáveis:
+Clients e hooks existem para Tasks, Members e Requisitions, com `AbortSignal` e datas ISO como strings. Hooks: `useTasks`, `useTaskDetail`, `useCompanyMembers`, `useRequisitions`.
 
-- `GET /companies/:companyId/members` no módulo de Memberships;
-- permissão `users.read`;
-- somente memberships ativas do tenant;
-- saída mínima `{ userId, name }`;
-- pesquisa por nome, substring case-insensitive, trim, máximo de 200, `%` e `_` literais;
-- query única com `INNER JOIN memberships + users`.
+Primitives: `LoadingState`, `ErrorState`, `EmptyState`, `Input`, `Label`, `Textarea`. Logout/ perda de sessao chama `queryClient.clear()`.
 
-Requisitions:
+Validacao registrada: frontend 56 passed, 0 failed, 0 skipped; typecheck/lint/build aprovados.
 
-- `GET /companies/:companyId/requisitions` foi estendida com `search`;
-- texto pesquisa `title` por substring case-insensitive;
-- termo numérico pesquisa `title` ou `number`;
-- trim, vazio como ausência, máximo de 200 e escaping literal;
-- filtros e tenant isolation preservados.
+## M11.4 — board fixo
 
-Nenhum autofill de Task foi implementado. `CreateTask` e `UpdateTask` continuam validando assignee e Requisition no backend.
+Rota `/kanban`; componentes `KanbanPage`, `KanbanBoard`, `KanbanColumn`, `TaskCard` e `groupTasksByStatus`.
 
-Validação:
+Colunas fixas: `TODO`/A Fazer, `IN_PROGRESS`/Em Andamento, `PAUSED`/Pausado e `DONE`/Concluido. Uma Task e um card; ordem do backend e preservada; status desconhecido falha explicitamente. Loading, error/retry, board empty, column empty, tema, scroll horizontal e semantica acessivel basica estao implementados.
 
-- Memberships/Requisitions sem PostgreSQL: 150 passed, 0 failed, 24 skipped.
-- HTTP/OpenAPI: 19 passed, 0 failed, 0 skipped.
-- Memberships/Requisitions com PostgreSQL real: 174 passed, 0 failed, 0 skipped.
-- typecheck, lint, API build e `git diff --check`: aprovados.
-- nenhuma migration, índice ou dependência nova.
+Nao existe Board de dominio, Column persistida, position, rank ou reorder.
 
-## Contrato mínimo do Kanban
+Validacao registrada: frontend 66 passed, 0 failed, 0 skipped; typecheck/lint/build aprovados.
 
-- Uma Task = um card.
-- Colunas: `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`, nessa ordem.
-- Drag e ações rápidas reutilizam `PATCH /companies/:companyId/tasks/:taskId/status`.
-- Criação reutiliza `POST /companies/:companyId/tasks`.
-- Edição reutiliza `PATCH /companies/:companyId/tasks/:taskId`.
-- Detalhe reutiliza `GET /companies/:companyId/tasks/:taskId`.
-- Attachments do detalhe usam as rotas existentes sob demanda.
-- Não existe reorder persistido.
+## Decisao fechada: own/company
 
-## Decisões abertas
+Mover/transicionar exige `tasks.update`.
 
-### Primeira decisão da próxima sessão: sessão frontend
+`tasks.update + kanban.manage` permite qualquer Task do tenant. `tasks.update` sem `kanban.manage` permite somente Task com `task.assigneeId === actor.userId`; Task sem responsavel ou de outro usuario retorna 403. `kanban.manage` sozinho nao autoriza. `scope=own` nao e autoridade de mutation. Nao existe `tasks.move`.
 
-Escolher o contrato de persistência/transporte da sessão frontend antes de `M11.3A`.
+A verificacao ocorre no backend, dentro da UoW, depois de `findByIdForUpdate(companyId, taskId)` e antes da transicao. Ausente/cross-tenant permanece 404.
 
-Opções:
+## M11.5 — movimento e acoes rapidas
 
-1. memória ou `sessionStorage`: menor alteração backend, mas sessão pode ser perdida no reload ou manter token acessível ao JavaScript;
-2. `localStorage`: persistente, mas deixa refresh token persistentemente acessível ao JavaScript;
-3. refresh token em cookie `HttpOnly`: exige alteração coordenada de API/frontend e análise de CORS/CSRF.
+Dependencia: `@dnd-kit/core@6.3.1`. Sensores Mouse, Touch e Keyboard. DnD e acoes rapidas usam `PATCH /companies/:companyId/tasks/:taskId/status`.
 
-Recomendação atual: **opção 3, cookie `HttpOnly`**, mas isso é recomendação, não decisão aprovada.
+```text
+TODO        -> Iniciar  -> IN_PROGRESS
+IN_PROGRESS -> Pausar   -> PAUSED
+IN_PROGRESS -> Concluir -> DONE
+PAUSED      -> Retomar  -> IN_PROGRESS
+DONE        -> nenhuma
+```
 
-### Customização das colunas
+Drop invalido e mesma coluna sao no-op; nao ha reorder.
 
-Ainda não decidido se usuários autorizados poderão alterar somente label/ordem ou também visibilidade/aparência, nem se a configuração será da empresa ou também pessoal.
+Mutation cancela queries relevantes, aplica patch otimista somente na Task, marca pending, bloqueia segunda mutation da mesma Task, permite Tasks diferentes em paralelo, reconcilia resposta, faz rollback granular e invalida/refaz lista/detail. `operationId` impede respostas stale de sobrescrever cache canonico posterior. Cache de outro tenant nao e alterado.
 
-Limites já derivados: quatro statuses permanecem fixos, sem novos workflows.
+401 permanece sob responsabilidade do `ApiClient`; 403, 404, 409, 422, rede e 5xx fazem rollback/refetch com feedback.
 
-Recomendação atual: configuração por empresa somente de label e ordem, com quatro colunas sempre visíveis e permissão `kanban.manage`.
+Validacoes registradas: backend focado 30 passed; API completa sem PostgreSQL 608 passed, 66 skipped; PostgreSQL serial de autorizacao/concorrencia 3 passed; PostgreSQL serial de persistencia/UoW 12 passed; frontend completo 89 passed, 0 failed, 0 skipped; typecheck, lint, builds e `git diff --check` aprovados.
 
-### Mutações `own/company`
+## Pendencias preservadas
 
-O escopo de leitura está implementado; a autorização de criação, edição, transição e reatribuição ainda está aberta.
+- coverage global abaixo dos thresholds existentes;
+- suite PostgreSQL global paralela sofre deadlocks com `TRUNCATE ... CASCADE` no mesmo banco compartilhado;
+- auditoria manual em navegador real para mouse, touch, colisao, scroll horizontal, teclado visual e sessao completa.
 
-Recomendação atual: manter permissões operacionais (`tasks.create/update`), restringir own por `assigneeId === actor.userId`, impedir reatribuição em own-only e exigir capacidade global para Tasks alheias. Não tratar como decisão aprovada.
+Execucoes PostgreSQL relevantes da M11.5 foram seriais. Skips da suite global nao sao aprovacao PostgreSQL.
+
+## Decisoes abertas
 
 ### Autofill de Requisition
 
-Ainda não decidido quais campos devem ser sugeridos ao selecionar uma Requisition. O lookup apenas disponibiliza a seleção; não copiar título, prioridade, descrição, datas ou responsável automaticamente.
+Ainda nao decidido. O lookup existe, mas nao foi aprovado copiar ou sugerir title, priority, description, datas ou responsavel. Opcoes: somente associacao por `requisitionId`; associacao + sugestoes sem sobrescrever edicao; ou copia ampla. Nao decidir por convencao.
 
-## Próxima unidade
+### Customizacao das colunas
 
-`M11.3A — Auth, HTTP e empresa ativa`.
+Ainda nao decidida. Quatro statuses permanecem fixos, sem novos statuses ou CRUD estrutural de workflow. Label/ordem por empresa e `kanban.manage` continuam recomendacao historica, nao decisao aprovada.
 
-Antes de implementá-la:
+### Criacao e edicao own/company
 
-1. ler o Prompt Mestre;
-2. ler este `docs/ai_handoff.md`;
-3. não reauditar M09/M10/hardening/M11.2A/M11.2B sem evidência;
-4. decidir o contrato de persistência/transporte da sessão frontend;
-5. após a decisão, gerar o BUILD de M11.3A.
+A politica de transicao esta fechada. Antes de aplicar politica equivalente a CreateTask, UpdateTask, reatribuicao ou remocao de assignee, verificar se o comportamento especifico esta formalmente definido.
 
-## Riscos relevantes
+Contratos vigentes: criacao exige `tasks.create`, inicia em TODO e gera `null -> TODO`; edicao permite title, description, priority, assigneeId, requisitionId, startDate e plannedEndDate; status/completedAt nao pertencem a UpdateTask; DONE e imutavel; hardening concorrente permanece obrigatorio.
 
-- escolher sessão frontend sem resolver refresh token e segurança;
-- tratar permissões own/company somente na UI;
-- implementar customização antes de definir ownership;
-- introduzir N+1 ao integrar selectors/cards;
-- oferecer drag para transições proibidas pela M09;
-- carregar BYTEA no board.
+## Proximo passo
 
-## Estado do frontend
+A proxima unidade funcional e criacao rapida e edicao de Tasks no Kanban, aproximadamente `M11.6`, mas confirmar nome/numero em `docs/milestones/M11.md`. Antes de implementar, verificar se a politica own/company para criacao, edicao, reatribuicao e remocao de assignee precisa de decisao adicional.
 
-O frontend ainda deve ser revalidado na próxima sessão. O último estado conhecido tinha shell/tema parciais, sem routing, autenticação, empresa ativa, HTTP client, cache, forms, Kanban ou DnD. Não assumir que esse estado não mudou.
+## Escopo desta atualizacao
 
-## Próximo passo operacional
-
-A próxima sessão deve começar pela decisão da sessão frontend. Nenhuma funcionalidade deve ser implementada nesta troca de sessão antes dessa decisão.
+Esta sessao foi exclusivamente documental. Nenhum codigo, teste, dependencia, migration ou contrato funcional foi alterado.

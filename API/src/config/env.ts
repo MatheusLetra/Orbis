@@ -19,6 +19,7 @@ const envSchema = z.object({
     .default(devJwtRefreshSecret),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
+  FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
   ARTIFACT_STORAGE_PATH: z.string().default("./storage/releases"),
 });
 

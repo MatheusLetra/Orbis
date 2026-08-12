@@ -4,11 +4,13 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "@/app";
 import { Company } from "@/modules/companies/domain/entities/company";
 import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { Task } from "@/modules/tasks/domain/entities/task";
 import { buildTestModules, type TestModules } from "@/test/modules-test-helper";
 
 const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "33333333-3333-4333-8333-333333333333";
 const TASK_ID = "44444444-4444-4444-8444-444444444444";
+const OTHER_USER_ID = "55555555-5555-4555-8555-555555555555";
 
 async function build(): Promise<{ app: FastifyInstance; modules: TestModules }> {
   const modules = buildTestModules();
@@ -29,6 +31,26 @@ async function seedActor(modules: TestModules, active = true, position = "GESTOR
   });
   if (!active) membership.deactivate();
   await modules.repositories.memberships.create(membership);
+}
+
+async function seedTask(modules: TestModules, assigneeId: string | null) {
+  return modules.repositories.tasks.create(
+    Task.restore({
+      id: TASK_ID,
+      companyId: COMPANY_ID,
+      requisitionId: null,
+      title: "Tarefa scoped",
+      description: null,
+      priority: "MEDIUM",
+      status: "TODO",
+      assigneeId,
+      startDate: null,
+      plannedEndDate: null,
+      completedAt: null,
+      createdAt: new Date("2026-08-12T10:00:00Z"),
+      updatedAt: new Date("2026-08-12T10:00:00Z"),
+    }),
+  );
 }
 
 describe("Task HTTP integration", () => {
@@ -254,5 +276,67 @@ describe("Task HTTP integration", () => {
       }),
     ).resolves.toMatchObject({ statusCode: 404 });
     await missing.app.close();
+  });
+
+  it("aplica alcance own/global em chamadas diretas de transição", async () => {
+    const own = await build();
+    await seedActor(own.modules, true, "DESENVOLVEDOR");
+    await seedTask(own.modules, USER_ID);
+    const ownResponse = await own.app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/status`,
+      headers: await authHeaders(own.modules),
+      payload: { status: "IN_PROGRESS" },
+    });
+    expect(ownResponse.statusCode).toBe(200);
+    await own.app.close();
+
+    for (const assigneeId of [OTHER_USER_ID, null]) {
+      const denied = await build();
+      await seedActor(denied.modules, true, "DESENVOLVEDOR");
+      await seedTask(denied.modules, assigneeId);
+      const response = await denied.app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/status`,
+        headers: await authHeaders(denied.modules),
+        payload: { status: "IN_PROGRESS" },
+      });
+      expect(response.statusCode).toBe(403);
+      await denied.app.close();
+    }
+
+    const global = await build();
+    await seedActor(global.modules, true, "GESTOR");
+    await seedTask(global.modules, OTHER_USER_ID);
+    const globalResponse = await global.app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/status`,
+      headers: await authHeaders(global.modules),
+      payload: { status: "IN_PROGRESS" },
+    });
+    expect(globalResponse.statusCode).toBe(200);
+    await global.app.close();
+  });
+
+  it("não permite transição com kanban.manage sem tasks.update", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules, true, "SEM_PERMISSAO");
+    const membership = await modules.repositories.memberships.findByUserAndCompany(
+      USER_ID,
+      COMPANY_ID,
+    );
+    if (!membership) throw new Error("Membership não criada");
+    membership.changePermissions(["kanban.manage"]);
+    await modules.repositories.memberships.update(membership);
+    await seedTask(modules, null);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/status`,
+      headers: await authHeaders(modules),
+      payload: { status: "IN_PROGRESS" },
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
   });
 });

@@ -660,7 +660,7 @@ issue access token
 issue refresh token
 ```
 
-**Implementação (M4):**
+**Implementação vigente:**
 
 - Módulo `auth` com portas `TokenService` e `RefreshTokenRepository` (o domínio não conhece `jose` nem Drizzle).
 - Use cases `Login`, `RefreshToken` e `Logout` em `application/use-cases`.
@@ -668,6 +668,9 @@ issue refresh token
 - Tabela `refresh_tokens` (`infrastructure/database/schema.ts`, migration `0001`): `token_hash` (SHA-256 do token, nunca o token em si), `user_id`, `expires_at`, `revoked_at`, `replaced_by_id`, `created_at`.
 - `createAuthenticateHook` (`infrastructure/http/authenticate.ts`) valida `Authorization: Bearer <access token>` e injeta `request.auth = { userId }`; sem token válido → 401 `UNAUTHORIZED`.
 - Endpoints: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`.
+- O access token é mantido somente em memória no frontend e enviado como Bearer.
+- O refresh token não é retornado em JSON; é estabelecido exclusivamente no cookie HttpOnly `orbis_refresh_token`, com `SameSite=Lax`, `Path=/auth` e `Secure` em produção.
+- CORS usa origem frontend explícita e credentials; refresh/logout validam `Origin` quando presente.
 
 Access token:
 
@@ -712,7 +715,6 @@ tasks.read
 tasks.create
 tasks.update
 tasks.delete
-tasks.move
 
 kanban.manage
 timeline.manage
@@ -744,6 +746,7 @@ A autorização é baseada em permissões e resolvida por requisição:
 - `AuthorizationService` (`assertPermission` → `ForbiddenError` 403; `assertCompanyContext`): cada use case protegido recebe o `AuthenticatedUser` e valida a permissão exigida (ex.: `company.read`, `company.update`, `users.manage`), além de conferir que `actor.companyId === companyId` (nunca confiar em `companyId` do cliente).
 - `DashboardPolicy` (`domain/dashboard-policy.ts`): política do Kanban/timeline (§11) com padrão da empresa (`companyDefault`), por função (`rolePermissions`), por usuário (`userPermissions`/`userDenied`) e `allowPersonalKanbanManagement`; `canManageBoard(role, userId, scope)` distingue quadro da empresa (`company`) do quadro próprio (`own`) — o funcionário gerencia o próprio quadro sem alterar o global.
 - As permissões são resolvidas por requisição a partir do repositório (sem cache por enquanto).
+- Transições de Tasks exigem `tasks.update`. `kanban.manage` concede alcance global; sem ela, o ator só pode transicionar Task atribuída a si. A verificação usa a Task tenant-aware carregada com `FOR UPDATE`, evitando TOCTOU com reassignment.
 
 ## 20. Notificações
 
@@ -1357,4 +1360,3 @@ Sempre que houver duas formas possíveis de implementar uma regra:
 3. escolher a que é mais fácil de testar;
 4. escolher a que reduz acoplamento;
 5. somente depois considerar conveniência.
-

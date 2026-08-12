@@ -21,6 +21,12 @@ const prodConfig: AppEnv = {
   HOST: "0.0.0.0",
   DATABASE_URL: "postgres://postgres:postgres@localhost:5432/orbis",
   LOG_LEVEL: "silent",
+  JWT_ACCESS_SECRET: "a".repeat(40),
+  JWT_REFRESH_SECRET: "b".repeat(40),
+  JWT_ACCESS_TTL: "15m",
+  JWT_REFRESH_TTL: "30d",
+  FRONTEND_ORIGIN: "https://app.orbis.example",
+  ARTIFACT_STORAGE_PATH: "./storage/releases",
 };
 
 const typedErrorCases = [

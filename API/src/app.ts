@@ -1,3 +1,4 @@
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import swagger from "@fastify/swagger";
@@ -22,6 +23,7 @@ import { registerTaskRoutes } from "./modules/tasks/http/task.routes";
 import { registerUserRoutes } from "./modules/users/http/user.routes";
 import { registerSystemVersionRoutes } from "./modules/versions/http/system-version.routes";
 import { createLoggerConfig } from "./shared/logging/logger";
+import { parseTtlToMs } from "./shared/utils/ttl";
 
 export interface BuildAppOptions {
   logger?: boolean | Logger;
@@ -58,8 +60,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: config.FRONTEND_ORIGIN,
+    credentials: true,
   });
+  await app.register(cookie);
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024, files: 2, fields: 2, parts: 4 },
   });
@@ -69,9 +73,23 @@ export async function buildApp(options: BuildAppOptions = {}) {
       if (!("openapiObject" in documentObject)) return documentObject.swaggerObject;
       const document = documentObject.openapiObject;
       for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
-        if (!path.endsWith("/attachments/files")) continue;
         const operation = (pathItem as { post?: Record<string, unknown> }).post;
         if (!operation) continue;
+        if (path === "/auth/login" || path === "/auth/refresh") {
+          const responses = operation.responses as
+            | Record<string, { headers?: Record<string, unknown> }>
+            | undefined;
+          const successResponse = responses?.["200"];
+          if (successResponse) {
+            successResponse.headers = {
+              "Set-Cookie": {
+                description: "Refresh token em cookie HttpOnly com escopo /auth.",
+                schema: { type: "string" },
+              },
+            };
+          }
+        }
+        if (!path.endsWith("/attachments/files")) continue;
         operation.requestBody = {
           required: true,
           content: {
@@ -106,6 +124,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
             scheme: "bearer",
             bearerFormat: "JWT",
           },
+          refreshCookie: {
+            type: "apiKey",
+            in: "cookie",
+            name: "orbis_refresh_token",
+            description: "Refresh token HttpOnly estabelecido pelo login.",
+          },
         },
       },
     },
@@ -121,7 +145,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
     const { modules } = options;
     const instance = app as unknown as FastifyInstance;
     await registerUserRoutes(instance, { createUser: modules.createUser });
-    await registerAuthRoutes(instance, modules.auth);
+    await registerAuthRoutes(instance, {
+      ...modules.auth,
+      refreshCookie: {
+        maxAgeSeconds: Math.floor(parseTtlToMs(config.JWT_REFRESH_TTL) / 1000),
+        secure: config.NODE_ENV === "production",
+      },
+      frontendOrigin: config.FRONTEND_ORIGIN,
+    });
 
     await instance.register(async (protectedRoutes) => {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));

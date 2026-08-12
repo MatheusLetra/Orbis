@@ -27,6 +27,32 @@ describe("buildApp", () => {
     expect(response.statusCode).toBe(401);
     await app.close();
   });
+
+  it("permite credentials apenas para a origem frontend configurada", async () => {
+    const app = await buildApp({ logger: false });
+    const allowed = await app.inject({
+      method: "OPTIONS",
+      url: "/health",
+      headers: {
+        origin: "http://localhost:5173",
+        "access-control-request-method": "GET",
+      },
+    });
+    expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(allowed.headers["access-control-allow-credentials"]).toBe("true");
+
+    const denied = await app.inject({
+      method: "OPTIONS",
+      url: "/health",
+      headers: {
+        origin: "https://evil.example",
+        "access-control-request-method": "GET",
+      },
+    });
+    expect(denied.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(denied.headers["access-control-allow-origin"]).not.toBe("https://evil.example");
+    await app.close();
+  });
 });
 
 describe("swagger", () => {
@@ -35,7 +61,10 @@ describe("swagger", () => {
     await app.ready();
 
     const appWithSwagger = app as unknown as {
-      swagger: () => { paths: Record<string, unknown> };
+      swagger: () => {
+        paths: Record<string, Record<string, unknown>>;
+        components?: { securitySchemes?: Record<string, unknown> };
+      };
     };
     const doc = appWithSwagger.swagger();
 
@@ -47,6 +76,11 @@ describe("swagger", () => {
     expect(doc.paths).toHaveProperty("/companies");
     expect(doc.paths).toHaveProperty("/companies/{companyId}");
     expect(doc.paths).toHaveProperty("/memberships");
+    expect(doc.paths["/auth/login"]?.post).not.toHaveProperty(
+      "responses.200.content.application/json.schema.properties.refreshToken",
+    );
+    expect(doc.paths["/auth/login"]?.post).toHaveProperty("responses.200.headers.Set-Cookie");
+    expect(doc.components?.securitySchemes).toHaveProperty("refreshCookie");
 
     await app.close();
   });

@@ -30,6 +30,11 @@ import { DeleteSystem } from "@/modules/systems/application/use-cases/delete-sys
 import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
 import { ListSystems } from "@/modules/systems/application/use-cases/list-systems";
 import { UpdateSystem } from "@/modules/systems/application/use-cases/update-system";
+import { CreateTask } from "@/modules/tasks/application/use-cases/create-task";
+import { GetTask } from "@/modules/tasks/application/use-cases/get-task";
+import { ListTasks } from "@/modules/tasks/application/use-cases/list-tasks";
+import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
+import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
 import { DeleteSystemVersion } from "@/modules/versions/application/use-cases/delete-system-version";
@@ -54,6 +59,11 @@ import {
   InMemoryRequisitionAssigneeRepository,
   InMemoryRequisitionRepository,
 } from "./fakes/requisition-fakes";
+import {
+  InMemoryTaskRepository,
+  InMemoryTaskStatusHistoryRepository,
+  InMemoryTaskUnitOfWork,
+} from "./fakes/task-fakes";
 
 const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000";
 const TEST_REFRESH_SECRET = "test-refresh-secret-com-pelo-menos-32-caracteres-000";
@@ -71,6 +81,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     releases: InMemoryReleaseRepository;
     requisitions: InMemoryRequisitionRepository;
     requisitionAssignees: InMemoryRequisitionAssigneeRepository;
+    tasks: InMemoryTaskRepository;
+    taskStatusHistory: InMemoryTaskStatusHistoryRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -87,6 +99,9 @@ export function buildTestModules(): TestModules {
   const requisitions = new InMemoryRequisitionRepository();
   const requisitionAssignees = new InMemoryRequisitionAssigneeRepository();
   const requisitionNumberGenerator = new FakeRequisitionNumberGenerator();
+  const tasks = new InMemoryTaskRepository();
+  const taskStatusHistory = new InMemoryTaskStatusHistoryRepository();
+  const taskUnitOfWork = new InMemoryTaskUnitOfWork(tasks, taskStatusHistory);
   const accessService = new MembershipAccessService(memberships);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(memberships);
@@ -108,6 +123,8 @@ export function buildTestModules(): TestModules {
       releases,
       requisitions,
       requisitionAssignees,
+      tasks,
+      taskStatusHistory,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -196,6 +213,29 @@ export function buildTestModules(): TestModules {
       getRelease: new GetRelease(releases, accessService, authorization),
       publishRelease: new PublishRelease(releases, artifactStorage, accessService, authorization),
       deleteRelease: new DeleteRelease(releases, accessService, authorization),
+    },
+    tasks: {
+      create: new CreateTask(
+        taskUnitOfWork,
+        memberships,
+        requisitions,
+        accessService,
+        new AuthorizationService(),
+      ),
+      update: new UpdateTask(
+        tasks,
+        memberships,
+        requisitions,
+        accessService,
+        new AuthorizationService(),
+      ),
+      transition: new TransitionTaskStatus(
+        taskUnitOfWork,
+        accessService,
+        new AuthorizationService(),
+      ),
+      list: new ListTasks(tasks, accessService, new AuthorizationService()),
+      get: new GetTask(tasks, taskStatusHistory, accessService, new AuthorizationService()),
     },
     auth: {
       login: new Login(users, fakePasswordHasher, tokenService, refreshTokens, {

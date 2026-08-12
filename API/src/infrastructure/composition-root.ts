@@ -42,6 +42,14 @@ import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
 import { ListSystems } from "@/modules/systems/application/use-cases/list-systems";
 import { UpdateSystem } from "@/modules/systems/application/use-cases/update-system";
 import { DrizzleSystemRepository } from "@/modules/systems/infrastructure/repositories/drizzle-system-repository";
+import { CreateTask } from "@/modules/tasks/application/use-cases/create-task";
+import { GetTask } from "@/modules/tasks/application/use-cases/get-task";
+import { ListTasks } from "@/modules/tasks/application/use-cases/list-tasks";
+import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
+import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
+import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
+import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
+import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
 import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
@@ -93,6 +101,13 @@ export interface OrbisModules {
     publishRelease: PublishRelease;
     deleteRelease: DeleteRelease;
   };
+  tasks: {
+    create: CreateTask;
+    update: UpdateTask;
+    transition: TransitionTaskStatus;
+    list: ListTasks;
+    get: GetTask;
+  };
   auth: {
     login: Login;
     refreshToken: RefreshToken;
@@ -111,6 +126,9 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const requisitionRepository = new DrizzleRequisitionRepository(database);
   const requisitionAssigneeRepository = new DrizzleRequisitionAssigneeRepository(database);
   const requisitionNumberGenerator = new DrizzleRequisitionNumberGenerator(database);
+  const taskRepository = new DrizzleTaskRepository(database);
+  const taskStatusHistoryRepository = new DrizzleTaskStatusHistoryRepository(database);
+  const taskUnitOfWork = new DrizzleTaskUnitOfWork(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
@@ -234,6 +252,25 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         authorization,
       ),
       deleteRelease: new DeleteRelease(releaseRepository, accessService, authorization),
+    },
+    tasks: {
+      create: new CreateTask(
+        taskUnitOfWork,
+        membershipRepository,
+        requisitionRepository,
+        accessService,
+        authorization,
+      ),
+      update: new UpdateTask(
+        taskRepository,
+        membershipRepository,
+        requisitionRepository,
+        accessService,
+        authorization,
+      ),
+      transition: new TransitionTaskStatus(taskUnitOfWork, accessService, authorization),
+      list: new ListTasks(taskRepository, accessService, authorization),
+      get: new GetTask(taskRepository, taskStatusHistoryRepository, accessService, authorization),
     },
     auth: {
       login: new Login(userRepository, scryptPasswordHasher, tokenService, refreshTokenRepository, {

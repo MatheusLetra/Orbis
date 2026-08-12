@@ -16,6 +16,7 @@ import { registerMembershipRoutes } from "./modules/memberships/http/membership.
 import { registerReleaseRoutes } from "./modules/releases/http/release.routes";
 import { registerRequisitionRoutes } from "./modules/requisitions/http/requisition.routes";
 import { registerSystemRoutes } from "./modules/systems/http/system.routes";
+import { registerTaskRoutes } from "./modules/tasks/http/task.routes";
 import { registerUserRoutes } from "./modules/users/http/user.routes";
 import { registerSystemVersionRoutes } from "./modules/versions/http/system-version.routes";
 import { createLoggerConfig } from "./shared/logging/logger";
@@ -111,6 +112,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       });
       await registerReleaseRoutes(protectedRoutes, {
         ...modules.releases,
+        permissionResolver: modules.permissionResolver,
+      });
+      await registerTaskRoutes(protectedRoutes, {
+        ...modules.tasks,
         permissionResolver: modules.permissionResolver,
       });
     });

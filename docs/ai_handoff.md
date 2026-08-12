@@ -2,71 +2,62 @@
 
 ## Estado atual
 
-**M08 — Requisições: CONCLUÍDA.** Próxima milestone do roadmap: M09 — Tarefas e histórico de status.
+**M09 — Tarefas e histórico de status: implementação concluída.**
 
-Entregues: entidade `Requisition`, CRUD completo, vínculo de responsável e equipe, repositories Drizzle, geração atômica e sequencial de `number` por empresa, composição no composition root, endpoints HTTP documentados via OpenAPI, isolamento tenant, permissões `requisitions.*`, `TestModules`/fakes e testes PostgreSQL.
+Concluídos:
 
-Última tarefa concluída: validação PostgreSQL e encerramento formal da M08.
-
-As milestones anteriores M01–M07 estão concluídas conforme `docs/PLANO-IMPLEMENTACAO.md`.
+- domínio `Task`;
+- entidade imutável `TaskStatusHistory`;
+- `CreateTask`;
+- `UpdateTask`;
+- `TransitionTaskStatus`;
+- `ListTasks`;
+- `GetTask`;
+- repositories Drizzle de Task e histórico;
+- `TaskUnitOfWork` transacional;
+- composition root;
+- cinco endpoints HTTP de Tasks;
+- `TestModules` e fakes.
 
 ## Decisões relevantes
 
-- O domínio permanece independente de Fastify, Drizzle, PostgreSQL, Redis e HTTP.
-- `companyId` sempre vem do contexto autenticado e não é confiado ao cliente.
-- `requesterId` de uma nova requisição vem de `actor.userId`.
-- `number` não vem do cliente e é sequencial por empresa.
-- Status de requisição: `OPEN`, `IN_PROGRESS`, `PAUSED`, `DONE`, `CANCELLED`.
-- Prioridades: `LOW`, `MEDIUM`, `HIGH`.
-- `responsibleId` é o responsável principal e é independente da equipe.
-- `requisition_assignees` representa equipe adicional; o responsável pode também ser membro.
-- `GetRequisition` retorna `RequisitionDetailOutput` com `assignees`.
-- `ListRequisitions` retorna `RequisitionOutput[]` sem carregar equipe.
+- Status inicial da Task: `TODO`.
+- A criação gera histórico inicial `null → TODO`.
+- Transições válidas: `TODO → IN_PROGRESS`, `IN_PROGRESS → PAUSED`, `PAUSED → IN_PROGRESS` e `IN_PROGRESS → DONE`.
+- `PAUSED → DONE` é proibido.
+- `DONE` é terminal.
+- Status só pode ser alterado por `TransitionTaskStatus`.
+- Task e histórico são persistidos atomicamente na mesma Unit of Work.
+- Transições usam `SELECT ... FOR UPDATE`.
+- Histórico é append-only.
+- `GetTask` retorna o histórico completo.
+- `ListTasks` não retorna histórico.
+- Não existe `DeleteTask` na M09.
+- Company context vem do actor autenticado; operações são tenant-aware.
 
-## Geração de number
+## HTTP
 
-`requisition_number_counters` mantém uma linha por empresa. `DrizzleRequisitionNumberGenerator.next(companyId)` usa `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, é concorrente-seguro, começa em `1`, aceita gaps e não reutiliza números consumidos.
+Endpoints concluídos:
 
-## Contratos e arquivos principais
+- `POST /companies/:companyId/tasks`;
+- `GET /companies/:companyId/tasks`;
+- `GET /companies/:companyId/tasks/:taskId`;
+- `PATCH /companies/:companyId/tasks/:taskId`;
+- `PATCH /companies/:companyId/tasks/:taskId/status`.
 
-- Use cases: `create-requisition.ts`, `update-requisition.ts`, `list-requisitions.ts`, `get-requisition.ts`, `delete-requisition.ts`, `add-requisition-assignee.ts`, `remove-requisition-assignee.ts`, `list-requisition-assignees.ts`.
-- DTOs: `API/src/modules/requisitions/application/dto/requisition-dtos.ts`.
-- Repositories: `DrizzleRequisitionRepository` e `DrizzleRequisitionAssigneeRepository`.
-- Generator: `API/src/modules/requisitions/infrastructure/numbering/drizzle-requisition-number-generator.ts`.
-- HTTP: `API/src/modules/requisitions/http/requisition.routes.ts`.
-- Composition: `API/src/infrastructure/composition-root.ts`.
-- Filtros oficiais da lista: `status`, `priority` e `responsibleId`; sem paginação ou busca textual.
-
-## Arquivos principais
-
-- `API/src/modules/requisitions/domain/entities/requisition.ts`
-- `API/src/modules/requisitions/application/dto/requisition-dtos.ts`
-- `API/src/modules/requisitions/application/ports/requisition-number-generator.ts`
-- `API/src/modules/requisitions/application/use-cases/create-requisition.ts`
-- `API/src/modules/requisitions/application/use-cases/update-requisition.ts`
-- `API/src/modules/requisitions/application/use-cases/list-requisitions.ts`
-- `API/src/modules/requisitions/domain/repositories/requisition-repository.ts`
-- `API/src/modules/requisitions/infrastructure/numbering/drizzle-requisition-number-generator.ts`
-- `API/src/infrastructure/database/schema.ts`
-- `API/src/infrastructure/database/migrations/0003_massive_blizzard.sql`
+Não existe rota separada de histórico.
 
 ## Verificações
 
-- Testes relacionados de Requisitions: **128 passed**, **0 skipped**, em **13 arquivos**.
-- Testes PostgreSQL passaram, incluindo repositories concretos, isolamento, filtros, assignees e geração concorrente de `number`.
-- Lint e `git diff --check` passam.
-- Typecheck permanece bloqueado somente pelo erro preexistente em `API/src/infrastructure/composition-root.ts`, que importa o módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`. Não corrigir neste contexto.
+- Testes atuais: **101 passed**, **11 PostgreSQL skipped**.
+- Lint aprovado.
+- `git diff --check` aprovado.
+- Typecheck bloqueado somente pelo erro preexistente em `API/src/infrastructure/composition-root.ts`, relacionado ao módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`.
+- Não corrigir `local-artifact-storage` neste contexto.
 
-## Estado da M08
+## Encerramento pendente
 
-Não há pendências funcionais ou de integração da M08. `responsibleId` permanece independente de `requisition_assignees`; `GetRequisition` retorna `assignees` e `ListRequisitions` não carrega equipe. Os filtros oficiais são `status`, `priority` e `responsibleId`.
-
-O erro de `local-artifact-storage` é preexistente, pertence ao módulo de releases e não pertence à M08.
-
-## Próxima milestone
-
-M09 — Tarefas e histórico de status.
-
-## Primeira ação recomendada
-
-Ler `docs/milestones/M09.md` e inspecionar o estado atual dos módulos de identidade, autorização e Requisitions antes de iniciar a implementação de `Task`.
+- Não há pendência funcional conhecida da M09.
+- Ainda é necessário executar os 11 testes PostgreSQL reais.
+- Após o PostgreSQL verde, realizar a revisão final da M09.
+- Não iniciar a M10 antes desse fechamento.

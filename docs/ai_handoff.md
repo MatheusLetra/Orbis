@@ -4,24 +4,9 @@
 
 **Milestone atual: M08 — Requisições.**
 
-Concluídas nesta milestone:
+Implementados: entidade `Requisition`, geração atômica e sequencial de `number` por empresa, CRUD, vínculo de equipe, repositories Drizzle, composição no composition root e endpoints HTTP.
 
-- entidade de domínio `Requisition`;
-- infraestrutura de geração sequencial de `number`;
-- `CreateRequisition`;
-- `UpdateRequisition`;
-- `ListRequisitions`.
-
-Última tarefa concluída: `ListRequisitions`.
-
-Ainda pendentes em M08:
-
-- `GetRequisition`;
-- `DeleteRequisition`;
-- vínculo de responsáveis/equipe (`requisition_assignees`);
-- integração final do repository concreto;
-- endpoints de requisições;
-- conclusão formal dos critérios de API, filtros, isolamento e permissões.
+Última tarefa concluída: endpoints HTTP de Requisitions e registro da integração no composition root.
 
 As milestones anteriores M01–M07 estão concluídas conforme `docs/PLANO-IMPLEMENTACAO.md`.
 
@@ -33,48 +18,24 @@ As milestones anteriores M01–M07 estão concluídas conforme `docs/PLANO-IMPLE
 - `number` não vem do cliente e é sequencial por empresa.
 - Status de requisição: `OPEN`, `IN_PROGRESS`, `PAUSED`, `DONE`, `CANCELLED`.
 - Prioridades: `LOW`, `MEDIUM`, `HIGH`.
-- Alterações de status ainda não possuem máquina de estados implementada.
+- `responsibleId` é o responsável principal e é independente da equipe.
+- `requisition_assignees` representa equipe adicional; o responsável pode também ser membro.
+- `GetRequisition` retorna `RequisitionDetailOutput` com `assignees`.
+- `ListRequisitions` retorna `RequisitionOutput[]` sem carregar equipe.
 
 ## Geração de number
 
-Foi criada a tabela `requisition_number_counters`, com uma linha por empresa:
+`requisition_number_counters` mantém uma linha por empresa. `DrizzleRequisitionNumberGenerator.next(companyId)` usa `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, é concorrente-seguro, começa em `1`, aceita gaps e não reutiliza números consumidos.
 
-- `company_id` é a chave primária e referencia `companies` com `ON DELETE CASCADE`;
-- `last_number` é `integer NOT NULL`;
-- a primeira chamada retorna `1`;
-- chamadas seguintes usam `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`;
-- a operação é concorrente-segura;
-- gaps são aceitos e números consumidos não são reutilizados;
-- a porta é `RequisitionNumberGenerator.next(companyId)`.
+## Contratos e arquivos principais
 
-Migration: `API/src/infrastructure/database/migrations/0003_massive_blizzard.sql`.
-
-## Contratos de requisições
-
-### CreateRequisition
-
-- Command: `actor` e `data`.
-- `companyId`, `requesterId`, `number` e `status` não entram no input.
-- Fluxo valida contexto, permissão `requisitions.create`, membership, payload e referências antes de chamar o number generator.
-- `responsibleId`, `systemId` e `systemVersionId` são validados no tenant.
-- Quando sistema e versão são informados, a versão deve pertencer ao sistema.
-
-### UpdateRequisition
-
-- Command: `actor`, `requisitionId` e `changes`.
-- PATCH usa `undefined` para preservar, valor para substituir e `null` para remover campos opcionais.
-- `companyId`, `number`, `requesterId`, `createdAt` e `status` permanecem imutáveis.
-- Não há transições de status nem regras adicionais de datas.
-- O estado efetivo é validado antes da persistência.
-
-### ListRequisitions
-
-- Command: `actor` e `filters?`.
-- Filtros oficiais: `status`, `priority` e `responsibleId`.
-- `companyId`, `requesterId`, `systemId`, `systemVersionId`, `number`, mês, ano e busca textual não fazem parte do contrato.
-- Não há paginação.
-- A ordenação padrão é `createdAt` ascendente e não é configurável pelo cliente.
-- O repository recebe sempre `actor.companyId`.
+- Use cases: `create-requisition.ts`, `update-requisition.ts`, `list-requisitions.ts`, `get-requisition.ts`, `delete-requisition.ts`, `add-requisition-assignee.ts`, `remove-requisition-assignee.ts`, `list-requisition-assignees.ts`.
+- DTOs: `API/src/modules/requisitions/application/dto/requisition-dtos.ts`.
+- Repositories: `DrizzleRequisitionRepository` e `DrizzleRequisitionAssigneeRepository`.
+- Generator: `API/src/modules/requisitions/infrastructure/numbering/drizzle-requisition-number-generator.ts`.
+- HTTP: `API/src/modules/requisitions/http/requisition.routes.ts`.
+- Composition: `API/src/infrastructure/composition-root.ts`.
+- Filtros oficiais da lista: `status`, `priority` e `responsibleId`; sem paginação ou busca textual.
 
 ## Arquivos principais
 
@@ -91,20 +52,18 @@ Migration: `API/src/infrastructure/database/migrations/0003_massive_blizzard.sql
 
 ## Verificações
 
-Executados com sucesso:
+- Testes relacionados de Requisitions: **107 aprovados**, **22 pulados**.
+- Testes PostgreSQL permanecem pendentes porque o banco de teste não está disponível.
+- Lint e `git diff --check` passam.
+- Typecheck permanece bloqueado somente pelo erro preexistente em `API/src/infrastructure/composition-root.ts`, que importa o módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`. Não corrigir neste contexto.
 
-- testes da entidade `Requisition`;
-- testes de `CreateRequisition`;
-- testes de `UpdateRequisition`;
-- testes de `ListRequisitions`;
-- testes estruturais do schema;
-- lint da API;
-- `git diff --check`.
+## Pendências reais
 
-Estado geral dos testes relacionados: **52 aprovados**. Cinco testes de integração PostgreSQL foram pulados porque o banco de teste não estava disponível.
-
-O typecheck permanece bloqueado por erro preexistente em `API/src/infrastructure/composition-root.ts`, que importa o módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`. Não corrigir neste contexto.
+- Completar `TestModules`/fakes de Requisitions.
+- Adicionar ou completar testes de API integrados com esses módulos.
+- Executar os testes PostgreSQL quando o banco estiver disponível.
+- Formalizar os critérios finais de API, filtros, isolamento e permissões após os testes integrados.
 
 ## Próxima ação
 
-Implementar `GetRequisition`, sem iniciar `DeleteRequisition`, endpoints ou `requisition_assignees`.
+Completar `TestModules`/fakes de Requisitions e os testes de API integrados.

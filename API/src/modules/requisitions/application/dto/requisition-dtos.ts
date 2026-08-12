@@ -5,6 +5,7 @@ import {
   REQUISITION_STATUSES,
   type Requisition,
 } from "@/modules/requisitions/domain/entities/requisition";
+import type { RequisitionAssignee } from "@/modules/requisitions/domain/entities/requisition-assignee";
 
 export const createRequisitionSchema = z.object({
   title: z.string().trim().min(1, "Título da requisição é obrigatório"),
@@ -68,6 +69,34 @@ export interface RequisitionOutput {
   deliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RequisitionAssigneeOutput {
+  userId: string;
+  createdAt: string;
+}
+
+export interface RequisitionDetailOutput extends RequisitionOutput {
+  assignees: RequisitionAssigneeOutput[];
+}
+
+export function toRequisitionAssigneeOutput(
+  assignee: RequisitionAssignee,
+): RequisitionAssigneeOutput {
+  return {
+    userId: assignee.userId,
+    createdAt: assignee.createdAt.toISOString(),
+  };
+}
+
+export function toRequisitionDetailOutput(
+  requisition: Requisition,
+  assignees: RequisitionAssigneeOutput[],
+): RequisitionDetailOutput {
+  return {
+    ...toRequisitionOutput(requisition),
+    assignees,
+  };
 }
 
 export function toRequisitionOutput(requisition: Requisition): RequisitionOutput {

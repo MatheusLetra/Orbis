@@ -25,6 +25,17 @@ import { ListReleases } from "@/modules/releases/application/use-cases/list-rele
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
 import { DrizzleReleaseRepository } from "@/modules/releases/infrastructure/repositories/drizzle-release-repository";
 import { LocalArtifactStorage } from "@/modules/releases/infrastructure/storage/local-artifact-storage";
+import { AddRequisitionAssignee } from "@/modules/requisitions/application/use-cases/add-requisition-assignee";
+import { CreateRequisition } from "@/modules/requisitions/application/use-cases/create-requisition";
+import { DeleteRequisition } from "@/modules/requisitions/application/use-cases/delete-requisition";
+import { GetRequisition } from "@/modules/requisitions/application/use-cases/get-requisition";
+import { ListRequisitionAssignees } from "@/modules/requisitions/application/use-cases/list-requisition-assignees";
+import { ListRequisitions } from "@/modules/requisitions/application/use-cases/list-requisitions";
+import { RemoveRequisitionAssignee } from "@/modules/requisitions/application/use-cases/remove-requisition-assignee";
+import { UpdateRequisition } from "@/modules/requisitions/application/use-cases/update-requisition";
+import { DrizzleRequisitionNumberGenerator } from "@/modules/requisitions/infrastructure/numbering/drizzle-requisition-number-generator";
+import { DrizzleRequisitionAssigneeRepository } from "@/modules/requisitions/infrastructure/repositories/drizzle-requisition-assignee-repository";
+import { DrizzleRequisitionRepository } from "@/modules/requisitions/infrastructure/repositories/drizzle-requisition-repository";
 import { CreateSystem } from "@/modules/systems/application/use-cases/create-system";
 import { DeleteSystem } from "@/modules/systems/application/use-cases/delete-system";
 import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
@@ -51,6 +62,16 @@ export interface OrbisModules {
   listMemberships: ListMemberships;
   permissionResolver: PermissionResolver;
   tokenService: JoseTokenService;
+  requisitions: {
+    create: CreateRequisition;
+    update: UpdateRequisition;
+    list: ListRequisitions;
+    get: GetRequisition;
+    delete: DeleteRequisition;
+    addAssignee: AddRequisitionAssignee;
+    removeAssignee: RemoveRequisitionAssignee;
+    listAssignees: ListRequisitionAssignees;
+  };
   systems: {
     createSystem: CreateSystem;
     listSystems: ListSystems;
@@ -87,6 +108,9 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const systemRepository = new DrizzleSystemRepository(database);
   const systemVersionRepository = new DrizzleSystemVersionRepository(database);
   const releaseRepository = new DrizzleReleaseRepository(database);
+  const requisitionRepository = new DrizzleRequisitionRepository(database);
+  const requisitionAssigneeRepository = new DrizzleRequisitionAssigneeRepository(database);
+  const requisitionNumberGenerator = new DrizzleRequisitionNumberGenerator(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
@@ -116,6 +140,52 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     listMemberships: new ListMemberships(membershipRepository),
     permissionResolver,
     tokenService,
+    requisitions: {
+      create: new CreateRequisition(
+        requisitionRepository,
+        requisitionNumberGenerator,
+        membershipRepository,
+        systemRepository,
+        systemVersionRepository,
+        accessService,
+        authorization,
+      ),
+      update: new UpdateRequisition(
+        requisitionRepository,
+        membershipRepository,
+        systemRepository,
+        systemVersionRepository,
+        accessService,
+        authorization,
+      ),
+      list: new ListRequisitions(requisitionRepository, accessService, authorization),
+      get: new GetRequisition(
+        requisitionRepository,
+        requisitionAssigneeRepository,
+        accessService,
+        authorization,
+      ),
+      delete: new DeleteRequisition(requisitionRepository, accessService, authorization),
+      addAssignee: new AddRequisitionAssignee(
+        requisitionRepository,
+        requisitionAssigneeRepository,
+        membershipRepository,
+        accessService,
+        authorization,
+      ),
+      removeAssignee: new RemoveRequisitionAssignee(
+        requisitionRepository,
+        requisitionAssigneeRepository,
+        accessService,
+        authorization,
+      ),
+      listAssignees: new ListRequisitionAssignees(
+        requisitionRepository,
+        requisitionAssigneeRepository,
+        accessService,
+        authorization,
+      ),
+    },
     systems: {
       createSystem: new CreateSystem(systemRepository, accessService, authorization),
       listSystems: new ListSystems(systemRepository, accessService, authorization),

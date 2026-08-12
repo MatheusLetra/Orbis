@@ -46,7 +46,8 @@ const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000"
 const TEST_REFRESH_SECRET = "test-refresh-secret-com-pelo-menos-32-caracteres-000";
 const TEST_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-export interface TestModules extends OrbisModules {
+export interface TestModules extends Omit<OrbisModules, "requisitions"> {
+  requisitions?: OrbisModules["requisitions"];
   repositories: {
     users: InMemoryUserRepository;
     companies: InMemoryCompanyRepository;

@@ -14,6 +14,7 @@ import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
 import { registerReleaseRoutes } from "./modules/releases/http/release.routes";
+import { registerRequisitionRoutes } from "./modules/requisitions/http/requisition.routes";
 import { registerSystemRoutes } from "./modules/systems/http/system.routes";
 import { registerUserRoutes } from "./modules/users/http/user.routes";
 import { registerSystemVersionRoutes } from "./modules/versions/http/system-version.routes";
@@ -94,6 +95,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
       await registerCompanyRoutes(protectedRoutes, modules);
       await registerMembershipRoutes(protectedRoutes, modules);
+      if (modules.requisitions) {
+        await registerRequisitionRoutes(protectedRoutes, {
+          ...modules.requisitions,
+          permissionResolver: modules.permissionResolver,
+        });
+      }
       await registerSystemRoutes(protectedRoutes, {
         ...modules.systems,
         permissionResolver: modules.permissionResolver,

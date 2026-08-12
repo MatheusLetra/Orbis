@@ -83,7 +83,7 @@ describe.skipIf(!available)("DrizzleRequisitionAssigneeRepository", () => {
       db.execute(
         sql`select count(*)::int as count from requisition_assignees where company_id = ${COMPANY_A}`,
       ),
-    ).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    ).resolves.toEqual([{ count: 1 }]);
   });
 
   it("permite criação concorrente idempotente", async () => {
@@ -96,7 +96,7 @@ describe.skipIf(!available)("DrizzleRequisitionAssigneeRepository", () => {
       db.execute(
         sql`select count(*)::int as count from requisition_assignees where company_id = ${COMPANY_A}`,
       ),
-    ).resolves.toMatchObject({ rows: [{ count: 1 }] });
+    ).resolves.toEqual([{ count: 1 }]);
   });
 
   it("remove o vínculo pelos três filtros", async () => {

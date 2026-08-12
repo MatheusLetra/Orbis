@@ -2,11 +2,11 @@
 
 ## Estado atual
 
-**Milestone atual: M08 — Requisições.**
+**M08 — Requisições: CONCLUÍDA.** Próxima milestone do roadmap: M09 — Tarefas e histórico de status.
 
-Implementados: entidade `Requisition`, geração atômica e sequencial de `number` por empresa, CRUD, vínculo de equipe, repositories Drizzle, composição no composition root e endpoints HTTP.
+Entregues: entidade `Requisition`, CRUD completo, vínculo de responsável e equipe, repositories Drizzle, geração atômica e sequencial de `number` por empresa, composição no composition root, endpoints HTTP documentados via OpenAPI, isolamento tenant, permissões `requisitions.*`, `TestModules`/fakes e testes PostgreSQL.
 
-Última tarefa concluída: endpoints HTTP de Requisitions e registro da integração no composition root.
+Última tarefa concluída: validação PostgreSQL e encerramento formal da M08.
 
 As milestones anteriores M01–M07 estão concluídas conforme `docs/PLANO-IMPLEMENTACAO.md`.
 
@@ -52,18 +52,21 @@ As milestones anteriores M01–M07 estão concluídas conforme `docs/PLANO-IMPLE
 
 ## Verificações
 
-- Testes relacionados de Requisitions: **107 aprovados**, **22 pulados**.
-- Testes PostgreSQL permanecem pendentes porque o banco de teste não está disponível.
+- Testes relacionados de Requisitions: **128 passed**, **0 skipped**, em **13 arquivos**.
+- Testes PostgreSQL passaram, incluindo repositories concretos, isolamento, filtros, assignees e geração concorrente de `number`.
 - Lint e `git diff --check` passam.
 - Typecheck permanece bloqueado somente pelo erro preexistente em `API/src/infrastructure/composition-root.ts`, que importa o módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`. Não corrigir neste contexto.
 
-## Pendências reais
+## Estado da M08
 
-- Completar `TestModules`/fakes de Requisitions.
-- Adicionar ou completar testes de API integrados com esses módulos.
-- Executar os testes PostgreSQL quando o banco estiver disponível.
-- Formalizar os critérios finais de API, filtros, isolamento e permissões após os testes integrados.
+Não há pendências funcionais ou de integração da M08. `responsibleId` permanece independente de `requisition_assignees`; `GetRequisition` retorna `assignees` e `ListRequisitions` não carrega equipe. Os filtros oficiais são `status`, `priority` e `responsibleId`.
 
-## Próxima ação
+O erro de `local-artifact-storage` é preexistente, pertence ao módulo de releases e não pertence à M08.
 
-Completar `TestModules`/fakes de Requisitions e os testes de API integrados.
+## Próxima milestone
+
+M09 — Tarefas e histórico de status.
+
+## Primeira ação recomendada
+
+Ler `docs/milestones/M09.md` e inspecionar o estado atual dos módulos de identidade, autorização e Requisitions antes de iniciar a implementação de `Task`.

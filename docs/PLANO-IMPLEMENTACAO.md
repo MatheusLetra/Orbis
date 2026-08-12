@@ -13,7 +13,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 5 | M05 — Autenticação JWT | [M05.md](milestones/M05.md) | Concluída |
 | 6 | M06 — Autorização por permissões | [M06.md](milestones/M06.md) | Concluída |
 | 7 | M07 — Catálogo de software | [M07.md](milestones/M07.md) | Concluída |
-| 8 | M08 — Requisições | [M08.md](milestones/M08.md) | Próxima etapa recomendada |
+| 8 | M08 — Requisições | [M08.md](milestones/M08.md) | Concluída |
 | 9 | M09 — Tarefas e histórico de status | [M09.md](milestones/M09.md) | Não iniciada |
 | 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Não iniciada |
 | 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Não iniciada |

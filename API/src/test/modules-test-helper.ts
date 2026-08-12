@@ -17,6 +17,14 @@ import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-r
 import { GetRelease } from "@/modules/releases/application/use-cases/get-release";
 import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import { AddRequisitionAssignee } from "@/modules/requisitions/application/use-cases/add-requisition-assignee";
+import { CreateRequisition } from "@/modules/requisitions/application/use-cases/create-requisition";
+import { DeleteRequisition } from "@/modules/requisitions/application/use-cases/delete-requisition";
+import { GetRequisition } from "@/modules/requisitions/application/use-cases/get-requisition";
+import { ListRequisitionAssignees } from "@/modules/requisitions/application/use-cases/list-requisition-assignees";
+import { ListRequisitions } from "@/modules/requisitions/application/use-cases/list-requisitions";
+import { RemoveRequisitionAssignee } from "@/modules/requisitions/application/use-cases/remove-requisition-assignee";
+import { UpdateRequisition } from "@/modules/requisitions/application/use-cases/update-requisition";
 import { CreateSystem } from "@/modules/systems/application/use-cases/create-system";
 import { DeleteSystem } from "@/modules/systems/application/use-cases/delete-system";
 import { GetSystem } from "@/modules/systems/application/use-cases/get-system";
@@ -41,13 +49,18 @@ import {
   InMemoryRefreshTokenRepository,
   InMemoryUserRepository,
 } from "./fakes/identity-fakes";
+import {
+  FakeRequisitionNumberGenerator,
+  InMemoryRequisitionAssigneeRepository,
+  InMemoryRequisitionRepository,
+} from "./fakes/requisition-fakes";
 
 const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000";
 const TEST_REFRESH_SECRET = "test-refresh-secret-com-pelo-menos-32-caracteres-000";
 const TEST_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface TestModules extends Omit<OrbisModules, "requisitions"> {
-  requisitions?: OrbisModules["requisitions"];
+  requisitions: OrbisModules["requisitions"];
   repositories: {
     users: InMemoryUserRepository;
     companies: InMemoryCompanyRepository;
@@ -56,6 +69,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     systems: InMemorySystemRepository;
     systemVersions: InMemorySystemVersionRepository;
     releases: InMemoryReleaseRepository;
+    requisitions: InMemoryRequisitionRepository;
+    requisitionAssignees: InMemoryRequisitionAssigneeRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -69,6 +84,9 @@ export function buildTestModules(): TestModules {
   const systemVersions = new InMemorySystemVersionRepository();
   const releases = new InMemoryReleaseRepository();
   const artifactStorage = new InMemoryArtifactStorage();
+  const requisitions = new InMemoryRequisitionRepository();
+  const requisitionAssignees = new InMemoryRequisitionAssigneeRepository();
+  const requisitionNumberGenerator = new FakeRequisitionNumberGenerator();
   const accessService = new MembershipAccessService(memberships);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(memberships);
@@ -88,6 +106,8 @@ export function buildTestModules(): TestModules {
       systems,
       systemVersions,
       releases,
+      requisitions,
+      requisitionAssignees,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -105,6 +125,47 @@ export function buildTestModules(): TestModules {
     listMemberships: new ListMemberships(memberships),
     permissionResolver,
     tokenService,
+    requisitions: {
+      create: new CreateRequisition(
+        requisitions,
+        requisitionNumberGenerator,
+        memberships,
+        systems,
+        systemVersions,
+        accessService,
+        authorization,
+      ),
+      update: new UpdateRequisition(
+        requisitions,
+        memberships,
+        systems,
+        systemVersions,
+        accessService,
+        authorization,
+      ),
+      list: new ListRequisitions(requisitions, accessService, authorization),
+      get: new GetRequisition(requisitions, requisitionAssignees, accessService, authorization),
+      delete: new DeleteRequisition(requisitions, accessService, authorization),
+      addAssignee: new AddRequisitionAssignee(
+        requisitions,
+        requisitionAssignees,
+        memberships,
+        accessService,
+        authorization,
+      ),
+      removeAssignee: new RemoveRequisitionAssignee(
+        requisitions,
+        requisitionAssignees,
+        accessService,
+        authorization,
+      ),
+      listAssignees: new ListRequisitionAssignees(
+        requisitions,
+        requisitionAssignees,
+        accessService,
+        authorization,
+      ),
+    },
     systems: {
       createSystem: new CreateSystem(systems, accessService, authorization),
       listSystems: new ListSystems(systems, accessService, authorization),

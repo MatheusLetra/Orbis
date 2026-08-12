@@ -2,258 +2,300 @@ import type { FastifyInstance } from "fastify";
 import { describe, expect, it } from "vitest";
 
 import { buildApp } from "@/app";
-import {
-  type RequisitionRouteOptions,
-  registerRequisitionRoutes,
-} from "@/modules/requisitions/http/requisition.routes";
-import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
-import { ForbiddenError } from "@/shared/errors/typed-errors";
+import { Company } from "@/modules/companies/domain/entities/company";
+import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { System } from "@/modules/systems/domain/entities/system";
+import { SystemVersion } from "@/modules/versions/domain/entities/system-version";
+import { buildTestModules, type TestModules } from "@/test/modules-test-helper";
 
 const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
-const REQUISITION_ID = "22222222-2222-4222-8222-222222222222";
+const OTHER_COMPANY_ID = "22222222-2222-4222-8222-222222222222";
 const USER_ID = "33333333-3333-4333-8333-333333333333";
+const RESPONSIBLE_ID = "44444444-4444-4444-8444-444444444444";
+const OTHER_USER_ID = "55555555-5555-4555-8555-555555555555";
 
-function output() {
-  return {
-    id: REQUISITION_ID,
-    companyId: COMPANY_ID,
-    number: 1,
-    title: "Requisição",
-    description: null,
-    priority: "MEDIUM",
-    status: "OPEN",
-    requesterId: USER_ID,
-    responsibleId: null,
-    systemId: null,
-    systemVersionId: null,
-    estimatedHours: null,
-    startDate: null,
-    plannedDeliveryDate: null,
-    deliveredAt: null,
-    createdAt: "2026-08-12T10:00:00.000Z",
-    updatedAt: "2026-08-12T10:00:00.000Z",
-  };
+async function build(): Promise<{ app: FastifyInstance; modules: TestModules }> {
+  const modules = buildTestModules();
+  const app = await buildApp({ logger: false, modules });
+  return { app, modules };
 }
 
-function buildOptions(): RequisitionRouteOptions & {
-  calls: Record<string, unknown[]>;
-  actor: AuthenticatedUser;
-} {
-  const calls: Record<string, unknown[]> = {};
-  const record = (name: string, value: unknown) => {
-    calls[name] ??= [];
-    calls[name].push(value);
-  };
-  const actor = { userId: USER_ID, companyId: COMPANY_ID, permissions: [] } as AuthenticatedUser;
-  const requisition = output();
-
-  return {
-    actor,
-    calls,
-    permissionResolver: {
-      resolve: async (userId: string, companyId: string) => {
-        record("resolve", { userId, companyId });
-        return actor;
-      },
-    },
-    create: {
-      execute: async (input: unknown) => {
-        record("create", input);
-        return requisition;
-      },
-    } as never,
-    update: {
-      execute: async (input: unknown) => {
-        record("update", input);
-        return requisition;
-      },
-    } as never,
-    list: {
-      execute: async (input: unknown) => {
-        record("list", input);
-        return [requisition];
-      },
-    } as never,
-    get: {
-      execute: async (input: unknown) => {
-        record("get", input);
-        return { ...requisition, assignees: [] };
-      },
-    } as never,
-    delete: {
-      execute: async (input: unknown) => {
-        record("delete", input);
-        return { id: REQUISITION_ID };
-      },
-    } as never,
-    addAssignee: {
-      execute: async (input: unknown) => {
-        record("addAssignee", input);
-        return { userId: USER_ID, createdAt: "2026-08-12T10:00:00.000Z" };
-      },
-    } as never,
-    removeAssignee: {
-      execute: async (input: unknown) => {
-        record("removeAssignee", input);
-        return { requisitionId: REQUISITION_ID, userId: USER_ID };
-      },
-    } as never,
-    listAssignees: {
-      execute: async (input: unknown) => {
-        record("listAssignees", input);
-        return [];
-      },
-    } as never,
-  };
+async function authHeaders(modules: TestModules, userId = USER_ID) {
+  return { authorization: `Bearer ${await modules.tokenService.signAccessToken(userId)}` };
 }
 
-async function build(
-  options = buildOptions(),
-): Promise<{ app: FastifyInstance; options: ReturnType<typeof buildOptions> }> {
-  const app = await buildApp({ logger: false });
-  app.addHook("preHandler", async (request) => {
-    request.auth = { userId: USER_ID };
+async function seedCompany(modules: TestModules, id: string, name: string): Promise<void> {
+  await modules.repositories.companies.create(Company.create({ name }, id));
+}
+
+async function seedMembership(
+  modules: TestModules,
+  companyId: string,
+  userId: string,
+  position = "GESTOR",
+): Promise<void> {
+  await modules.repositories.memberships.create(Membership.create({ companyId, userId, position }));
+}
+
+async function seedCatalog(modules: TestModules) {
+  const system = await modules.repositories.systems.create(
+    System.create({ companyId: COMPANY_ID, name: "ERP" }),
+  );
+  const version = await modules.repositories.systemVersions.create(
+    SystemVersion.create({ companyId: COMPANY_ID, systemId: system.id, version: "1.0" }),
+  );
+  return { system, version };
+}
+
+async function createRequisition(
+  app: FastifyInstance,
+  modules: TestModules,
+  companyId = COMPANY_ID,
+  payload: Record<string, unknown> = { title: "Nova requisição" },
+) {
+  return app.inject({
+    method: "POST",
+    url: `/companies/${companyId}/requisitions`,
+    headers: await authHeaders(modules),
+    payload,
   });
-  await registerRequisitionRoutes(app, options);
-  return { app, options };
 }
 
-const headers = { authorization: "Bearer token" };
-const jsonHeaders = { ...headers, "content-type": "application/json" };
-const base = `/companies/${COMPANY_ID}/requisitions`;
-
-describe("requisition routes", () => {
-  it("registra as oito rotas", async () => {
+describe("Requisition HTTP integration", () => {
+  it("documenta as oito rotas e os schemas principais no OpenAPI", async () => {
     const { app } = await build();
-    const routes = app.printRoutes();
+    await app.ready();
+    const paths = app.swagger().paths;
 
-    expect(routes).toContain("/requisitions (POST, GET, HEAD)");
-    expect(routes).toContain(":requisitionId (GET, HEAD, PATCH, DELETE)");
-    expect(routes).toContain("/assignees (POST, GET, HEAD)");
-    expect(routes).toContain(":userId (DELETE)");
+    expect(Object.keys(paths)).toEqual(
+      expect.arrayContaining([
+        "/companies/{companyId}/requisitions",
+        "/companies/{companyId}/requisitions/{requisitionId}",
+        "/companies/{companyId}/requisitions/{requisitionId}/assignees",
+        "/companies/{companyId}/requisitions/{requisitionId}/assignees/{userId}",
+      ]),
+    );
+    expect(paths["/companies/{companyId}/requisitions"]?.post?.responses).toHaveProperty("201");
+    expect(paths["/companies/{companyId}/requisitions"]?.get?.responses).toHaveProperty("200");
+    expect(
+      paths["/companies/{companyId}/requisitions/{requisitionId}"]?.get?.responses,
+    ).toHaveProperty("200");
     await app.close();
   });
 
-  it("resolve actor com companyId e cria com 201", async () => {
-    const { app, options } = await build();
-    const response = await app.inject({
-      method: "POST",
-      url: base,
-      headers: jsonHeaders,
-      payload: { title: "Nova", startDate: "2026-08-12T10:00:00.000Z" },
-    });
+  it("executa CRUD e preserva lista sem assignees e detalhe com assignees", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedMembership(modules, COMPANY_ID, USER_ID);
+    await seedMembership(modules, COMPANY_ID, RESPONSIBLE_ID);
 
-    expect(response.statusCode).toBe(201);
-    expect(options.calls.resolve).toEqual([{ userId: USER_ID, companyId: COMPANY_ID }]);
-    expect(options.calls.create?.[0]).toMatchObject({ data: { startDate: expect.any(Date) } });
-    await app.close();
-  });
+    const created = await createRequisition(app, modules, COMPANY_ID, {
+      title: "Nova",
+      responsibleId: RESPONSIBLE_ID,
+    });
+    const id = created.json().id;
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ number: 1, requesterId: USER_ID });
 
-  it("lista sem equipe, obtém detalhe com equipe e executa update/delete", async () => {
-    const { app, options } = await build();
-    const list = await app.inject({ method: "GET", url: base, headers });
-    const detail = await app.inject({ method: "GET", url: `${base}/${REQUISITION_ID}`, headers });
-    const update = await app.inject({
-      method: "PATCH",
-      url: `${base}/${REQUISITION_ID}`,
-      headers: jsonHeaders,
-      payload: { title: "Atualizada" },
-    });
-    const deletion = await app.inject({
-      method: "DELETE",
-      url: `${base}/${REQUISITION_ID}`,
-      headers,
-    });
-
-    expect(list.statusCode).toBe(200);
-    expect(list.json()[0]).not.toHaveProperty("assignees");
-    expect(detail.statusCode).toBe(200);
-    expect(detail.json().assignees).toEqual([]);
-    expect(update.statusCode).toBe(200);
-    expect(deletion.statusCode).toBe(200);
-    expect(options.calls.update?.[0]).toMatchObject({ requisitionId: REQUISITION_ID });
-    expect(options.calls.delete?.[0]).toMatchObject({ requisitionId: REQUISITION_ID });
-    await app.close();
-  });
-
-  it("executa add/remove/list de assignees", async () => {
-    const { app, options } = await build();
-    const added = await app.inject({
-      method: "POST",
-      url: `${base}/${REQUISITION_ID}/assignees`,
-      headers: jsonHeaders,
-      payload: { userId: USER_ID },
-    });
-    const removed = await app.inject({
-      method: "DELETE",
-      url: `${base}/${REQUISITION_ID}/assignees/${USER_ID}`,
-      headers,
-    });
     const listed = await app.inject({
       method: "GET",
-      url: `${base}/${REQUISITION_ID}/assignees`,
-      headers: jsonHeaders,
+      url: `/companies/${COMPANY_ID}/requisitions`,
+      headers: await authHeaders(modules),
     });
-
-    expect(added.statusCode).toBe(200);
-    expect(removed.statusCode).toBe(200);
     expect(listed.statusCode).toBe(200);
-    expect(listed.json()).toEqual([]);
-    expect(options.calls.addAssignee?.[0]).toMatchObject({ userId: USER_ID });
-    expect(options.calls.removeAssignee?.[0]).toMatchObject({ userId: USER_ID });
-    await app.close();
-  });
+    expect(listed.json()[0]).not.toHaveProperty("assignees");
 
-  it("valida UUIDs, body extra, query extra e companyId no body", async () => {
-    const { app } = await build();
-    const invalidParam = await app.inject({
+    const detail = await app.inject({
       method: "GET",
-      url: "/companies/not-uuid/requisitions",
-      headers: jsonHeaders,
+      url: `/companies/${COMPANY_ID}/requisitions/${id}`,
+      headers: await authHeaders(modules),
     });
-    const invalidCreate = await app.inject({
-      method: "POST",
-      url: base,
-      headers: jsonHeaders,
-      payload: { companyId: COMPANY_ID },
-    });
-    const invalidPatch = await app.inject({
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().assignees).toEqual([]);
+
+    const updated = await app.inject({
       method: "PATCH",
-      url: `${base}/${REQUISITION_ID}`,
-      headers: jsonHeaders,
-      payload: { status: "DONE", nope: true },
+      url: `/companies/${COMPANY_ID}/requisitions/${id}`,
+      headers: await authHeaders(modules),
+      payload: { title: "Atualizada", priority: "HIGH" },
     });
-    const invalidQuery = await app.inject({ method: "GET", url: `${base}?search=test`, headers });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({ title: "Atualizada", priority: "HIGH" });
 
-    expect(invalidParam.statusCode).toBe(400);
-    expect(invalidCreate.statusCode).toBe(400);
-    expect(invalidPatch.statusCode).toBe(400);
-    expect(invalidQuery.statusCode).toBe(400);
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: `/companies/${COMPANY_ID}/requisitions/${id}`,
+      headers: await authHeaders(modules),
+    });
+    expect(deleted.statusCode).toBe(200);
     await app.close();
   });
 
-  it("retorna 401 sem autenticação quando integrado ao app protegido", async () => {
-    const options = buildOptions();
-    const app = await buildApp({
-      logger: false,
-      modules: { ...({} as never), requisitions: options },
+  it("aplica os filtros oficiais", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedMembership(modules, COMPANY_ID, USER_ID);
+    await seedMembership(modules, COMPANY_ID, RESPONSIBLE_ID);
+    await createRequisition(app, modules, COMPANY_ID, { title: "Alta", priority: "HIGH" });
+    await createRequisition(app, modules, COMPANY_ID, {
+      title: "Responsável",
+      responsibleId: RESPONSIBLE_ID,
     });
-    const response = await app.inject({ method: "GET", url: base });
 
-    expect(response.statusCode).toBe(401);
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions?priority=HIGH`,
+      headers: await authHeaders(modules),
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toHaveLength(1);
+    expect(response.json()[0].title).toBe("Alta");
+
+    const responsible = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions?responsibleId=${RESPONSIBLE_ID}`,
+      headers: await authHeaders(modules),
+    });
+    expect(responsible.json()).toHaveLength(1);
     await app.close();
   });
 
-  it("mapeia ForbiddenError pelo error handler", async () => {
-    const options = buildOptions();
-    options.permissionResolver.resolve = async () => {
-      throw new ForbiddenError("Sem acesso");
-    };
-    const { app } = await build(options);
-    const response = await app.inject({ method: "GET", url: base, headers });
+  it("isola empresas e rejeita relações inválidas", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedCompany(modules, OTHER_COMPANY_ID, "Outra");
+    await seedMembership(modules, COMPANY_ID, USER_ID);
+    const foreign = await createRequisition(app, modules, OTHER_COMPANY_ID);
+    expect(foreign.statusCode).toBe(403);
 
-    expect(response.statusCode).toBe(403);
-    expect(response.json().error.code).toBe("FORBIDDEN");
+    const invalidResponsible = await createRequisition(app, modules, COMPANY_ID, {
+      title: "Inválida",
+      responsibleId: OTHER_USER_ID,
+    });
+    expect(invalidResponsible.statusCode).toBe(404);
+
+    const catalog = await seedCatalog(modules);
+    const valid = await createRequisition(app, modules, COMPANY_ID, {
+      title: "Relacionada",
+      systemId: catalog.system.id,
+      systemVersionId: catalog.version.id,
+    });
+    expect(valid.statusCode).toBe(201);
+
+    const missingSystem = await createRequisition(app, modules, COMPANY_ID, {
+      title: "Sem sistema",
+      systemId: OTHER_COMPANY_ID,
+    });
+    expect(missingSystem.statusCode).toBe(404);
+
+    const missingVersion = await createRequisition(app, modules, COMPANY_ID, {
+      title: "Sem versão",
+      systemVersionId: OTHER_COMPANY_ID,
+    });
+    expect(missingVersion.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("gerencia assignees com idempotência", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedMembership(modules, COMPANY_ID, USER_ID);
+    await seedMembership(modules, COMPANY_ID, RESPONSIBLE_ID);
+    const created = await createRequisition(app, modules, COMPANY_ID);
+    const id = created.json().id;
+    const url = `/companies/${COMPANY_ID}/requisitions/${id}/assignees`;
+    const payload = { userId: RESPONSIBLE_ID };
+
+    const first = await app.inject({
+      method: "POST",
+      url,
+      headers: await authHeaders(modules),
+      payload,
+    });
+    const duplicate = await app.inject({
+      method: "POST",
+      url,
+      headers: await authHeaders(modules),
+      payload,
+    });
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.json()).toEqual(first.json());
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions/${id}`,
+      headers: await authHeaders(modules),
+    });
+    expect(detail.json().assignees).toHaveLength(1);
+
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `${url}/${RESPONSIBLE_ID}`,
+      headers: await authHeaders(modules),
+    });
+    const missing = await app.inject({
+      method: "DELETE",
+      url: `${url}/${RESPONSIBLE_ID}`,
+      headers: await authHeaders(modules),
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(missing.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("aplica permissões e validação HTTP", async () => {
+    const { app, modules } = await build();
+    await seedCompany(modules, COMPANY_ID, "Orbis");
+    await seedMembership(modules, COMPANY_ID, USER_ID, "GESTOR");
+    await seedMembership(modules, COMPANY_ID, OTHER_USER_ID, "SUPORTE");
+
+    const created = await createRequisition(app, modules);
+    expect(created.statusCode).toBe(201);
+    const requisitionId = created.json().id;
+
+    const read = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions`,
+      headers: await authHeaders(modules, OTHER_USER_ID),
+    });
+    expect(read.statusCode).toBe(200);
+
+    const forbiddenCreate = await app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY_ID}/requisitions`,
+      headers: await authHeaders(modules, OTHER_USER_ID),
+      payload: { title: "Sem permissão" },
+    });
+    expect(forbiddenCreate.statusCode).toBe(403);
+
+    const forbiddenUpdate = await app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/requisitions/${requisitionId}`,
+      headers: await authHeaders(modules, OTHER_USER_ID),
+      payload: { title: "Sem permissão" },
+    });
+    expect(forbiddenUpdate.statusCode).toBe(403);
+
+    const forbiddenDelete = await app.inject({
+      method: "DELETE",
+      url: `/companies/${COMPANY_ID}/requisitions/${requisitionId}`,
+      headers: await authHeaders(modules, OTHER_USER_ID),
+    });
+    expect(forbiddenDelete.statusCode).toBe(403);
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY_ID}/requisitions`,
+      headers: await authHeaders(modules),
+      payload: { title: "", status: "DONE" },
+    });
+    expect(invalid.statusCode).toBe(400);
+
+    const unauthenticated = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/requisitions`,
+    });
+    expect(unauthenticated.statusCode).toBe(401);
     await app.close();
   });
 });

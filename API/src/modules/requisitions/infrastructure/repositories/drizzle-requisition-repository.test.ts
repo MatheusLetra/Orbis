@@ -161,6 +161,7 @@ describe.skipIf(!available)("DrizzleRequisitionRepository", () => {
   it("filtra por status, priority e responsibleId", async () => {
     await repository.create(
       buildRequisition(REQUISITION_A, COMPANY_A, {
+        number: 8,
         status: "DONE",
         priority: "LOW",
         responsibleId: RESPONSIBLE_ID,
@@ -168,6 +169,7 @@ describe.skipIf(!available)("DrizzleRequisitionRepository", () => {
     );
     await repository.create(
       buildRequisition(REQUISITION_B, COMPANY_A, {
+        number: 9,
         status: "OPEN",
         priority: "HIGH",
         responsibleId: null,
@@ -193,11 +195,13 @@ describe.skipIf(!available)("DrizzleRequisitionRepository", () => {
   it("ordena por createdAt ascendente", async () => {
     await repository.create(
       buildRequisition(REQUISITION_A, COMPANY_A, {
+        number: 8,
         createdAt: new Date("2026-08-12T12:00:00Z"),
       }),
     );
     await repository.create(
       buildRequisition(REQUISITION_B, COMPANY_A, {
+        number: 9,
         createdAt: new Date("2026-08-12T10:00:00Z"),
       }),
     );

@@ -46,6 +46,67 @@ describe("Task HTTP integration", () => {
     expect(paths["/companies/{companyId}/tasks/{taskId}/status"]?.patch?.responses).toHaveProperty(
       "200",
     );
+
+    const createBody =
+      paths["/companies/{companyId}/tasks"]?.post?.requestBody?.content?.["application/json"]
+        ?.schema;
+    expect(createBody).toMatchObject({
+      additionalProperties: false,
+      properties: {
+        title: expect.any(Object),
+        description: expect.any(Object),
+        priority: expect.any(Object),
+        assigneeId: expect.any(Object),
+        requisitionId: expect.any(Object),
+        startDate: expect.any(Object),
+        plannedEndDate: expect.any(Object),
+      },
+    });
+    expect(Object.keys(createBody.properties)).toEqual([
+      "title",
+      "description",
+      "priority",
+      "assigneeId",
+      "requisitionId",
+      "startDate",
+      "plannedEndDate",
+    ]);
+
+    const listQuery = paths["/companies/{companyId}/tasks"]?.get?.parameters;
+    expect(listQuery).toHaveLength(6);
+    expect(
+      listQuery?.filter((parameter) => parameter.in === "query").map((parameter) => parameter.name),
+    ).toEqual(["status", "priority", "assigneeId", "requisitionId"]);
+
+    const updateBody =
+      paths["/companies/{companyId}/tasks/{taskId}"]?.patch?.requestBody?.content?.[
+        "application/json"
+      ]?.schema;
+    expect(updateBody).toMatchObject({ additionalProperties: false });
+    expect(Object.keys(updateBody.properties)).toEqual([
+      "title",
+      "description",
+      "priority",
+      "assigneeId",
+      "requisitionId",
+      "startDate",
+      "plannedEndDate",
+    ]);
+    expect(updateBody.properties).not.toHaveProperty("status");
+    expect(updateBody.properties).not.toHaveProperty("completedAt");
+
+    const statusBody =
+      paths["/companies/{companyId}/tasks/{taskId}/status"]?.patch?.requestBody?.content?.[
+        "application/json"
+      ]?.schema;
+    expect(statusBody).toMatchObject({
+      additionalProperties: false,
+      properties: { status: expect.any(Object) },
+    });
+    expect(Object.keys(statusBody.properties)).toEqual(["status"]);
+    expect(statusBody.properties).not.toHaveProperty("occurredAt");
+    expect(statusBody.properties).not.toHaveProperty("changedAt");
+    expect(statusBody.properties).not.toHaveProperty("metadata");
     await app.close();
   });
 

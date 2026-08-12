@@ -110,7 +110,7 @@ const createBody = {
     plannedEndDate: { type: "string", format: "date-time" },
   },
   required: ["title"],
-  additionalProperties: true,
+  additionalProperties: false,
 } as const;
 
 const updateBody = {
@@ -124,14 +124,14 @@ const updateBody = {
     startDate: { type: ["string", "null"], format: "date-time" },
     plannedEndDate: { type: ["string", "null"], format: "date-time" },
   },
-  additionalProperties: true,
+  additionalProperties: false,
 } as const;
 
 const statusBody = {
   type: "object",
   properties: { status: { type: "string", enum: ["TODO", "IN_PROGRESS", "PAUSED", "DONE"] } },
   required: ["status"],
-  additionalProperties: true,
+  additionalProperties: false,
 } as const;
 
 const listQuery = {
@@ -185,6 +185,17 @@ export async function registerTaskRoutes(
         params: taskParams,
         body: createBody,
         response: { 201: taskResponse },
+      },
+      preValidation: async (request) => {
+        assertAllowedKeys(request.body as Record<string, unknown>, [
+          "title",
+          "description",
+          "priority",
+          "assigneeId",
+          "requisitionId",
+          "startDate",
+          "plannedEndDate",
+        ]);
       },
     },
     async (request, reply) => {
@@ -257,6 +268,17 @@ export async function registerTaskRoutes(
         body: updateBody,
         response: { 200: taskResponse },
       },
+      preValidation: async (request) => {
+        assertAllowedKeys(request.body as Record<string, unknown>, [
+          "title",
+          "description",
+          "priority",
+          "assigneeId",
+          "requisitionId",
+          "startDate",
+          "plannedEndDate",
+        ]);
+      },
     },
     async (request) => {
       const { companyId, taskId } = request.params as { companyId: string; taskId: string };
@@ -289,6 +311,9 @@ export async function registerTaskRoutes(
         params: taskDetailParams,
         body: statusBody,
         response: { 200: taskResponse },
+      },
+      preValidation: async (request) => {
+        assertAllowedKeys(request.body as Record<string, unknown>, ["status"]);
       },
     },
     async (request) => {

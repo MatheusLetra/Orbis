@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-**M09 — Tarefas e histórico de status: implementação concluída.**
+**M09 — Tarefas e histórico de status: concluída.**
 
 Concluídos:
 
@@ -34,6 +34,7 @@ Concluídos:
 - `ListTasks` não retorna histórico.
 - Não existe `DeleteTask` na M09.
 - Company context vem do actor autenticado; operações são tenant-aware.
+- `PAUSED → DONE` permanece proibido.
 
 ## HTTP
 
@@ -49,15 +50,17 @@ Não existe rota separada de histórico.
 
 ## Verificações
 
-- Testes atuais: **101 passed**, **11 PostgreSQL skipped**.
+- Testes de aplicação/Tasks: **101 passed**.
+- Testes PostgreSQL de Tasks: **11 passed**, **0 skipped**.
 - Lint aprovado.
 - `git diff --check` aprovado.
 - Typecheck bloqueado somente pelo erro preexistente em `API/src/infrastructure/composition-root.ts`, relacionado ao módulo ausente `@/modules/releases/infrastructure/storage/local-artifact-storage`.
 - Não corrigir `local-artifact-storage` neste contexto.
 
-## Encerramento pendente
+## Encerramento
 
-- Não há pendência funcional conhecida da M09.
-- Ainda é necessário executar os 11 testes PostgreSQL reais.
-- Após o PostgreSQL verde, realizar a revisão final da M09.
-- Não iniciar a M10 antes desse fechamento.
+- M09 está concluída, sem pendências funcionais.
+- PostgreSQL real validou persistência, isolamento tenant, ordenação, commit/rollback transacional e `SELECT ... FOR UPDATE`.
+- OpenAPI de Tasks está coerente com os contratos e não documenta campos controlados ou extras.
+- O erro preexistente de `local-artifact-storage` permanece fora do escopo e não foi corrigido.
+- Próxima milestone do roadmap: M10 — Anexos de requisições e tarefas.

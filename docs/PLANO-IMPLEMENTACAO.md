@@ -104,7 +104,8 @@ Hardening final pós-M11.6B5C adicionou isolamento de foco à confirmação de r
 - [x] M12.1 — ciclo transacional de pausas de Tasks.
 - [x] M12.2 — registro manual de horas por duração.
 - [x] M12.3A — leitura e totalização de apontamentos por Task.
-- [ ] M12.3B — query/client/frontend no detalhe da Task.
+- [x] M12.3B — client e query frontend de TimeEntries.
+- [ ] M12.3C — exibição de horas no detalhe da Task.
 
 M12.1 integrou `TaskPauseInterval` à `TaskUnitOfWork`. `IN_PROGRESS → PAUSED` abre um intervalo; `PAUSED → IN_PROGRESS` o fecha; e `PAUSED → DONE` fecha a pausa e conclui diretamente, com um único histórico `PAUSED → DONE`. `endedAt`, `completedAt`, `updatedAt` e `changedAt` compartilham o instante da transição quando aplicável; a duração usa segundos inteiros completos. Task, pausa e histórico são atômicos e as transições concorrentes são serializadas pelo `FOR UPDATE` da Task pai. O PATCH de status, as permissões e o OpenAPI foram preservados, sem migration, endpoint ou dependência nova.
 
@@ -117,3 +118,7 @@ Validação M12.2: 28 testes focados de domínio/aplicação/HTTP passaram; 23 t
 M12.3A implementou `GET /companies/:companyId/tasks/:taskId/time-entries`, com autorização `tasks.read` e membership ativa. O contrato aceita somente `limit` entre 1 e 100 (default 100), ordena por `createdAt ASC, id ASC`, retorna `items`, `totalDurationMinutes` e `hasMore`, e soma todas as entradas da Task independentemente do limite. Pausas, estimativa, capacidade e horas calculadas permanecem separados; não há joins de usuários, filtros adicionais, cursor ou frontend nesta unidade.
 
 Validação M12.3A: 36 testes focados de domínio/aplicação/HTTP passaram; 24 testes PostgreSQL focados passaram serialmente sem skips; a API sem banco executou 665 testes com 75 skips condicionais. Typecheck, lint, build e `git diff --check` passaram. A suíte PostgreSQL global paralela não foi executada por causa dos deadlocks conhecidos.
+
+M12.3B adicionou o suporte frontend à leitura de TimeEntries sem UI. `timeEntriesClient.listForTask` é tenant-aware, codifica IDs, repassa AbortSignal e envia limite opcional; `timeEntryKeys.task` inclui companyId, taskId e limit; `useTaskTimeEntries` é habilitado explicitamente e não dispara no Kanban inicial. O parser runtime valida o contrato completo e a política global de React Query mantém stale time/retry.
+
+Validação M12.3B: suíte completa do app 204 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI e migrations não foram alterados.

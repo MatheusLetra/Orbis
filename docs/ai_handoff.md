@@ -24,6 +24,7 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M12.1 — ciclo transacional de pausas de Tasks concluído.
 - M12.2 — registro manual de horas por duração concluído.
 - M12.3A — leitura e totalização de apontamentos por Task concluída.
+- M12.3B — client e query frontend de TimeEntries concluída.
 
 ## Contratos preservados
 
@@ -140,6 +141,12 @@ O contrato aceita `limit` opcional de 1 a 100, default 100, sem filtros adiciona
 
 Validações M12.3A: domínio/aplicação/HTTP focados 36 passed; PostgreSQL real serial em `localhost:5432/orbis_test` 24 passed, 0 skipped; API completa sem PostgreSQL 665 passed, 75 skips condicionais; typecheck, lint, build e `git diff --check` aprovados. A suíte PostgreSQL global paralela não foi executada por causa dos deadlocks conhecidos.
 
+## M12.3B — client e query frontend
+
+O app agora possui `TimeEntryOutput`/`TimeEntryListOutput` com parser runtime, `timeEntriesClient.listForTask`, `timeEntryKeys.task(companyId, taskId, limit)` e `useTaskTimeEntries`. O client usa o GET existente, codifica IDs, envia limite opcional e repassa AbortSignal. O hook usa limite default 100, exige `companyId`, `taskId` e `enabled=true`, e permanece pronto para carregamento sob demanda no detalhe sem disparar no Kanban inicial. Não há UI, formulário, mutation ou alteração de backend.
+
+Validação M12.3B: app completo 204 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. A auditoria manual de Attachments permanece pendente.
+
 ## Próximo passo
 
-Próxima unidade recomendada: M12.3B — client, query key tenant-aware e carregamento sob demanda no detalhe da Task. Edição, remoção, filtros adicionais e apontamento por intervalo continuam fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade. Upload de Requisition e outras funcionalidades futuras permanecem fora do escopo.
+Próxima unidade recomendada: M12.3C — exibição de horas no detalhe da Task, com lista, total, loading/error/empty e retry sob demanda. Edição, remoção, filtros adicionais e apontamento por intervalo continuam fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade. Upload de Requisition e outras funcionalidades futuras permanecem fora do escopo.

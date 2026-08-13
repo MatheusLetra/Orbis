@@ -10,6 +10,17 @@ function json(body: unknown, status = 200): Response {
 }
 
 describe("ApiClient", () => {
+  it("invoca o fetch armazenado com o contexto global do navegador", async () => {
+    const fetcher = vi.fn(function (this: unknown) {
+      expect(this).toBe(globalThis);
+      return Promise.resolve(json({ ok: true }));
+    });
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+
+    await client.request("/health", { authenticated: false });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it("envia bearer, credentials, JSON e AbortSignal", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ ok: true }));
     const client = new ApiClient("https://api.orbis.test", fetcher);

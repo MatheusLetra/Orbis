@@ -20,7 +20,7 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M11.6B5A — upload de Attachment FILE de Task concluído.
 - M11.6B5B — criação de Attachment LINK em Task concluída.
 - M11.6B5C — remoção de Attachments em Task concluída.
-- M12 — Pausas e apontamento de horas: em andamento.
+- M12 — Pausas e apontamento de horas: concluída.
 - M12.1 — ciclo transacional de pausas de Tasks concluído.
 - M12.2 — registro manual de horas por duração concluído.
 - M12.3A — leitura e totalização de apontamentos por Task concluída.
@@ -181,14 +181,20 @@ O `TaskDetailDialog` agora exibe `Registrar horas` somente com capabilities carr
 
 `RegisterTimeEntryDialog` usa HTML `<dialog>` em portal para não aninhar modais, recebe `isOpen` do detalhe, gerencia foco/Escape/restauração, valida duração de 1 a 1440 e descrição trimada até 1000, preserva valores em erro e informa pending. Ao fechar o detalhe ou trocar tenant/Task, fecha sem restaurar foco indevidamente, aborta a mutation e ignora sucesso stale. Sucesso confirmado enquanto aberto fecha/limpa; 403 refaz capabilities; a mutation não é otimista e invalida/refaz somente a lista canônica da mesma company/Task.
 
-Validação M12.4C/hardening: app completo 246 passed, 0 failed, 0 skipped (42 arquivos, execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/`, M11.6 e Attachments não foram alterados. A correção do predicate para Task sem assignee tem alcance global somente com `kanban.manage`. Auditoria manual de M12.4 continua pendente; M12.4 está pronta para encerramento após a auditoria.
+Validação M12.4C/hardening: app completo 246 passed, 0 failed, 0 skipped (42 arquivos, execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/`, M11.6 e Attachments não foram alterados. A correção do predicate para Task sem assignee tem alcance global somente com `kanban.manage`.
 
 ## Auditoria manual M12.4 — tentativa bloqueada
 
 Em 2026-08-13, PostgreSQL, API, Vite, Chrome visível e DevTools foram verificados ativos. Foram preparados dados reais de auditoria para duas empresas e Tasks própria, de terceiro, sem assignee, `DONE` e tenant distinto. A autenticação pela UI do Chrome exibiu erro genérico sem request de login observável no DevTools; `curl` ao mesmo endpoint retornou 200 e `/auth/refresh` retornou 200 no navegador. O único erro de console foi o 404 de `/favicon.ico`, fora do fluxo M12.4.
 
-Os cenários de ownership, capabilities, formulário, lifecycle, refetch/cache, Attachments, download, remoção, foco e responsividade foram todos registrados como **não executados** por bloqueio anterior à autenticação. Nenhuma falha funcional M12.4 foi reproduzida e nenhum código foi alterado durante a auditoria. M12.4 continua pendente de auditoria manual real desbloqueada; a auditoria manual de Attachments permanece independente.
+Os cenários de ownership, capabilities, formulário, lifecycle, refetch/cache, Attachments, download, remoção, foco e responsividade foram todos registrados como **não executados** por bloqueio anterior à autenticação. Nenhuma falha funcional M12.4 foi reproduzida e nenhum código foi alterado durante a auditoria. Esse registro representa a tentativa bloqueada anterior e foi posteriormente supersedido pela auditoria manual concluída abaixo; a auditoria manual de Attachments permanece independente.
+
+## Auditoria manual M12.4 — concluída
+
+Em 2026-08-13, o login manual no Chrome visível funcionou e os dados reais de auditoria estavam disponíveis. O passo a passo relevante foi executado com interação física de teclado e mouse: `Registrar horas`, registro manual, atualização da lista e total, regras de Task própria, terceiro, sem assignee e `DONE`, além de foco, Escape, fechamento e troca de contexto. Nenhuma falha funcional foi observada.
+
+M12.4A, M12.4B, M12.4C e hardening estão concluídos; M12.4 está encerrada/validada. Validação automática: 246 testes aprovados, typecheck aprovado, lint aprovado, build aprovado e `git diff --check` aprovado. A auditoria manual de Attachments permanece uma pendência independente.
 
 ## Próximo passo
 
-Próxima unidade recomendada: hardening/validação manual do fluxo M12.4 e encerramento operacional de M12, mantendo edição, remoção, filtros adicionais, paginação e apontamento por intervalo fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade.
+Próxima unidade recomendada: M13 — Capacidade e previsão, mantendo edição, remoção, filtros adicionais, paginação e apontamento por intervalo fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade.

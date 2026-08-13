@@ -111,7 +111,7 @@ export class ApiClient {
     if (authenticated && this.accessToken) {
       headers.set("Authorization", `Bearer ${this.accessToken}`);
     }
-    return this.fetcher(`${this.baseUrl}${path}`, {
+    return this.fetcher.call(globalThis, `${this.baseUrl}${path}`, {
       ...options,
       body: requestBody,
       credentials: "include",

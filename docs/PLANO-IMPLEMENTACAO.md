@@ -17,7 +17,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 9 | M09 — Tarefas e histórico de status | [M09.md](milestones/M09.md) | Concluída |
 | 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Concluída |
 | 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Em andamento |
-| 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Em andamento |
+| 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Concluída |
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Não iniciada |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Não iniciada |
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Não iniciada |
@@ -109,6 +109,7 @@ Hardening final pós-M11.6B5C adicionou isolamento de foco à confirmação de r
 - [x] M12.4A — capability `hours.register` exposta tenant-aware.
 - [x] M12.4B — client e mutation de TimeEntry.
 - [x] M12.4C — formulário e integração no detalhe da Task.
+- [x] M12.4 — hardening e auditoria manual do fluxo concluídos.
 
 M12.1 integrou `TaskPauseInterval` à `TaskUnitOfWork`. `IN_PROGRESS → PAUSED` abre um intervalo; `PAUSED → IN_PROGRESS` o fecha; e `PAUSED → DONE` fecha a pausa e conclui diretamente, com um único histórico `PAUSED → DONE`. `endedAt`, `completedAt`, `updatedAt` e `changedAt` compartilham o instante da transição quando aplicável; a duração usa segundos inteiros completos. Task, pausa e histórico são atômicos e as transições concorrentes são serializadas pelo `FOR UPDATE` da Task pai. O PATCH de status, as permissões e o OpenAPI foram preservados, sem migration, endpoint ou dependência nova.
 
@@ -140,6 +141,8 @@ Validação M12.4B: testes focados 17 passed, 0 failed, 0 skipped; app completo 
 
 M12.4C integrou o registro manual no `TaskDetailDialog` com predicate tenant-aware baseado em `hours.register`, usuário autenticado, tenant ativo, assignee e `kanban.manage`. Task própria é permitida; Task de terceiro e Task sem assignee exigem alcance global; `DONE` segue as mesmas regras. O formulário acessível usa um subdialogo HTML via portal, recebe `isOpen` do detalhe, aborta explicitamente ao fechar ou trocar tenant/Task, não restaura foco no diálogo pai fechado e ignora sucesso stale. A mutation permanece sem optimistic insert, com invalidação/refetch canônico restrito à mesma Task/tenant.
 
-Validação M12.4C/hardening: testes focados 59 passed, 0 failed, 0 skipped; app completo 246 passed, 0 failed, 0 skipped (execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/`, M11.6 e Attachments foram preservados. A correção do predicate para Task sem assignee tem alcance global somente com `kanban.manage`; o backend continua autoridade final. Auditoria manual de M12.4 continua pendente; M12.4 está pronta para encerramento após a auditoria.
+Validação M12.4C/hardening: testes focados 59 passed, 0 failed, 0 skipped; app completo 246 passed, 0 failed, 0 skipped (execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/`, M11.6 e Attachments foram preservados. A correção do predicate para Task sem assignee tem alcance global somente com `kanban.manage`; o backend continua autoridade final.
 
-Auditoria manual M12.4 tentada em 2026-08-13, sem alteração de código. PostgreSQL, API, Vite, Chrome visível e DevTools estavam ativos; dados reais de auditoria foram preparados para os tenants e cenários requeridos. A autenticação no Chrome falhou na camada de interação: a UI exibiu erro genérico sem request de login observável, embora o endpoint respondesse 200 fora da UI e o refresh respondesse 200 no contexto do navegador. O único 404 observado foi `/favicon.ico`. Todos os cenários funcionais da auditoria foram registrados como **não executados** por esse bloqueio; não houve falha M12.4 reproduzida nem BUILD específico. M12.4 não deve ser encerrada até nova execução manual desbloqueada.
+Auditoria manual M12.4 tentada em 2026-08-13, sem alteração de código. PostgreSQL, API, Vite, Chrome visível e DevTools estavam ativos; dados reais de auditoria foram preparados para os tenants e cenários requeridos. A autenticação no Chrome falhou na camada de interação: a UI exibiu erro genérico sem request de login observável, embora o endpoint respondesse 200 fora da UI e o refresh respondesse 200 no contexto do navegador. O único 404 observado foi `/favicon.ico`. Todos os cenários funcionais da auditoria foram registrados como **não executados** por esse bloqueio; não houve falha M12.4 reproduzida nem BUILD específico. Esse registro representa a tentativa bloqueada anterior e foi posteriormente supersedido pela auditoria manual concluída abaixo.
+
+Auditoria manual posterior de M12.4 realizada com sucesso em Chrome visível, com interação física de teclado e mouse. O login funcionou, o passo a passo relevante foi executado, o botão `Registrar horas` e o registro manual funcionaram, e lista e total foram atualizados. As regras de Task própria, terceiro, sem assignee e `DONE`, além de foco, Escape, fechamento e troca de contexto, funcionaram conforme esperado. Nenhuma falha funcional foi observada. M12.4A, M12.4B, M12.4C e hardening estão concluídos e M12.4 está encerrada/validada. A auditoria manual de Attachments permanece independente; a próxima unidade formal de M12 é M13 — Capacidade e previsão.

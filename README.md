@@ -230,5 +230,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M5 | Autorização por permissões | ✅ Concluído |
 | M6 | Catálogo de software: systems / versions / releases / storage | ✅ Concluído |
 | M7 | Requisições | ⏳ Próximo |
+| M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
+| M13 | Capacidade e previsão | ⏳ Próximo |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.

@@ -10,6 +10,9 @@ export function KanbanColumn({
   pendingTaskIds,
   validDropTarget,
   onTransition,
+  onViewDetails,
+  canEdit,
+  companyId,
 }: {
   label: string;
   status: TaskStatus;
@@ -17,6 +20,9 @@ export function KanbanColumn({
   pendingTaskIds?: ReadonlySet<string>;
   validDropTarget?: boolean;
   onTransition?: (task: TaskCardData, status: TaskStatus) => void;
+  onViewDetails?: (task: TaskCardData) => void;
+  canEdit?: (task: TaskCardData) => boolean;
+  companyId?: string;
 }) {
   const droppable = useDroppable({ id: `column:${status}`, data: { status } });
   return (
@@ -43,6 +49,9 @@ export function KanbanColumn({
               task={task}
               pending={pendingTaskIds?.has(task.id)}
               onTransition={onTransition}
+              onViewDetails={onViewDetails}
+              canEdit={canEdit?.(task)}
+              companyId={companyId}
             />
           ))
         ) : (

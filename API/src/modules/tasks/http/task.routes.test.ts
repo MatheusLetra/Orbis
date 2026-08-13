@@ -53,6 +53,12 @@ async function seedTask(modules: TestModules, assigneeId: string | null) {
   );
 }
 
+async function seedMember(modules: TestModules, userId: string) {
+  await modules.repositories.memberships.create(
+    Membership.create({ companyId: COMPANY_ID, userId, position: "DESENVOLVEDOR" }),
+  );
+}
+
 describe("Task HTTP integration", () => {
   it("documenta as cinco rotas de Tasks no OpenAPI", async () => {
     const { app } = await build();
@@ -337,6 +343,133 @@ describe("Task HTTP integration", () => {
       payload: { status: "IN_PROGRESS" },
     });
     expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("aplica autorização de criação por assignee", async () => {
+    const own = await build();
+    await seedActor(own.modules, true, "DESENVOLVEDOR");
+    await seedMember(own.modules, OTHER_USER_ID);
+    const ownHeaders = await authHeaders(own.modules);
+
+    await expect(
+      own.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers: ownHeaders,
+        payload: { title: "Sem responsável" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 201 });
+    await expect(
+      own.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers: ownHeaders,
+        payload: { title: "Própria", assigneeId: USER_ID },
+      }),
+    ).resolves.toMatchObject({ statusCode: 201 });
+    const denied = await own.app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY_ID}/tasks`,
+      headers: ownHeaders,
+      payload: { title: "Terceiro", assigneeId: OTHER_USER_ID },
+    });
+    expect(denied.statusCode).toBe(403);
+    await own.app.close();
+
+    const global = await build();
+    await seedActor(global.modules, true, "GESTOR");
+    await seedMember(global.modules, OTHER_USER_ID);
+    await expect(
+      global.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers: await authHeaders(global.modules),
+        payload: { title: "Terceiro", assigneeId: OTHER_USER_ID },
+      }),
+    ).resolves.toMatchObject({ statusCode: 201 });
+    await global.app.close();
+  });
+
+  it("aplica autorização de edição e self-claim", async () => {
+    const own = await build();
+    await seedActor(own.modules, true, "DESENVOLVEDOR");
+    await seedTask(own.modules, USER_ID);
+    const ownHeaders = await authHeaders(own.modules);
+    await expect(
+      own.app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}`,
+        headers: ownHeaders,
+        payload: { title: "Própria editada" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    const remove = await own.app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}`,
+      headers: ownHeaders,
+      payload: { assigneeId: null },
+    });
+    expect(remove.statusCode).toBe(403);
+    await own.app.close();
+
+    const claim = await build();
+    await seedActor(claim.modules, true, "DESENVOLVEDOR");
+    await seedTask(claim.modules, null);
+    await expect(
+      claim.app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}`,
+        headers: await authHeaders(claim.modules),
+        payload: { assigneeId: USER_ID },
+      }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    await claim.app.close();
+
+    const global = await build();
+    await seedActor(global.modules, true, "GESTOR");
+    await seedMember(global.modules, OTHER_USER_ID);
+    await seedTask(global.modules, OTHER_USER_ID);
+    await expect(
+      global.app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}`,
+        headers: await authHeaders(global.modules),
+        payload: { title: "Global", assigneeId: null },
+      }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    await global.app.close();
+  });
+
+  it("não permite criação ou edição com kanban.manage sem permissão operacional", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules, true, "SEM_PERMISSAO");
+    const membership = await modules.repositories.memberships.findByUserAndCompany(
+      USER_ID,
+      COMPANY_ID,
+    );
+    if (!membership) throw new Error("Membership não criada");
+    membership.changePermissions(["kanban.manage"]);
+    await modules.repositories.memberships.update(membership);
+    await seedTask(modules, USER_ID);
+    const headers = await authHeaders(modules);
+
+    await expect(
+      app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers,
+        payload: { title: "Negada" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 403 });
+    await expect(
+      app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}`,
+        headers,
+        payload: { title: "Negada" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 403 });
     await app.close();
   });
 });

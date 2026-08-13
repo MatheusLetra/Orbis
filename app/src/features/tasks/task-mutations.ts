@@ -154,6 +154,120 @@ export function useTaskTransition() {
   return { transition, pendingTaskIds, error, clearError: () => setError(null) };
 }
 
+interface CreateTaskVariables {
+  companyId: string;
+  title: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+}
+
+interface UpdateTaskVariables {
+  companyId: string;
+  taskId: string;
+  title: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+  const activeTaskId = useRef<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation<TaskOutput, Error, UpdateTaskVariables>({
+    mutationKey: ["tasks", "update"],
+    mutationFn: ({ companyId, taskId, title, priority }) =>
+      tasksClient.update(companyId, taskId, { title, priority }),
+    onSuccess: async (_output, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+        queryClient.invalidateQueries({
+          queryKey: taskKeys.detail(variables.companyId, variables.taskId),
+        }),
+      ]);
+    },
+    onError: async (cause, variables) => {
+      setError(messageForUpdateError(cause));
+      if (cause instanceof ApiError && cause.status === 403) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["company-capabilities", variables.companyId],
+          }),
+          queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+          queryClient.invalidateQueries({
+            queryKey: taskKeys.detail(variables.companyId, variables.taskId),
+          }),
+        ]);
+      }
+    },
+  });
+
+  function update(input: UpdateTaskVariables): boolean {
+    if (mutation.isPending || activeTaskId.current !== null) return false;
+    activeTaskId.current = input.taskId;
+    setError(null);
+    mutation.mutate(input, {
+      onSettled: () => {
+        activeTaskId.current = null;
+      },
+    });
+    return true;
+  }
+
+  return {
+    update,
+    isPending: mutation.isPending,
+    isSuccess: mutation.isSuccess,
+    error,
+    clearError: () => setError(null),
+    reset: () => mutation.reset(),
+  };
+}
+
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const activeCompanyId = useRef<string | null>(null);
+
+  const mutation = useMutation<TaskOutput, Error, CreateTaskVariables>({
+    mutationKey: ["tasks", "create"],
+    mutationFn: ({ companyId, title, priority }) =>
+      tasksClient.create(companyId, { title, priority }),
+    onSuccess: async (_output, variables) => {
+      await queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) });
+    },
+    onError: async (cause, variables) => {
+      setError(messageForCreateError(cause));
+      if (cause instanceof ApiError && cause.status === 403) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["company-capabilities", variables.companyId],
+          }),
+          queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+        ]);
+      }
+    },
+  });
+
+  function create(input: CreateTaskVariables): boolean {
+    if (mutation.isPending || activeCompanyId.current !== null) return false;
+    activeCompanyId.current = input.companyId;
+    setError(null);
+    mutation.mutate(input, {
+      onSettled: () => {
+        activeCompanyId.current = null;
+      },
+    });
+    return true;
+  }
+
+  return {
+    create,
+    isPending: mutation.isPending,
+    isSuccess: mutation.isSuccess,
+    error,
+    clearError: () => setError(null),
+    reset: () => mutation.reset(),
+  };
+}
+
 function withoutOperationMarker(task: OptimisticTaskCard): TaskCard {
   const { __transitionOperationId: _operationId, ...cleanTask } = task;
   return cleanTask;
@@ -174,4 +288,23 @@ export function messageForTransitionError(error: Error): string {
     if (error.status >= 500) return "Não foi possível mover a tarefa. Tente novamente.";
   }
   return "Não foi possível mover a tarefa. Verifique sua conexão e tente novamente.";
+}
+
+export function messageForCreateError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400) return error.message || "Revise os dados da tarefa.";
+    if (error.status === 403) return "Você não tem permissão para criar tarefas nesta empresa.";
+    if (error.status >= 500) return "Não foi possível criar a tarefa. Tente novamente.";
+  }
+  return "Não foi possível criar a tarefa. Verifique sua conexão e tente novamente.";
+}
+
+export function messageForUpdateError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403) return "Você não tem permissão para editar esta tarefa.";
+    if (error.status === 404) return "A tarefa não foi encontrada. O board será atualizado.";
+    if (error.status === 422) return error.message || "Revise os dados da tarefa.";
+    if (error.status >= 500) return "Não foi possível editar a tarefa. Tente novamente.";
+  }
+  return "Não foi possível editar a tarefa. Verifique sua conexão e tente novamente.";
 }

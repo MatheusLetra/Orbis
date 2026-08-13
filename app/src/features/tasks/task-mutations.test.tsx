@@ -6,7 +6,14 @@ import { createQueryClient } from "@/lib/query/query-client";
 import { tasksClient } from "./task-client";
 import type { TaskCard, TaskOutput, TaskStatus } from "./task-contracts";
 import { taskKeys } from "./task-keys";
-import { messageForTransitionError, useTaskTransition } from "./task-mutations";
+import {
+  messageForCreateError,
+  messageForTransitionError,
+  messageForUpdateError,
+  useCreateTask,
+  useTaskTransition,
+  useUpdateTask,
+} from "./task-mutations";
 
 function task(id: string, status: TaskStatus = "TODO"): TaskCard {
   return {
@@ -259,4 +266,122 @@ describe("messageForTransitionError", () => {
     ).toBe("Transição inválida");
     expect(messageForTransitionError(new TypeError("network"))).toContain("conexão");
   });
+});
+
+describe("useCreateTask", () => {
+  it("invalida somente as listas do tenant criado e bloqueia submit duplicado", async () => {
+    const client = createQueryClient();
+    const request = deferred<TaskOutput>();
+    vi.spyOn(tasksClient, "create").mockReturnValue(request.promise);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useCreateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+
+    act(() => {
+      expect(
+        result.current.create({ companyId: "company-a", title: "Nova", priority: "MEDIUM" }),
+      ).toBe(true);
+      expect(
+        result.current.create({ companyId: "company-a", title: "Duplicada", priority: "MEDIUM" }),
+      ).toBe(false);
+    });
+    request.resolve({ ...output(task("created")), title: "Nova" });
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-b") });
+  });
+
+  it.each([
+    [400, "Dados inválidos"],
+    [403, "permissão"],
+    [500, "Tente novamente"],
+  ])("mapeia falha HTTP %s sem optimistic insert", async (status, message) => {
+    const client = createQueryClient();
+    vi.spyOn(tasksClient, "create").mockRejectedValue(
+      new ApiError({ status, code: "ERROR", message: "Dados inválidos" }),
+    );
+    const { result } = renderHook(() => useCreateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+
+    act(() => {
+      result.current.create({ companyId: "company-a", title: "Nova", priority: "MEDIUM" });
+    });
+    await waitFor(() => expect(result.current.error).toContain(message));
+    expect(client.getQueryData(taskKeys.list("company-a"))).toBeUndefined();
+  });
+
+  it("refaz capabilities e listas após 403", async () => {
+    const client = createQueryClient();
+    vi.spyOn(tasksClient, "create").mockRejectedValue(
+      new ApiError({ status: 403, code: "FORBIDDEN", message: "negado" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useCreateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => {
+      result.current.create({ companyId: "company-a", title: "Nova", priority: "MEDIUM" });
+    });
+    await waitFor(() => expect(result.current.error).toContain("permissão"));
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["company-capabilities", "company-a"],
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+  });
+
+  it("trata falha de rede sem apagar o formulário", () => {
+    expect(messageForCreateError(new TypeError("network"))).toContain("conexão");
+  });
+});
+
+describe("useUpdateTask", () => {
+  it("envia uma vez, invalida somente o tenant e detalhe após sucesso", async () => {
+    const client = createQueryClient();
+    const request = deferred<TaskOutput>();
+    vi.spyOn(tasksClient, "update").mockReturnValue(request.promise);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useUpdateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => {
+      expect(
+        result.current.update({
+          companyId: "company-a",
+          taskId: "task-a",
+          title: "Novo",
+          priority: "LOW",
+        }),
+      ).toBe(true);
+      expect(
+        result.current.update({
+          companyId: "company-a",
+          taskId: "task-a",
+          title: "Outro",
+          priority: "HIGH",
+        }),
+      ).toBe(false);
+    });
+    request.resolve(output(task("task-a")));
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.detail("company-a", "task-a") });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-b") });
+  });
+
+  it.each([403, 404, 422, 500])("mapeia erro %s e mantém entrada", (status) => {
+    const message = status === 422 ? "Título inválido" : "api";
+    expect(messageForUpdateError(new ApiError({ status, code: "ERROR", message }))).toBeTruthy();
+  });
+  it("mapeia falha de rede", () =>
+    expect(messageForUpdateError(new TypeError("network"))).toContain("conexão"));
 });

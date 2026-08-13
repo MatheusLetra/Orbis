@@ -14,7 +14,7 @@ import { TaskStatusHistory } from "@/modules/tasks/domain/entities/task-status-h
 import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
 import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
 import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
-import { BusinessRuleError, ForbiddenError } from "@/shared/errors/typed-errors";
+import { BusinessRuleError, ForbiddenError, NotFoundError } from "@/shared/errors/typed-errors";
 import { createTestDatabase, isTestDatabaseAvailable } from "@/test/db-test-helper";
 
 const available = await isTestDatabaseAvailable();
@@ -22,6 +22,10 @@ const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
 const TASK_ID = "33333333-3333-4333-8333-333333333333";
 const MEMBERSHIP_ID = "44444444-4444-4444-8444-444444444444";
+const OTHER_USER_ID = "55555555-5555-4555-8555-555555555555";
+const OTHER_MEMBERSHIP_ID = "66666666-6666-4666-8666-666666666666";
+const OTHER_COMPANY_ID = "77777777-7777-4777-8777-777777777777";
+const OTHER_TASK_ID = "88888888-8888-4888-8888-888888888888";
 
 describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStatus", () => {
   let db: Database;
@@ -61,10 +65,23 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
       name: "Actor",
       passwordHash: "hash",
     });
+    await db.insert(users).values({
+      id: OTHER_USER_ID,
+      email: "other@example.com",
+      name: "Other",
+      passwordHash: "hash",
+    });
     await db.insert(memberships).values({
       id: MEMBERSHIP_ID,
       companyId: COMPANY_ID,
       userId: USER_ID,
+      position: "DESENVOLVEDOR",
+      permissions: ["tasks.update"],
+    });
+    await db.insert(memberships).values({
+      id: OTHER_MEMBERSHIP_ID,
+      companyId: COMPANY_ID,
+      userId: OTHER_USER_ID,
       position: "DESENVOLVEDOR",
       permissions: ["tasks.update"],
     });
@@ -172,16 +189,9 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
       companyId: COMPANY_ID,
       permissions: ["tasks.update"],
     } as const;
-    const otherUserId = "55555555-5555-4555-8555-555555555555";
-    await db.insert(users).values({
-      id: otherUserId,
-      email: "other@example.com",
-      name: "Other",
-      passwordHash: "hash",
-    });
     const task = await taskRepository.findById(COMPANY_ID, TASK_ID);
     if (!task) throw new Error("Task não criada");
-    task.changeAssignee(otherUserId);
+    task.changeAssignee(OTHER_USER_ID);
     await taskRepository.update(task);
 
     await expect(
@@ -197,6 +207,103 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
       }),
     ).resolves.toMatchObject({ status: "DONE", completedAt: expect.any(String) });
     expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(3);
+  });
+
+  it("autoriza edição own-only pelo assignee confirmado após reatribuição sob lock", async () => {
+    const ownActor = {
+      userId: USER_ID,
+      companyId: COMPANY_ID,
+      permissions: ["tasks.update"],
+    } as const;
+    let reassignmentLocked!: () => void;
+    let releaseReassignment!: () => void;
+    const lockAcquired = new Promise<void>((resolve) => {
+      reassignmentLocked = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseReassignment = resolve;
+    });
+
+    const reassignment = db.transaction(async (transaction) => {
+      const repository = new DrizzleTaskRepository(transaction);
+      const task = await repository.findByIdForUpdate(COMPANY_ID, TASK_ID);
+      if (!task) throw new Error("Task não criada");
+      task.changeAssignee(OTHER_USER_ID);
+      await repository.update(task);
+      reassignmentLocked();
+      await release;
+    });
+    await lockAcquired;
+
+    const ownEdit = updateTask.execute({
+      actor: ownActor,
+      taskId: TASK_ID,
+      changes: { title: "Não pode sobrescrever" },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    releaseReassignment();
+
+    await reassignment;
+    await expect(ownEdit).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await taskRepository.findById(COMPANY_ID, TASK_ID)).toMatchObject({
+      title: "Título original",
+      assigneeId: OTHER_USER_ID,
+    });
+  });
+
+  it("não persiste parcialmente uma reatribuição proibida", async () => {
+    await expect(
+      updateTask.execute({
+        actor: {
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+          permissions: ["tasks.update"],
+        },
+        taskId: TASK_ID,
+        changes: { title: "Não persistir", assigneeId: OTHER_USER_ID },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    expect(await taskRepository.findById(COMPANY_ID, TASK_ID)).toMatchObject({
+      title: "Título original",
+      assigneeId: USER_ID,
+    });
+  });
+
+  it("mantém 404 e isolamento tenant mesmo com alcance global", async () => {
+    await db.insert(companies).values({ id: OTHER_COMPANY_ID, name: "Outro", timezone: "UTC" });
+    await taskRepository.create(
+      Task.restore({
+        id: OTHER_TASK_ID,
+        companyId: OTHER_COMPANY_ID,
+        requisitionId: null,
+        title: "Task estrangeira",
+        description: null,
+        priority: "MEDIUM",
+        status: "TODO",
+        assigneeId: null,
+        startDate: null,
+        plannedEndDate: null,
+        completedAt: null,
+        createdAt: new Date("2026-08-12T10:00:00Z"),
+        updatedAt: new Date("2026-08-12T10:00:00Z"),
+      }),
+    );
+
+    await expect(
+      updateTask.execute({
+        actor: {
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+          permissions: ["tasks.update", "kanban.manage"],
+        },
+        taskId: OTHER_TASK_ID,
+        changes: { title: "Não alterar" },
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(await taskRepository.findById(OTHER_COMPANY_ID, OTHER_TASK_ID)).toMatchObject({
+      title: "Task estrangeira",
+    });
   });
 
   it("mantém matriz de transição e rollback no PostgreSQL real", async () => {

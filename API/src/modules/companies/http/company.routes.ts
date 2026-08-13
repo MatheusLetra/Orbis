@@ -5,6 +5,7 @@ import type { GetCompany } from "@/modules/companies/application/use-cases/get-c
 import type { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
 import type { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
+import type { Permission } from "@/modules/permissions/domain/permission";
 
 export interface CompanyRouteOptions {
   createCompany: CreateCompany;
@@ -44,6 +45,31 @@ const userHeader = {
 const companyListResponse = {
   type: "array",
   items: companyResponse,
+} as const;
+
+const EXPOSED_CAPABILITIES = [
+  "tasks.create",
+  "tasks.update",
+  "kanban.manage",
+  "users.read",
+  "requisitions.read",
+] as const satisfies readonly Permission[];
+
+const capabilitiesResponse = {
+  type: "object",
+  properties: {
+    companyId: { type: "string", format: "uuid" },
+    capabilities: {
+      type: "object",
+      properties: Object.fromEntries(
+        EXPOSED_CAPABILITIES.map((capability) => [capability, { type: "boolean" }]),
+      ),
+      required: EXPOSED_CAPABILITIES,
+      additionalProperties: false,
+    },
+  },
+  required: ["companyId", "capabilities"],
+  additionalProperties: false,
 } as const;
 
 export async function registerCompanyRoutes(
@@ -90,6 +116,32 @@ export async function registerCompanyRoutes(
     },
     async (request) => {
       return options.listCompanies.execute({ userId: getCurrentUserId(request) });
+    },
+  );
+
+  app.get(
+    "/companies/:companyId/capabilities",
+    {
+      schema: {
+        tags: ["Empresas"],
+        description: "Retorna as capabilities efetivas do usuário autenticado na empresa.",
+        headers: userHeader,
+        params: companyIdParam,
+        response: { 200: capabilitiesResponse },
+      },
+    },
+    async (request) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return {
+        companyId,
+        capabilities: Object.fromEntries(
+          EXPOSED_CAPABILITIES.map((capability) => [
+            capability,
+            actor.permissions.includes(capability),
+          ]),
+        ),
+      };
     },
   );
 

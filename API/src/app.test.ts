@@ -75,6 +75,7 @@ describe("swagger", () => {
     expect(doc.paths).toHaveProperty("/auth/logout");
     expect(doc.paths).toHaveProperty("/companies");
     expect(doc.paths).toHaveProperty("/companies/{companyId}");
+    expect(doc.paths).toHaveProperty("/companies/{companyId}/capabilities");
     expect(doc.paths).toHaveProperty("/memberships");
     expect(doc.paths["/auth/login"]?.post).not.toHaveProperty(
       "responses.200.content.application/json.schema.properties.refreshToken",

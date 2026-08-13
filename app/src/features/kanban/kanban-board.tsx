@@ -20,10 +20,16 @@ export function KanbanBoard({
   tasks,
   pendingTaskIds = new Set(),
   onTransition,
+  onViewDetails,
+  canEdit,
+  companyId,
 }: {
   tasks: readonly TaskCard[];
   pendingTaskIds?: ReadonlySet<string>;
   onTransition?: (task: TaskCard, status: TaskStatus) => void;
+  onViewDetails?: (task: TaskCard) => void;
+  canEdit?: (task: TaskCard) => boolean;
+  companyId?: string;
 }) {
   const grouped = groupTasksByStatus(tasks);
   const [activeTask, setActiveTask] = useState<TaskCard | null>(null);
@@ -73,6 +79,9 @@ export function KanbanBoard({
                 activeTask && canTransitionTask(activeTask.status, column.status),
               )}
               onTransition={onTransition}
+              onViewDetails={onViewDetails}
+              canEdit={canEdit}
+              companyId={companyId}
             />
           </div>
         ))}

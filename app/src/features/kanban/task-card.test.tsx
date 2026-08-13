@@ -1,7 +1,9 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { TaskCard as TaskCardData } from "@/features/tasks/task-contracts";
+import { createQueryClient } from "@/lib/query/query-client";
 import { TaskCard } from "./task-card";
 
 const baseTask: TaskCardData = {
@@ -53,7 +55,11 @@ describe("TaskCard", () => {
       expect(screen.getByRole("button", { name: new RegExp(label) })).toBeInTheDocument();
     if (status === "PAUSED")
       expect(screen.queryByRole("button", { name: /Concluir/ })).not.toBeInTheDocument();
-    if (status === "DONE") expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ver detalhes/ })).toBeInTheDocument();
+    if (status === "DONE") {
+      expect(screen.queryByRole("button", { name: /Mover tarefa/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Editar tarefa/ })).not.toBeInTheDocument();
+    }
   });
 
   it("executa ação rápida e comunica pending", async () => {
@@ -67,5 +73,26 @@ describe("TaskCard", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Atualizando tarefa");
     expect(screen.getByRole("button", { name: /Iniciar tarefa/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Mover tarefa/ })).toBeDisabled();
+  });
+
+  it("exibe edição somente quando autorizada e nunca para DONE", () => {
+    const { rerender } = render(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskCard task={baseTask} canEdit companyId="company-a" />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: /Editar tarefa/ })).toBeInTheDocument();
+    rerender(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskCard task={{ ...baseTask, status: "DONE" }} canEdit={false} companyId="company-a" />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("button", { name: /Editar tarefa/ })).not.toBeInTheDocument();
+    rerender(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskCard task={baseTask} canEdit={false} companyId="company-a" />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("button", { name: /Editar tarefa/ })).not.toBeInTheDocument();
   });
 });

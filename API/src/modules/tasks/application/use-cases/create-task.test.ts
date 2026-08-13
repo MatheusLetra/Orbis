@@ -66,12 +66,21 @@ class FakeRequisitionRepository {
   }
 }
 
-function actor(permissions: "all" | "none" = "all") {
+function actor(permissions: "all" | "manage" | "none" = "all") {
   return {
     userId: ACTOR_ID,
     companyId: COMPANY_ID,
-    permissions: permissions === "all" ? ["tasks.create"] : [],
+    permissions:
+      permissions === "all"
+        ? ["tasks.create", "kanban.manage"]
+        : permissions === "manage"
+          ? ["kanban.manage"]
+          : [],
   } as const;
+}
+
+function ownActor() {
+  return { userId: ACTOR_ID, companyId: COMPANY_ID, permissions: ["tasks.create"] } as const;
 }
 
 function buildSut() {
@@ -252,6 +261,58 @@ describe("CreateTask", () => {
     await expect(
       second.useCase.execute({ actor: actor(), data: { title: "Tarefa" } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("permite criar sem responsável ou para si com tasks.create", async () => {
+    const { memberships, useCase } = buildSut();
+    await seedActor(memberships);
+
+    await expect(
+      useCase.execute({ actor: ownActor(), data: { title: "Sem responsável" } }),
+    ).resolves.toMatchObject({ assigneeId: null });
+    await expect(
+      useCase.execute({
+        actor: ownActor(),
+        data: { title: "Própria", assigneeId: ACTOR_ID },
+      }),
+    ).resolves.toMatchObject({ assigneeId: ACTOR_ID });
+  });
+
+  it("exige kanban.manage para criar para terceiro", async () => {
+    const { memberships, unitOfWork, useCase } = buildSut();
+    await seedActor(memberships);
+    await memberships.create(
+      Membership.create({
+        companyId: COMPANY_ID,
+        userId: ASSIGNEE_ID,
+        position: "DESENVOLVEDOR",
+      }),
+    );
+
+    await expect(
+      useCase.execute({
+        actor: ownActor(),
+        data: { title: "De terceiro", assigneeId: ASSIGNEE_ID },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(unitOfWork.executeCalls).toBe(0);
+
+    await expect(
+      useCase.execute({
+        actor: actor(),
+        data: { title: "De terceiro", assigneeId: ASSIGNEE_ID },
+      }),
+    ).resolves.toMatchObject({ assigneeId: ASSIGNEE_ID });
+  });
+
+  it("não permite que kanban.manage substitua tasks.create", async () => {
+    const { memberships, unitOfWork, useCase } = buildSut();
+    await seedActor(memberships);
+
+    await expect(
+      useCase.execute({ actor: actor("manage"), data: { title: "Tarefa" } }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(unitOfWork.executeCalls).toBe(0);
   });
 
   it("rejeita payload inválido sem iniciar transação", async () => {

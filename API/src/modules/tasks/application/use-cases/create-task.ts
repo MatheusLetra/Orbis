@@ -41,6 +41,10 @@ export class CreateTask implements UseCase<CreateTaskCommand, TaskOutput> {
       });
     }
 
+    if (parsed.data.assigneeId && parsed.data.assigneeId !== input.actor.userId) {
+      this.authorization.assertPermission(input.actor, "kanban.manage");
+    }
+
     if (parsed.data.assigneeId) {
       const membership = await this.membershipRepository.findByUserAndCompany(
         parsed.data.assigneeId,

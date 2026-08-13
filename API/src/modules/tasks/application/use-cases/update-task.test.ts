@@ -69,12 +69,21 @@ class FakeRequisitionRepository {
   }
 }
 
-function makeActor(permissions: "all" | "none" = "all") {
+function makeActor(permissions: "all" | "manage" | "none" = "all") {
   return {
     userId: ACTOR_ID,
     companyId: COMPANY_ID,
-    permissions: permissions === "all" ? ["tasks.update"] : [],
+    permissions:
+      permissions === "all"
+        ? ["tasks.update", "kanban.manage"]
+        : permissions === "manage"
+          ? ["kanban.manage"]
+          : [],
   } as const;
+}
+
+function ownActor() {
+  return { userId: ACTOR_ID, companyId: COMPANY_ID, permissions: ["tasks.update"] } as const;
 }
 
 function buildTask(overrides: Partial<Parameters<typeof Task.restore>[0]> = {}) {
@@ -431,5 +440,114 @@ describe("UpdateTask", () => {
     expect(task?.title).toBe("Título original");
     expect(task?.status).toBe("DONE");
     expect(task?.completedAt).toBe(completedAt);
+  });
+
+  it("permite edição comum somente da Task própria sem kanban.manage", async () => {
+    const own = buildSut();
+    await seedActor(own.memberships);
+    await seedTask(own, buildTask({ assigneeId: ACTOR_ID }));
+    await expect(
+      own.useCase.execute({ actor: ownActor(), taskId: TASK_ID, changes: { title: "Editada" } }),
+    ).resolves.toMatchObject({ title: "Editada", assigneeId: ACTOR_ID });
+    expect(own.tasks.findByIdForUpdateCalls).toBe(1);
+
+    for (const assigneeId of [ASSIGNEE_ID, null]) {
+      const denied = buildSut();
+      await seedActor(denied.memberships);
+      if (assigneeId) await seedAssignee(denied.memberships);
+      await seedTask(denied, buildTask({ assigneeId }));
+      await expect(
+        denied.useCase.execute({
+          actor: ownActor(),
+          taskId: TASK_ID,
+          changes: { title: "Não alterar" },
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(denied.tasks.items.get(TASK_ID)?.title).toBe("Título original");
+      expect(denied.tasks.findByIdForUpdateCalls).toBe(1);
+    }
+  });
+
+  it("permite self-claim de Task sem responsável", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await seedTask(sut, buildTask({ assigneeId: null }));
+
+    await expect(
+      sut.useCase.execute({
+        actor: ownActor(),
+        taskId: TASK_ID,
+        changes: { assigneeId: ACTOR_ID },
+      }),
+    ).resolves.toMatchObject({ assigneeId: ACTOR_ID });
+  });
+
+  it("exige alcance global para atribuir a terceiro ou remover assignee", async () => {
+    for (const assigneeId of [ASSIGNEE_ID, null]) {
+      const denied = buildSut();
+      await seedActor(denied.memberships);
+      await seedAssignee(denied.memberships);
+      await seedTask(denied, buildTask({ assigneeId: ACTOR_ID }));
+      await expect(
+        denied.useCase.execute({
+          actor: ownActor(),
+          taskId: TASK_ID,
+          changes: { title: "Não persistir", assigneeId },
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(denied.tasks.items.get(TASK_ID)).toMatchObject({
+        title: "Título original",
+        assigneeId: ACTOR_ID,
+      });
+
+      const allowed = buildSut();
+      await seedActor(allowed.memberships);
+      await seedAssignee(allowed.memberships);
+      await seedTask(allowed, buildTask({ assigneeId: ACTOR_ID }));
+      await expect(
+        allowed.useCase.execute({
+          actor: makeActor(),
+          taskId: TASK_ID,
+          changes: { assigneeId },
+        }),
+      ).resolves.toMatchObject({ assigneeId });
+    }
+  });
+
+  it("não edita Task de terceiro sem alcance global", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await seedAssignee(sut.memberships);
+    await seedTask(sut, buildTask({ assigneeId: ASSIGNEE_ID }));
+
+    await expect(
+      sut.useCase.execute({
+        actor: ownActor(),
+        taskId: TASK_ID,
+        changes: { title: "Negada", assigneeId: ACTOR_ID },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      sut.useCase.execute({
+        actor: makeActor(),
+        taskId: TASK_ID,
+        changes: { title: "Global", assigneeId: ACTOR_ID },
+      }),
+    ).resolves.toMatchObject({ title: "Global", assigneeId: ACTOR_ID });
+  });
+
+  it("não permite que kanban.manage substitua tasks.update", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await seedTask(sut, buildTask({ assigneeId: ACTOR_ID }));
+
+    await expect(
+      sut.useCase.execute({
+        actor: makeActor("manage"),
+        taskId: TASK_ID,
+        changes: { title: "Negada" },
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(sut.tasks.findByIdForUpdateCalls).toBe(0);
   });
 });

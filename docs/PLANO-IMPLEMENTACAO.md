@@ -60,8 +60,24 @@ Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 
 - [x] M11.3B — server state, clients, query keys tenant-aware e primitives.
 - [x] M11.4 — board fixo, quatro colunas e cards somente leitura.
 - [x] M11.5 — DnD, ações rápidas, optimistic update e autorização own/company.
-- [ ] Criação rápida e edição de Tasks.
+- [x] M11.6A — autorização backend de criação/edição e capabilities tenant-aware.
+- [x] M11.6B1 — consumo frontend de capabilities tenant-aware e gates de apresentação.
+- [x] M11.6B2 — criação rápida de Tasks no frontend.
+- [x] M11.6B3 — edição de Tasks no frontend.
+- [x] M11.6B4A — detalhe básico de Task no frontend.
+- [ ] M11.6B4B — lookup de Attachments sob demanda.
+- [ ] M11.6B4C — download de Attachments e hardening.
 - [ ] Autofill de Requisition — decisão aberta.
 - [ ] Customização das colunas — decisão aberta.
 
 Pendências transversais preservadas: coverage global abaixo dos thresholds; deadlocks da suíte PostgreSQL paralela com `TRUNCATE ... CASCADE`; auditoria manual browser ainda não executada.
+
+M11.6A fechou a política de criação/edição: `tasks.create`/`tasks.update` permanecem obrigatórias; `kanban.manage` adiciona alcance global sem substituir a permissão operacional; criação sem assignee ou para si é permitida; self-claim de Task sem responsável é permitido; atribuição a terceiro, reatribuição, remoção de assignee e edição de Task de terceiro exigem alcance global. `GET /companies/:companyId/capabilities` expõe somente capabilities efetivas allowlisted para a empresa autenticada.
+
+M11.6B1 adicionou o consumo frontend tenant-aware desse endpoint, sem persistir permissões e sem criar formulário ou mutation. O gate `Nova tarefa` permanece desabilitado como placeholder e só aparece com capability carregada explicitamente como `tasks.create=true`.
+
+M11.6B2 implementou a criação rápida com modal HTML `dialog`, título obrigatório, prioridade `MEDIUM` por padrão, mutation sem optimistic insert, invalidação tenant-aware e tratamento de erro mantendo os valores do formulário.
+
+M11.6B3 implementou edição acessível de título e prioridade a partir do `TaskCard`, condicionada a `canEditTask` e nunca disponível para `DONE`. A mutation usa PATCH, bloqueia submissão duplicada, preserva o formulário em falhas, não aplica optimistic update e invalida apenas listas e detalhe da Task no `companyId` informado.
+
+M11.6B4A implementou visualização detalhada de Task aberta explicitamente pelo `TaskCard`. O modal acessível usa HTML `dialog`, carrega `TaskDetail` e histórico de status sob demanda via `useTaskDetail`, trata loading/error/empty/retry, mensagens para 403/404/rede/5xx, foco/Escape/restauração e reseta a seleção ao trocar de empresa. Attachments e BYTEA não foram carregados.

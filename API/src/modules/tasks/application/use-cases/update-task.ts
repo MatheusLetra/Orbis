@@ -46,6 +46,17 @@ export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
         throw new NotFoundError("Tarefa não encontrada");
       }
 
+      const canManageCompanyTasks = input.actor.permissions.includes("kanban.manage");
+      const requestedAssigneeId = parsed.data.assigneeId;
+      const isSelfClaim = task.assigneeId === null && requestedAssigneeId === input.actor.userId;
+      const editsOwnTaskWithoutReassignment =
+        task.assigneeId === input.actor.userId &&
+        (requestedAssigneeId === undefined || requestedAssigneeId === input.actor.userId);
+
+      if (!canManageCompanyTasks && !isSelfClaim && !editsOwnTaskWithoutReassignment) {
+        this.authorization.assertPermission(input.actor, "kanban.manage");
+      }
+
       const assigneeId =
         parsed.data.assigneeId !== undefined ? parsed.data.assigneeId : task.assigneeId;
       const requisitionId =

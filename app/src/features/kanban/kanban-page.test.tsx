@@ -1,7 +1,13 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskCard } from "@/features/tasks/task-contracts";
+import type { TaskCard, TaskDetail } from "@/features/tasks/task-contracts";
+import { useTaskDetail } from "@/features/tasks/task-queries";
 import { KanbanPage } from "./kanban-page";
+
+vi.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({ status: "authenticated", user: { id: "user-1" } }),
+}));
 
 const companyState = {
   status: "ready" as "ready" | "idle" | "loading" | "error",
@@ -14,12 +20,29 @@ const queryState = {
   data: [] as TaskCard[],
   refetch: vi.fn(),
 };
+const capabilitiesState = {
+  isPending: false,
+  isError: false,
+  isSuccess: false,
+  data: undefined as { companyId: string; capabilities: { "tasks.create": boolean } } | undefined,
+};
+const detailState = {
+  isPending: false,
+  isError: false,
+  data: null as TaskDetail | null,
+  error: null as Error | null,
+  refetch: vi.fn(),
+};
 
 vi.mock("@/features/companies/active-company-provider", () => ({
   useActiveCompany: () => companyState,
 }));
 vi.mock("@/features/tasks/task-queries", () => ({
   useTasks: vi.fn(() => queryState),
+  useTaskDetail: vi.fn(() => detailState),
+}));
+vi.mock("@/features/companies/capabilities-queries", () => ({
+  useCompanyCapabilities: vi.fn(() => capabilitiesState),
 }));
 vi.mock("@/features/tasks/task-mutations", () => ({
   useTaskTransition: () => ({
@@ -27,6 +50,14 @@ vi.mock("@/features/tasks/task-mutations", () => ({
     pendingTaskIds: new Set<string>(),
     error: null,
     clearError: vi.fn(),
+  }),
+  useCreateTask: () => ({
+    create: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    clearError: vi.fn(),
+    reset: vi.fn(),
   }),
 }));
 vi.mock("@/app/layouts/app-shell", () => ({
@@ -61,6 +92,15 @@ describe("KanbanPage", () => {
     queryState.isError = false;
     queryState.data = [];
     queryState.refetch.mockReset();
+    capabilitiesState.isPending = false;
+    capabilitiesState.isError = false;
+    capabilitiesState.isSuccess = false;
+    capabilitiesState.data = undefined;
+    detailState.isPending = false;
+    detailState.isError = false;
+    detailState.data = null;
+    detailState.error = null;
+    detailState.refetch.mockReset();
   });
 
   it("não executa query tenant-aware sem empresa ativa", async () => {
@@ -99,5 +139,67 @@ describe("KanbanPage", () => {
     view.rerender(<KanbanPage />);
     expect(screen.getByText("task-beta")).toBeInTheDocument();
     expect(screen.queryByText("task-alpha")).not.toBeInTheDocument();
+  });
+
+  it("mostra Nova tarefa somente com tasks.create carregado", () => {
+    capabilitiesState.data = { companyId: "company-a", capabilities: { "tasks.create": true } };
+    capabilitiesState.isSuccess = true;
+    const view = render(<KanbanPage />);
+    expect(screen.getByRole("button", { name: "Nova tarefa" })).toBeEnabled();
+
+    capabilitiesState.data = { companyId: "company-b", capabilities: { "tasks.create": false } };
+    companyState.activeCompany = { id: "company-b", name: "Beta" };
+    view.rerender(<KanbanPage />);
+    expect(screen.queryByRole("button", { name: "Nova tarefa" })).not.toBeInTheDocument();
+  });
+
+  it("não concede Nova tarefa durante loading ou erro de capabilities", () => {
+    capabilitiesState.isPending = true;
+    capabilitiesState.isSuccess = false;
+    capabilitiesState.data = undefined;
+    render(<KanbanPage />);
+    expect(screen.queryByRole("button", { name: "Nova tarefa" })).not.toBeInTheDocument();
+
+    capabilitiesState.isPending = false;
+    capabilitiesState.isError = true;
+    render(<KanbanPage />);
+    expect(screen.queryByRole("button", { name: "Nova tarefa" })).not.toBeInTheDocument();
+  });
+
+  it("não chama detalhe no render inicial do board", () => {
+    queryState.data = [task("task-alpha")];
+    render(<KanbanPage />);
+    expect(useTaskDetail).not.toHaveBeenCalled();
+  });
+
+  it("abre detalhe ao clicar em Ver detalhes e passa companyId/taskId", async () => {
+    const user = userEvent.setup();
+    queryState.data = [task("task-alpha")];
+    detailState.data = {
+      ...task("task-alpha"),
+      history: [],
+    };
+    render(<KanbanPage />);
+    await user.click(screen.getByRole("button", { name: /Ver detalhes da tarefa task-alpha/ }));
+    await waitFor(() => expect(useTaskDetail).toHaveBeenCalledWith("company-a", "task-alpha"));
+    expect(screen.getByRole("heading", { name: "Detalhes da tarefa" })).toBeInTheDocument();
+  });
+
+  it("fecha detalhe ao trocar de empresa", async () => {
+    const user = userEvent.setup();
+    queryState.data = [task("task-alpha")];
+    detailState.data = {
+      ...task("task-alpha"),
+      history: [],
+    };
+    const view = render(<KanbanPage />);
+    await user.click(screen.getByRole("button", { name: /Ver detalhes da tarefa task-alpha/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Detalhes da tarefa" })).toBeInTheDocument(),
+    );
+    companyState.activeCompany = { id: "company-b", name: "Beta" };
+    queryState.data = [task("task-beta")];
+    view.rerender(<KanbanPage />);
+    expect(screen.queryByRole("heading", { name: "Detalhes da tarefa" })).not.toBeInTheDocument();
   });
 });

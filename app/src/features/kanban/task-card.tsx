@@ -2,6 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import type { TaskCard as TaskCardData, TaskStatus } from "@/features/tasks/task-contracts";
 import { QUICK_TASK_ACTIONS } from "@/features/tasks/task-transitions";
+import { EditTaskDialog } from "./edit-task-dialog";
 
 const priorityLabels = {
   LOW: "Baixa",
@@ -13,10 +14,16 @@ export function TaskCard({
   task,
   pending = false,
   onTransition,
+  onViewDetails,
+  canEdit = false,
+  companyId,
 }: {
   task: TaskCardData;
   pending?: boolean;
   onTransition?: (task: TaskCardData, status: TaskStatus) => void;
+  onViewDetails?: (task: TaskCardData) => void;
+  canEdit?: boolean;
+  companyId?: string;
 }) {
   const actions = QUICK_TASK_ACTIONS[task.status];
   const draggable = useDraggable({
@@ -68,23 +75,36 @@ export function TaskCard({
           </dd>
         </div>
       </dl>
-      {actions.length > 0 && (
-        <fieldset className="mt-4 flex flex-wrap gap-2">
-          <legend className="sr-only">Ações de {task.title}</legend>
-          {actions.map((action) => (
-            <Button
-              key={action.status}
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={() => onTransition?.(task, action.status)}
-              aria-label={`${action.label} tarefa ${task.title}`}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </fieldset>
+      <fieldset className="mt-4 flex flex-wrap gap-2">
+        <legend className="sr-only">Ações de {task.title}</legend>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onClick={() => onViewDetails?.(task)}
+          aria-label={`Ver detalhes da tarefa ${task.title}`}
+        >
+          Ver detalhes
+        </Button>
+        {actions.map((action) => (
+          <Button
+            key={action.status}
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => onTransition?.(task, action.status)}
+            aria-label={`${action.label} tarefa ${task.title}`}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </fieldset>
+      {canEdit && companyId && (
+        <div className="mt-4">
+          <EditTaskDialog companyId={companyId} task={task} />
+        </div>
       )}
       {pending && (
         <p className="mt-3 text-xs text-muted-foreground" role="status">

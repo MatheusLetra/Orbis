@@ -161,6 +161,157 @@ describe("GET /companies/:companyId", () => {
   });
 });
 
+describe("GET /companies/:companyId/capabilities", () => {
+  it("retorna capabilities efetivas sem expor tokens", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: OWNER_ID, position: "GESTOR" }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/capabilities`,
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      companyId: company.id,
+      capabilities: {
+        "tasks.create": true,
+        "tasks.update": true,
+        "kanban.manage": true,
+        "users.read": true,
+        "requisitions.read": true,
+      },
+    });
+    expect(response.json()).not.toHaveProperty("accessToken");
+    expect(response.json()).not.toHaveProperty("refreshToken");
+    await app.close();
+  });
+
+  it("reflete permissões diferentes ao trocar de empresa", async () => {
+    const { app, modules } = await build();
+    const companyA = await modules.repositories.companies.create(Company.create({ name: "A" }));
+    const companyB = await modules.repositories.companies.create(Company.create({ name: "B" }));
+    const membershipA = Membership.create({
+      companyId: companyA.id,
+      userId: OWNER_ID,
+      position: "SEM_PERMISSAO",
+    });
+    membershipA.changePermissions(["tasks.create"]);
+    const membershipB = Membership.create({
+      companyId: companyB.id,
+      userId: OWNER_ID,
+      position: "SEM_PERMISSAO",
+    });
+    membershipB.changePermissions(["tasks.update", "users.read", "requisitions.read"]);
+    await modules.repositories.memberships.create(membershipA);
+    await modules.repositories.memberships.create(membershipB);
+    const headers = await authHeaders(modules, OWNER_ID);
+
+    const responseA = await app.inject({
+      method: "GET",
+      url: `/companies/${companyA.id}/capabilities`,
+      headers,
+    });
+    const responseB = await app.inject({
+      method: "GET",
+      url: `/companies/${companyB.id}/capabilities`,
+      headers,
+    });
+
+    expect(responseA.json().capabilities).toMatchObject({
+      "tasks.create": true,
+      "tasks.update": false,
+      "kanban.manage": false,
+    });
+    expect(responseB.json().capabilities).toMatchObject({
+      "tasks.create": false,
+      "tasks.update": true,
+      "kanban.manage": false,
+      "users.read": true,
+      "requisitions.read": true,
+    });
+    await app.close();
+  });
+
+  it("retorna todas as capabilities falsas quando nenhuma está concedida", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: OWNER_ID, position: "SEM_PERMISSAO" }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/capabilities`,
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(Object.values(response.json().capabilities)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    await app.close();
+  });
+
+  it("protege autenticação e isolamento entre tenants", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+
+    const unauthenticated = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/capabilities`,
+    });
+    expect(unauthenticated.statusCode).toBe(401);
+
+    const inaccessible = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/capabilities`,
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+    expect(inaccessible.statusCode).toBe(403);
+    expect(inaccessible.json().error.code).toBe("FORBIDDEN");
+
+    const missing = await app.inject({
+      method: "GET",
+      url: "/companies/99999999-9999-4999-8999-999999999999/capabilities",
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+    expect(missing.statusCode).toBe(403);
+    expect(missing.json().error.code).toBe("FORBIDDEN");
+    await app.close();
+  });
+
+  it("nega capabilities para membership inativa", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    const membership = Membership.create({
+      companyId: company.id,
+      userId: OWNER_ID,
+      position: "GESTOR",
+    });
+    membership.deactivate();
+    await modules.repositories.memberships.create(membership);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/capabilities`,
+      headers: await authHeaders(modules, OWNER_ID),
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe("FORBIDDEN");
+    await app.close();
+  });
+});
+
 describe("PATCH /companies/:companyId", () => {
   it("atualiza a empresa com acesso", async () => {
     const { app, modules } = await build();

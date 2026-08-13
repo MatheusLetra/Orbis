@@ -11,10 +11,13 @@ import {
   useUploadTaskFile,
 } from "@/features/attachments/attachment-mutations";
 import { useTaskAttachments } from "@/features/attachments/attachment-queries";
+import { useAuth } from "@/features/auth/auth-provider";
 import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
 import type { TaskCard, TaskDetail, TaskStatus } from "@/features/tasks/task-contracts";
 import { useTaskDetail } from "@/features/tasks/task-queries";
+import { useTaskTimeEntries } from "@/features/tasks/time-entry-queries";
 import { ApiError } from "@/lib/http/api-error";
+import { canRegisterTimeEntry, RegisterTimeEntryDialog } from "./register-time-entry-dialog";
 
 const statusLabels: Record<TaskStatus, string> = {
   TODO: "A fazer",
@@ -40,10 +43,14 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
+  const auth = useAuth();
 
   const taskId = task?.id ?? null;
   const detailQuery = useTaskDetail(isOpen ? companyId : null, taskId);
   const attachmentsQuery = useTaskAttachments(isOpen ? companyId : null, taskId, isOpen);
+  const timeEntriesQuery = useTaskTimeEntries(isOpen ? companyId : null, taskId, {
+    enabled: isOpen,
+  });
   const capabilitiesQuery = useCompanyCapabilities(isOpen ? companyId : null);
   const upload = useUploadTaskFile(isOpen ? companyId : null, taskId);
   const createLink = useCreateTaskLink(isOpen ? companyId : null, taskId);
@@ -366,8 +373,19 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
         {!detailQuery.isPending && !detailQuery.isError && detail && (
           <TaskDetailContent
             task={task}
+            companyId={companyId}
+            isOpen={isOpen}
             detail={detail}
             attachmentsQuery={attachmentsQuery}
+            timeEntriesQuery={timeEntriesQuery}
+            canRegisterTimeEntry={canRegisterTimeEntry(
+              task,
+              capabilitiesQuery.isSuccess ? capabilitiesQuery.data : undefined,
+              companyId,
+              auth.user?.id,
+              auth.status === "authenticated",
+            )}
+            onCapabilitiesForbidden={() => void capabilitiesQuery.refetch()}
             downloadPending={downloadPending}
             downloadErrors={downloadErrors}
             onDownload={downloadFile}
@@ -452,8 +470,13 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
 
 function TaskDetailContent({
   task,
+  companyId,
+  isOpen,
   detail,
   attachmentsQuery,
+  timeEntriesQuery,
+  canRegisterTimeEntry: canRegister,
+  onCapabilitiesForbidden,
   downloadPending,
   downloadErrors,
   onDownload,
@@ -480,8 +503,13 @@ function TaskDetailContent({
   onRequestRemove,
 }: {
   task: TaskCard | null;
+  companyId: string;
+  isOpen: boolean;
   detail: TaskDetail;
   attachmentsQuery: ReturnType<typeof useTaskAttachments>;
+  timeEntriesQuery: ReturnType<typeof useTaskTimeEntries>;
+  canRegisterTimeEntry: boolean;
+  onCapabilitiesForbidden: () => void;
   downloadPending: Record<string, boolean>;
   downloadErrors: Record<string, string | undefined>;
   onDownload: (attachment: AttachmentOutput) => Promise<void>;
@@ -530,6 +558,14 @@ function TaskDetailContent({
         removePending={removePending}
         removeErrors={removeErrors}
         onRequestRemove={onRequestRemove}
+      />
+      <TimeEntriesSection
+        query={timeEntriesQuery}
+        task={task}
+        companyId={companyId}
+        isOpen={isOpen}
+        canRegister={canRegister}
+        onCapabilitiesForbidden={onCapabilitiesForbidden}
       />
       {canUpload && (
         <div className="grid gap-3">
@@ -652,6 +688,93 @@ function TaskDetailContent({
         )}
       </section>
     </div>
+  );
+}
+
+function TimeEntriesSection({
+  query,
+  task,
+  companyId,
+  isOpen,
+  canRegister,
+  onCapabilitiesForbidden,
+}: {
+  query: ReturnType<typeof useTaskTimeEntries>;
+  task: TaskCard | null;
+  companyId: string;
+  isOpen: boolean;
+  canRegister: boolean;
+  onCapabilitiesForbidden: () => void;
+}) {
+  const headingId = "task-time-entries-title";
+  const errorId = "task-time-entries-error";
+
+  return (
+    <section aria-labelledby={headingId}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h4 id={headingId} className="text-sm font-semibold">
+          Horas apontadas
+        </h4>
+        {task && (
+          <RegisterTimeEntryDialog
+            companyId={companyId}
+            task={task}
+            isOpen={isOpen}
+            canRegister={canRegister}
+            onCapabilitiesForbidden={onCapabilitiesForbidden}
+          />
+        )}
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Horas registradas manualmente. Este total não inclui pausas, estimativas ou capacidade.
+      </p>
+      {query.isPending && <LoadingState label="Carregando horas apontadas..." />}
+      {query.isError && (
+        <div id={errorId} aria-live="assertive">
+          <ErrorState
+            message={messageForTimeEntriesError(query.error)}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
+      )}
+      {!query.isPending && !query.isError && query.data && (
+        <div className="grid gap-3">
+          <p className="rounded-md border bg-muted/30 p-3 text-sm">
+            <span className="text-muted-foreground">Total registrado: </span>
+            <strong>{query.data.totalDurationMinutes} minutos</strong>
+          </p>
+          {query.data.items.length === 0 ? (
+            <EmptyState
+              title="Nenhuma hora registrada"
+              description="Esta tarefa ainda não possui horas apontadas manualmente."
+            />
+          ) : (
+            <ul className="grid gap-2" aria-label="Entradas de horas apontadas">
+              {query.data.items.map((entry) => (
+                <li key={entry.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <strong>{entry.durationMinutes} minutos</strong>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(entry.createdAt)}
+                    </span>
+                  </div>
+                  {entry.description && <p className="mt-2 break-words">{entry.description}</p>}
+                  <p className="mt-2 break-words text-xs text-muted-foreground">
+                    Usuário: {entry.userId}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {query.data.hasMore && (
+            <p className="text-xs text-muted-foreground" role="status">
+              Existem mais entradas de horas. A exibição está limitada às primeiras 100 nesta
+              unidade.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -852,6 +975,17 @@ function messageForAttachmentError(error: Error): string {
     if (error.status >= 500) return "Não foi possível carregar os attachments. Tente novamente.";
   }
   return "Não foi possível carregar os attachments. Verifique sua conexão e tente novamente.";
+}
+
+function messageForTimeEntriesError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403)
+      return "Você não tem permissão para visualizar as horas desta tarefa.";
+    if (error.status === 404)
+      return "A tarefa não foi encontrada. As horas não puderam ser carregadas.";
+    if (error.status >= 500) return "Não foi possível carregar as horas. Tente novamente.";
+  }
+  return "Não foi possível carregar as horas. Verifique sua conexão e tente novamente.";
 }
 
 export function messageForDownloadError(error: Error): string {

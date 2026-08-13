@@ -182,6 +182,7 @@ describe("GET /companies/:companyId/capabilities", () => {
         "tasks.create": true,
         "tasks.update": true,
         "kanban.manage": true,
+        "hours.register": true,
         "users.read": true,
         "requisitions.read": true,
       },
@@ -206,7 +207,12 @@ describe("GET /companies/:companyId/capabilities", () => {
       userId: OWNER_ID,
       position: "SEM_PERMISSAO",
     });
-    membershipB.changePermissions(["tasks.update", "users.read", "requisitions.read"]);
+    membershipB.changePermissions([
+      "tasks.update",
+      "hours.register",
+      "users.read",
+      "requisitions.read",
+    ]);
     await modules.repositories.memberships.create(membershipA);
     await modules.repositories.memberships.create(membershipB);
     const headers = await authHeaders(modules, OWNER_ID);
@@ -226,11 +232,13 @@ describe("GET /companies/:companyId/capabilities", () => {
       "tasks.create": true,
       "tasks.update": false,
       "kanban.manage": false,
+      "hours.register": false,
     });
     expect(responseB.json().capabilities).toMatchObject({
       "tasks.create": false,
       "tasks.update": true,
       "kanban.manage": false,
+      "hours.register": true,
       "users.read": true,
       "requisitions.read": true,
     });
@@ -252,6 +260,7 @@ describe("GET /companies/:companyId/capabilities", () => {
 
     expect(response.statusCode).toBe(200);
     expect(Object.values(response.json().capabilities)).toEqual([
+      false,
       false,
       false,
       false,

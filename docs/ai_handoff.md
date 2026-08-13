@@ -25,6 +25,10 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M12.2 — registro manual de horas por duração concluído.
 - M12.3A — leitura e totalização de apontamentos por Task concluída.
 - M12.3B — client e query frontend de TimeEntries concluída.
+- M12.3C — exibição de horas no detalhe da Task concluída.
+- M12.4A — capability `hours.register` exposta tenant-aware concluída.
+- M12.4B — client e mutation de TimeEntry concluída.
+- M12.4C — formulário e integração de TimeEntry no detalhe concluída.
 
 ## Contratos preservados
 
@@ -147,6 +151,44 @@ O app agora possui `TimeEntryOutput`/`TimeEntryListOutput` com parser runtime, `
 
 Validação M12.3B: app completo 204 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. A auditoria manual de Attachments permanece pendente.
 
+## M12.3C — exibição sob demanda
+
+O `TaskDetailDialog` usa `useTaskTimeEntries` somente com o detalhe aberto, preservando `companyId` e `taskId` na query e mantendo o Kanban inicial sem leitura. O bloco “Horas apontadas” mostra `totalDurationMinutes` e cada entrada em ordem recebida, com duração, descrição opcional, `userId` e `createdAt` formatado como instante ISO. Não há join de usuários nem nomes inventados.
+
+Loading, erro com retry, vazio, total zero e `hasMore` são tratados dentro do detalhe, sem ocultar os demais dados quando a leitura falha. O total permanece separado de pausas, estimativas e capacidade. Tasks `DONE` continuam suportadas. Criação frontend ainda não implementada; edição, remoção, filtros e paginação permanecem fora de escopo.
+
+Validação M12.3C: app completo 208 passed, 0 failed, 0 skipped (execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/` e M11.6 foram preservados. A auditoria manual de Attachments continua pendente.
+
+## M12.4A — capability de registro
+
+`hours.register` agora faz parte do allowlist de `GET /companies/:companyId/capabilities`, com schema OpenAPI atualizado. O valor é resolvido tenant-aware a partir das permissões efetivas da membership em cada request; usuários sem a permissão recebem `false`. O frontend exige estritamente o novo campo e rejeita campos desconhecidos ou ausentes.
+
+A autorização do endpoint `RegisterTimeEntry` continua exclusivamente no backend. Não foi criada UI, client ou mutation de TimeEntry, nem houve alteração em tokens, Tasks, Attachments, `commands/` ou M11.6.
+
+Validação M12.4A: backend focado 28 passed, frontend focado 8 passed, API completa 740 passed e app completo 212 passed; 0 failed e 0 skipped em execução serial. Typecheck, lint, build em API/app e `git diff --check` aprovados. Auditoria manual de Attachments continua pendente.
+
+## M12.4B — client e mutation
+
+O app agora possui `timeEntriesClient.createForTask`, que usa o POST existente, codifica IDs, trimma e omite descrição vazia, repassa `AbortSignal` e valida `TimeEntryOutput`. `timeEntryKeys.taskPrefix` isola todas as variantes de limite da mesma Task/tenant.
+
+`useRegisterTimeEntry` usa `useMutation` sem optimistic insert, invalida somente o prefixo da Task após sucesso válido, expõe `abort` e callbacks opcionais, preserva `ApiError`/erros de rede e ignora cancelamentos e respostas stale. Não há UI ou integração no detalhe.
+
+Validação M12.4B: testes focados 17 passed, 0 failed, 0 skipped; app completo 226 passed, 0 failed, 0 skipped (execução serial); typecheck, lint, build e `git diff --check` aprovados. Auditoria manual de Attachments continua pendente.
+
+## M12.4C — formulário e integração
+
+O `TaskDetailDialog` agora exibe `Registrar horas` somente com capabilities carregadas e compatíveis com o tenant, `hours.register` e usuário autenticado. Task própria é permitida; Task de terceiro e Task sem assignee exigem `kanban.manage`; Task `DONE` permanece elegível. Loading, erro, ausência e divergência de `companyId` mantêm a ação oculta, e o backend continua autoridade final.
+
+`RegisterTimeEntryDialog` usa HTML `<dialog>` em portal para não aninhar modais, recebe `isOpen` do detalhe, gerencia foco/Escape/restauração, valida duração de 1 a 1440 e descrição trimada até 1000, preserva valores em erro e informa pending. Ao fechar o detalhe ou trocar tenant/Task, fecha sem restaurar foco indevidamente, aborta a mutation e ignora sucesso stale. Sucesso confirmado enquanto aberto fecha/limpa; 403 refaz capabilities; a mutation não é otimista e invalida/refaz somente a lista canônica da mesma company/Task.
+
+Validação M12.4C/hardening: app completo 246 passed, 0 failed, 0 skipped (42 arquivos, execução serial); typecheck, lint, build e `git diff --check` aprovados. Backend, OpenAPI, migrations, `commands/`, M11.6 e Attachments não foram alterados. A correção do predicate para Task sem assignee tem alcance global somente com `kanban.manage`. Auditoria manual de M12.4 continua pendente; M12.4 está pronta para encerramento após a auditoria.
+
+## Auditoria manual M12.4 — tentativa bloqueada
+
+Em 2026-08-13, PostgreSQL, API, Vite, Chrome visível e DevTools foram verificados ativos. Foram preparados dados reais de auditoria para duas empresas e Tasks própria, de terceiro, sem assignee, `DONE` e tenant distinto. A autenticação pela UI do Chrome exibiu erro genérico sem request de login observável no DevTools; `curl` ao mesmo endpoint retornou 200 e `/auth/refresh` retornou 200 no navegador. O único erro de console foi o 404 de `/favicon.ico`, fora do fluxo M12.4.
+
+Os cenários de ownership, capabilities, formulário, lifecycle, refetch/cache, Attachments, download, remoção, foco e responsividade foram todos registrados como **não executados** por bloqueio anterior à autenticação. Nenhuma falha funcional M12.4 foi reproduzida e nenhum código foi alterado durante a auditoria. M12.4 continua pendente de auditoria manual real desbloqueada; a auditoria manual de Attachments permanece independente.
+
 ## Próximo passo
 
-Próxima unidade recomendada: M12.3C — exibição de horas no detalhe da Task, com lista, total, loading/error/empty e retry sob demanda. Edição, remoção, filtros adicionais e apontamento por intervalo continuam fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade. Upload de Requisition e outras funcionalidades futuras permanecem fora do escopo.
+Próxima unidade recomendada: hardening/validação manual do fluxo M12.4 e encerramento operacional de M12, mantendo edição, remoção, filtros adicionais, paginação e apontamento por intervalo fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade.

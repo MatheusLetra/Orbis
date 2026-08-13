@@ -2,6 +2,7 @@ export const COMPANY_CAPABILITY_NAMES = [
   "tasks.create",
   "tasks.update",
   "kanban.manage",
+  "hours.register",
   "users.read",
   "requisitions.read",
 ] as const;
@@ -15,6 +16,13 @@ export interface CompanyCapabilities {
 
 export function parseCompanyCapabilities(value: unknown): CompanyCapabilities {
   if (!isRecord(value) || typeof value.companyId !== "string" || !isRecord(value.capabilities)) {
+    throw new Error("Contrato de capabilities inválido");
+  }
+
+  const capabilityNames = Object.keys(value.capabilities);
+  if (
+    capabilityNames.some((name) => !COMPANY_CAPABILITY_NAMES.includes(name as CompanyCapability))
+  ) {
     throw new Error("Contrato de capabilities inválido");
   }
 

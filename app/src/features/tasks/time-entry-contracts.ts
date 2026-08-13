@@ -38,7 +38,7 @@ export function parseTimeEntryListOutput(value: unknown): TimeEntryListOutput {
   };
 }
 
-function parseTimeEntryOutput(value: unknown): TimeEntryOutput {
+export function parseTimeEntryOutput(value: unknown): TimeEntryOutput {
   if (
     !isRecord(value) ||
     typeof value.id !== "string" ||

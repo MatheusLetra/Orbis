@@ -41,6 +41,15 @@ vi.mock("@/features/tasks/task-queries", () => ({
   useTasks: vi.fn(() => queryState),
   useTaskDetail: vi.fn(() => detailState),
 }));
+vi.mock("@/features/tasks/time-entry-queries", () => ({
+  useTaskTimeEntries: vi.fn(() => ({
+    isPending: false,
+    isError: false,
+    data: { items: [], totalDurationMinutes: 0, hasMore: false },
+    error: null,
+    refetch: vi.fn(),
+  })),
+}));
 vi.mock("@/features/attachments/attachment-queries", () => ({
   useTaskAttachments: vi.fn(() => ({
     isPending: false,

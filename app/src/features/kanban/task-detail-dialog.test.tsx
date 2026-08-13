@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { attachmentsClient } from "@/features/attachments/attachment-client";
 import type { AttachmentOutput } from "@/features/attachments/attachment-contracts";
 import type { TaskCard, TaskDetail } from "@/features/tasks/task-contracts";
+import type { TimeEntryListOutput } from "@/features/tasks/time-entry-contracts";
 import { ApiError } from "@/lib/http/api-error";
 import { createQueryClient } from "@/lib/query/query-client";
 import { TaskDetailDialog } from "./task-detail-dialog";
@@ -66,6 +67,13 @@ const attachmentsQueryState = {
   error: null as Error | null,
   refetch: vi.fn(),
 };
+const timeEntriesQueryState = {
+  isPending: false,
+  isError: false,
+  data: { items: [], totalDurationMinutes: 0, hasMore: false } as TimeEntryListOutput | null,
+  error: null as Error | null,
+  refetch: vi.fn(),
+};
 const capabilitiesState = {
   isSuccess: true,
   data: {
@@ -74,17 +82,25 @@ const capabilitiesState = {
       "tasks.create": true,
       "tasks.update": true,
       "kanban.manage": true,
+      "hours.register": true,
       "users.read": true,
       "requisitions.read": true,
     },
   },
 };
 
+vi.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({ status: "authenticated", user: { id: "user-1" } }),
+}));
+
 vi.mock("@/features/tasks/task-queries", () => ({
   useTaskDetail: () => ({ ...queryState }),
 }));
 vi.mock("@/features/attachments/attachment-queries", () => ({
   useTaskAttachments: () => ({ ...attachmentsQueryState }),
+}));
+vi.mock("@/features/tasks/time-entry-queries", () => ({
+  useTaskTimeEntries: vi.fn(() => ({ ...timeEntriesQueryState })),
 }));
 vi.mock("@/features/attachments/attachment-client", () => ({
   attachmentsClient: { downloadTaskFile: vi.fn(), remove: vi.fn() },
@@ -143,6 +159,11 @@ describe("TaskDetailDialog", () => {
     attachmentsQueryState.isError = false;
     attachmentsQueryState.data = [];
     attachmentsQueryState.error = null;
+    timeEntriesQueryState.isPending = false;
+    timeEntriesQueryState.isError = false;
+    timeEntriesQueryState.data = { items: [], totalDurationMinutes: 0, hasMore: false };
+    timeEntriesQueryState.error = null;
+    timeEntriesQueryState.refetch.mockReset();
   });
 
   it("renderiza loading enquanto carrega", () => {
@@ -160,6 +181,93 @@ describe("TaskDetailDialog", () => {
     expect(screen.getByText("Concluído")).toBeInTheDocument();
     expect(screen.getByText(/Criação/)).toBeInTheDocument();
     expect(screen.getAllByText(/A fazer/)).toHaveLength(2);
+  });
+
+  it("exibe total zero e lista vazia de horas apontadas", () => {
+    queryState.data = detail;
+    renderDialog();
+    expect(screen.getByRole("heading", { name: "Horas apontadas" })).toBeInTheDocument();
+    expect(screen.getByText("Total registrado:")).toBeInTheDocument();
+    expect(screen.getByText("0 minutos")).toBeInTheDocument();
+    expect(screen.getByText("Nenhuma hora registrada")).toBeInTheDocument();
+  });
+
+  it.each(["loading", "error"])("oculta registrar horas durante capability %s", () => {
+    queryState.data = detail;
+    capabilitiesState.isSuccess = false;
+    renderDialog();
+    expect(
+      screen.queryByRole("button", { name: /Registrar horas na tarefa/ }),
+    ).not.toBeInTheDocument();
+    capabilitiesState.isSuccess = true;
+  });
+
+  it("habilita horas somente enquanto o detalhe está aberto", async () => {
+    const { useTaskTimeEntries } = await import("@/features/tasks/time-entry-queries");
+    const view = renderDialog({ isOpen: false });
+    expect(useTaskTimeEntries).toHaveBeenCalledWith(null, "task-1", { enabled: false });
+    view.rerender(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskDetailDialog companyId="company-a" task={task} isOpen onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(useTaskTimeEntries).toHaveBeenLastCalledWith("company-a", "task-1", { enabled: true });
+  });
+
+  it("renderiza entradas com e sem descrição, userId, total e hasMore", () => {
+    queryState.data = detail;
+    timeEntriesQueryState.data = {
+      totalDurationMinutes: 150,
+      hasMore: true,
+      items: [
+        {
+          id: "entry-1",
+          companyId: "company-a",
+          taskId: "task-1",
+          userId: "user-1",
+          startedAt: null,
+          endedAt: null,
+          durationMinutes: 90,
+          description: "Implementação",
+          createdAt: "2026-02-02T10:00:00.000Z",
+        },
+        {
+          id: "entry-2",
+          companyId: "company-a",
+          taskId: "task-1",
+          userId: "user-2",
+          startedAt: null,
+          endedAt: null,
+          durationMinutes: 60,
+          description: null,
+          createdAt: "2026-02-03T10:00:00.000Z",
+        },
+      ],
+    };
+    renderDialog();
+    expect(screen.getByText("150 minutos")).toBeInTheDocument();
+    expect(screen.getByText("Implementação")).toBeInTheDocument();
+    expect(screen.getByText("Usuário: user-1")).toBeInTheDocument();
+    expect(screen.getByText("Usuário: user-2")).toBeInTheDocument();
+    expect(screen.getByText(/Existem mais entradas/)).toBeInTheDocument();
+    expect(screen.queryByText("Sem descrição")).not.toBeInTheDocument();
+  });
+
+  it("trata loading, erro e retry das horas sem ocultar o detalhe", async () => {
+    queryState.data = detail;
+    timeEntriesQueryState.isPending = true;
+    renderDialog();
+    expect(screen.getByText("Carregando horas apontadas...")).toBeInTheDocument();
+    cleanup();
+
+    timeEntriesQueryState.isPending = false;
+    timeEntriesQueryState.isError = true;
+    timeEntriesQueryState.error = new ApiError({ status: 500, code: "ERROR", message: "erro" });
+    renderDialog();
+    expect(screen.getByText(/carregar as horas/)).toBeInTheDocument();
+    expect(screen.getByText("Tarefa de teste")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(timeEntriesQueryState.refetch).toHaveBeenCalledOnce();
   });
 
   it("exibe estado vazio quando não há task selecionada", () => {

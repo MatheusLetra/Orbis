@@ -13,6 +13,11 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   authenticated?: boolean;
 }
 
+export interface BinaryResponse {
+  blob: Blob;
+  headers: Headers;
+}
+
 interface RefreshResponse {
   accessToken: string;
 }
@@ -55,6 +60,19 @@ export class ApiClient {
     return this.parse<T>(response);
   }
 
+  async requestBlob(path: string, options: RequestOptions = {}): Promise<BinaryResponse> {
+    const authenticated = options.authenticated ?? true;
+    const tokenUsed = this.accessToken;
+    const response = await this.send(path, options, authenticated);
+    if (response.status === 401 && authenticated) {
+      if (this.accessToken === tokenUsed) await this.refresh();
+      const retry = await this.send(path, options, true);
+      if (retry.status === 401) this.loseSession();
+      return this.parseBlob(retry);
+    }
+    return this.parseBlob(response);
+  }
+
   refresh(): Promise<string> {
     if (!this.refreshPromise) {
       this.refreshPromise = this.performRefresh().finally(() => {
@@ -83,13 +101,19 @@ export class ApiClient {
 
   private send(path: string, options: RequestOptions, authenticated: boolean): Promise<Response> {
     const headers = new Headers(options.headers);
-    if (options.body !== undefined) headers.set("Content-Type", "application/json");
+    const isFormDataBody = options.body instanceof FormData;
+    const requestBody =
+      options.body === undefined || isFormDataBody
+        ? (options.body as BodyInit | undefined)
+        : JSON.stringify(options.body);
+    if (options.body !== undefined && !isFormDataBody)
+      headers.set("Content-Type", "application/json");
     if (authenticated && this.accessToken) {
       headers.set("Authorization", `Bearer ${this.accessToken}`);
     }
     return this.fetcher(`${this.baseUrl}${path}`, {
       ...options,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: requestBody,
       credentials: "include",
       headers,
     });
@@ -108,6 +132,13 @@ export class ApiClient {
       });
     }
     return payload as T;
+  }
+
+  private async parseBlob(response: Response): Promise<BinaryResponse> {
+    if (!response.ok) {
+      await this.parse<unknown>(response);
+    }
+    return { blob: await response.blob(), headers: response.headers };
   }
 }
 

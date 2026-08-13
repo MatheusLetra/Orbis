@@ -90,6 +90,7 @@ describe("Task", () => {
     ["TODO", "IN_PROGRESS"],
     ["IN_PROGRESS", "PAUSED"],
     ["PAUSED", "IN_PROGRESS"],
+    ["PAUSED", "DONE"],
     ["IN_PROGRESS", "DONE"],
   ] as const)("permite %s → %s", (fromStatus, toStatus) => {
     const task = Task.restore(restoreProps({ status: fromStatus }));
@@ -119,7 +120,7 @@ describe("Task", () => {
         !(
           (fromStatus === "TODO" && toStatus === "IN_PROGRESS") ||
           (fromStatus === "IN_PROGRESS" && ["PAUSED", "DONE"].includes(toStatus)) ||
-          (fromStatus === "PAUSED" && toStatus === "IN_PROGRESS")
+          (fromStatus === "PAUSED" && ["IN_PROGRESS", "DONE"].includes(toStatus))
         ),
     ),
   )("rejeita %s → %s", (fromStatus, toStatus) => {

@@ -41,6 +41,38 @@ vi.mock("@/features/tasks/task-queries", () => ({
   useTasks: vi.fn(() => queryState),
   useTaskDetail: vi.fn(() => detailState),
 }));
+vi.mock("@/features/attachments/attachment-queries", () => ({
+  useTaskAttachments: vi.fn(() => ({
+    isPending: false,
+    isError: false,
+    data: [],
+    error: null,
+    refetch: vi.fn(),
+  })),
+}));
+vi.mock("@/features/attachments/attachment-mutations", () => ({
+  useUploadTaskFile: () => ({
+    upload: vi.fn(),
+    abort: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    error: null,
+  }),
+  useCreateTaskLink: () => ({
+    create: vi.fn(),
+    abort: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    error: null,
+  }),
+  useRemoveTaskAttachment: () => ({
+    remove: vi.fn(),
+    abort: vi.fn(),
+    pending: {},
+    errors: {},
+    success: {},
+  }),
+}));
 vi.mock("@/features/companies/capabilities-queries", () => ({
   useCompanyCapabilities: vi.fn(() => capabilitiesState),
 }));

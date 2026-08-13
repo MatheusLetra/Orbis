@@ -41,6 +41,8 @@ import { UpdateSystem } from "@/modules/systems/application/use-cases/update-sys
 import { CreateTask } from "@/modules/tasks/application/use-cases/create-task";
 import { GetTask } from "@/modules/tasks/application/use-cases/get-task";
 import { ListTasks } from "@/modules/tasks/application/use-cases/list-tasks";
+import { ListTimeEntries } from "@/modules/tasks/application/use-cases/list-time-entries";
+import { RegisterTimeEntry } from "@/modules/tasks/application/use-cases/register-time-entry";
 import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
 import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
@@ -73,9 +75,11 @@ import {
   InMemoryRequisitionRepository,
 } from "./fakes/requisition-fakes";
 import {
+  InMemoryTaskPauseIntervalRepository,
   InMemoryTaskRepository,
   InMemoryTaskStatusHistoryRepository,
   InMemoryTaskUnitOfWork,
+  InMemoryTimeEntryRepository,
 } from "./fakes/task-fakes";
 
 const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000";
@@ -96,6 +100,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     requisitionAssignees: InMemoryRequisitionAssigneeRepository;
     tasks: InMemoryTaskRepository;
     taskStatusHistory: InMemoryTaskStatusHistoryRepository;
+    taskPauseIntervals: InMemoryTaskPauseIntervalRepository;
+    timeEntries: InMemoryTimeEntryRepository;
     attachments: InMemoryAttachmentRepository;
     attachmentBlobs: InMemoryAttachmentBlobRepository;
   };
@@ -146,7 +152,14 @@ export function buildTestModules(): TestModules {
   const requisitionNumberGenerator = new FakeRequisitionNumberGenerator();
   const tasks = new InMemoryTaskRepository();
   const taskStatusHistory = new InMemoryTaskStatusHistoryRepository();
-  const taskUnitOfWork = new InMemoryTaskUnitOfWork(tasks, taskStatusHistory);
+  const taskPauseIntervals = new InMemoryTaskPauseIntervalRepository();
+  const timeEntries = new InMemoryTimeEntryRepository();
+  const taskUnitOfWork = new InMemoryTaskUnitOfWork(
+    tasks,
+    taskStatusHistory,
+    taskPauseIntervals,
+    timeEntries,
+  );
   const attachmentRepository = new InMemoryAttachmentRepository();
   const attachmentBlobRepository = new InMemoryAttachmentBlobRepository();
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
@@ -176,6 +189,8 @@ export function buildTestModules(): TestModules {
       requisitionAssignees,
       tasks,
       taskStatusHistory,
+      taskPauseIntervals,
+      timeEntries,
       attachments: attachmentRepository,
       attachmentBlobs: attachmentBlobRepository,
     },
@@ -294,6 +309,17 @@ export function buildTestModules(): TestModules {
       ),
       list: new ListTasks(tasks, accessService, new AuthorizationService()),
       get: new GetTask(tasks, taskStatusHistory, accessService, new AuthorizationService()),
+      registerTimeEntry: new RegisterTimeEntry(
+        taskUnitOfWork,
+        accessService,
+        new AuthorizationService(),
+      ),
+      listTimeEntries: new ListTimeEntries(
+        tasks,
+        timeEntries,
+        accessService,
+        new AuthorizationService(),
+      ),
     },
     attachments: {
       addFile: new AddFileAttachment(

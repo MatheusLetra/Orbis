@@ -37,7 +37,7 @@ export interface CreateTaskData {
 const VALID_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
   TODO: ["IN_PROGRESS"],
   IN_PROGRESS: ["PAUSED", "DONE"],
-  PAUSED: ["IN_PROGRESS"],
+  PAUSED: ["IN_PROGRESS", "DONE"],
   DONE: [],
 };
 

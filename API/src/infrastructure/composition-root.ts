@@ -55,10 +55,13 @@ import { DrizzleSystemRepository } from "@/modules/systems/infrastructure/reposi
 import { CreateTask } from "@/modules/tasks/application/use-cases/create-task";
 import { GetTask } from "@/modules/tasks/application/use-cases/get-task";
 import { ListTasks } from "@/modules/tasks/application/use-cases/list-tasks";
+import { ListTimeEntries } from "@/modules/tasks/application/use-cases/list-time-entries";
+import { RegisterTimeEntry } from "@/modules/tasks/application/use-cases/register-time-entry";
 import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
 import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
 import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
 import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
+import { DrizzleTimeEntryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-time-entry-repository";
 import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
@@ -118,6 +121,8 @@ export interface OrbisModules {
     transition: TransitionTaskStatus;
     list: ListTasks;
     get: GetTask;
+    registerTimeEntry: RegisterTimeEntry;
+    listTimeEntries: ListTimeEntries;
   };
   attachments: {
     addFile: AddFileAttachment;
@@ -147,6 +152,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const requisitionNumberGenerator = new DrizzleRequisitionNumberGenerator(database);
   const taskRepository = new DrizzleTaskRepository(database);
   const taskStatusHistoryRepository = new DrizzleTaskStatusHistoryRepository(database);
+  const timeEntryRepository = new DrizzleTimeEntryRepository(database);
   const taskUnitOfWork = new DrizzleTaskUnitOfWork(database);
   const attachmentRepository = new DrizzleAttachmentRepository(database);
   const attachmentBlobRepository = new DrizzleAttachmentBlobRepository(database);
@@ -298,6 +304,13 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       transition: new TransitionTaskStatus(taskUnitOfWork, accessService, authorization),
       list: new ListTasks(taskRepository, accessService, authorization),
       get: new GetTask(taskRepository, taskStatusHistoryRepository, accessService, authorization),
+      registerTimeEntry: new RegisterTimeEntry(taskUnitOfWork, accessService, authorization),
+      listTimeEntries: new ListTimeEntries(
+        taskRepository,
+        timeEntryRepository,
+        accessService,
+        authorization,
+      ),
     },
     attachments: {
       addFile: new AddFileAttachment(

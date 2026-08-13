@@ -60,7 +60,7 @@ async function seedMember(modules: TestModules, userId: string) {
 }
 
 describe("Task HTTP integration", () => {
-  it("documenta as cinco rotas de Tasks no OpenAPI", async () => {
+  it("documenta as seis rotas de Tasks no OpenAPI", async () => {
     const { app } = await build();
     await app.ready();
     const paths = app.swagger().paths;
@@ -74,6 +74,12 @@ describe("Task HTTP integration", () => {
     expect(paths["/companies/{companyId}/tasks/{taskId}/status"]?.patch?.responses).toHaveProperty(
       "200",
     );
+    expect(
+      paths["/companies/{companyId}/tasks/{taskId}/time-entries"]?.post?.responses,
+    ).toHaveProperty("201");
+    expect(
+      paths["/companies/{companyId}/tasks/{taskId}/time-entries"]?.get?.responses,
+    ).toHaveProperty("200");
 
     const createBody =
       paths["/companies/{companyId}/tasks"]?.post?.requestBody?.content?.["application/json"]
@@ -141,6 +147,28 @@ describe("Task HTTP integration", () => {
     expect(statusBody.properties).not.toHaveProperty("occurredAt");
     expect(statusBody.properties).not.toHaveProperty("changedAt");
     expect(statusBody.properties).not.toHaveProperty("metadata");
+
+    const timeEntryBody =
+      paths["/companies/{companyId}/tasks/{taskId}/time-entries"]?.post?.requestBody?.content?.[
+        "application/json"
+      ]?.schema;
+    expect(timeEntryBody).toMatchObject({
+      additionalProperties: false,
+      required: ["durationMinutes"],
+      properties: {
+        durationMinutes: { type: "integer", minimum: 1, maximum: 1440 },
+        description: { maxLength: 1000 },
+      },
+    });
+    expect(paths["/companies/{companyId}/tasks/{taskId}/time-entries"]?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          in: "query",
+          name: "limit",
+          schema: { minimum: 1, maximum: 100, default: 100, type: "integer" },
+        }),
+      ]),
+    );
     await app.close();
   });
 
@@ -195,6 +223,143 @@ describe("Task HTTP integration", () => {
     expect(detail.json().history).toHaveLength(2);
     expect(detail.json().history[0].fromStatus).toBeNull();
     expect(detail.json().history[1].toStatus).toBe("IN_PROGRESS");
+    await app.close();
+  });
+
+  it("reutiliza o PATCH de status para pausar e concluir com um único histórico por transição", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules);
+    await seedTask(modules, USER_ID);
+    const headers = await authHeaders(modules);
+
+    for (const status of ["IN_PROGRESS", "PAUSED", "DONE"] as const) {
+      const response = await app.inject({
+        method: "PATCH",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/status`,
+        headers,
+        payload: { status },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().status).toBe(status);
+    }
+
+    const interval = [...modules.repositories.taskPauseIntervals.items.values()][0];
+    expect(interval?.endedAt).toBeInstanceOf(Date);
+    expect(interval?.durationSeconds).toBeGreaterThanOrEqual(0);
+    expect(modules.repositories.taskStatusHistory.items.map((item) => item.toStatus)).toEqual([
+      "IN_PROGRESS",
+      "PAUSED",
+      "DONE",
+    ]);
+    await app.close();
+  });
+
+  it("registra TimeEntry no endpoint aninhado sem alterar a Task", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules, true, "DESENVOLVEDOR");
+    await seedTask(modules, USER_ID);
+    const headers = await authHeaders(modules);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/time-entries`,
+      headers,
+      payload: { durationMinutes: 90, description: "  Trabalho  " },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      companyId: COMPANY_ID,
+      taskId: TASK_ID,
+      userId: USER_ID,
+      durationMinutes: 90,
+      description: "Trabalho",
+      startedAt: null,
+      endedAt: null,
+    });
+    expect(modules.repositories.tasks.items.get(TASK_ID)?.status).toBe("TODO");
+    expect(modules.repositories.taskStatusHistory.items).toHaveLength(0);
+    await app.close();
+  });
+
+  it("aplica validação e autorização de TimeEntry", async () => {
+    const own = await build();
+    await seedActor(own.modules, true, "DESENVOLVEDOR");
+    await seedTask(own.modules, USER_ID);
+    const headers = await authHeaders(own.modules);
+    await expect(
+      own.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/time-entries`,
+        headers,
+        payload: { durationMinutes: 0 },
+      }),
+    ).resolves.toMatchObject({ statusCode: 400 });
+    await own.app.close();
+
+    const denied = await build();
+    await seedActor(denied.modules, true, "SUPORTE");
+    await seedTask(denied.modules, USER_ID);
+    await expect(
+      denied.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/time-entries`,
+        headers: await authHeaders(denied.modules),
+        payload: { durationMinutes: 1 },
+      }),
+    ).resolves.toMatchObject({ statusCode: 403 });
+    await denied.app.close();
+
+    const invalid = await build();
+    await seedActor(invalid.modules, true, "DESENVOLVEDOR");
+    await seedTask(invalid.modules, USER_ID);
+    await expect(
+      invalid.app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/time-entries`,
+        headers: await authHeaders(invalid.modules),
+        payload: { durationMinutes: 1, extra: true },
+      }),
+    ).resolves.toMatchObject({ statusCode: 400 });
+    await invalid.app.close();
+  });
+
+  it("lista TimeEntries com total global e hasMore", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules, true, "SUPORTE");
+    await seedTask(modules, USER_ID);
+    const { TimeEntry } = await import("@/modules/tasks/domain/entities/time-entry");
+    await modules.repositories.timeEntries.create(
+      TimeEntry.create({
+        companyId: COMPANY_ID,
+        taskId: TASK_ID,
+        userId: USER_ID,
+        durationMinutes: 30,
+        createdAt: new Date("2026-08-13T10:00:00Z"),
+      }),
+    );
+    await modules.repositories.timeEntries.create(
+      TimeEntry.create({
+        companyId: COMPANY_ID,
+        taskId: TASK_ID,
+        userId: USER_ID,
+        durationMinutes: 45,
+        createdAt: new Date("2026-08-13T11:00:00Z"),
+      }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/tasks/${TASK_ID}/time-entries?limit=1`,
+      headers: await authHeaders(modules),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      items: [{ durationMinutes: 30 }],
+      totalDurationMinutes: 75,
+      hasMore: true,
+    });
     await app.close();
   });
 

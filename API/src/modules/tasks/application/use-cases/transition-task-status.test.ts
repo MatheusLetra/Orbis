@@ -5,6 +5,7 @@ import { Membership } from "@/modules/memberships/domain/entities/membership";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
 import { Task } from "@/modules/tasks/domain/entities/task";
+import { TaskPauseInterval } from "@/modules/tasks/domain/entities/task-pause-interval";
 import {
   BusinessRuleError,
   ForbiddenError,
@@ -107,12 +108,21 @@ describe("TransitionTaskStatus", () => {
     ["TODO", "IN_PROGRESS"],
     ["IN_PROGRESS", "PAUSED"],
     ["PAUSED", "IN_PROGRESS"],
+    ["PAUSED", "DONE"],
     ["IN_PROGRESS", "DONE"],
   ] as const)("permite %s → %s", async (fromStatus, toStatus) => {
     const sut = buildSut();
     await seedActor(sut.memberships);
     await sut.taskRepository.create(buildTask(fromStatus));
     const transitionAt = new Date("2026-08-12T12:00:00Z");
+    if (fromStatus === "PAUSED") {
+      await sut.unitOfWork.pauseIntervalRepository.create(
+        TaskPauseInterval.createOpen({
+          taskId: TASK_ID,
+          startedAt: new Date("2026-08-12T11:00:00Z"),
+        }),
+      );
+    }
 
     const output = await sut.useCase.execute({
       actor: actor(),
@@ -169,7 +179,6 @@ describe("TransitionTaskStatus", () => {
     ["TODO", "DONE"],
     ["IN_PROGRESS", "TODO"],
     ["PAUSED", "TODO"],
-    ["PAUSED", "DONE"],
     ["DONE", "TODO"],
     ["DONE", "IN_PROGRESS"],
     ["IN_PROGRESS", "IN_PROGRESS"],
@@ -194,6 +203,100 @@ describe("TransitionTaskStatus", () => {
       sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "INVALID" as never }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(sut.unitOfWork.executeCalls).toBe(0);
+  });
+
+  it("abre pausa com o mesmo instante da transição", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("IN_PROGRESS"));
+    const transitionAt = new Date("2026-08-12T12:00:00.250Z");
+
+    await sut.useCase.execute({
+      actor: actor(),
+      taskId: TASK_ID,
+      status: "PAUSED",
+      occurredAt: transitionAt,
+    });
+
+    expect([...sut.unitOfWork.pauseIntervalRepository.items.values()]).toEqual([
+      expect.objectContaining({
+        taskId: TASK_ID,
+        startedAt: transitionAt,
+        endedAt: null,
+        durationSeconds: null,
+      }),
+    ]);
+  });
+
+  it.each(["IN_PROGRESS", "DONE"] as const)(
+    "fecha pausa ao transicionar para %s",
+    async (status) => {
+      const sut = buildSut();
+      await seedActor(sut.memberships);
+      await sut.taskRepository.create(buildTask("PAUSED"));
+      const startedAt = new Date("2026-08-12T11:00:00.250Z");
+      const transitionAt = new Date("2026-08-12T12:01:01.999Z");
+      await sut.unitOfWork.pauseIntervalRepository.create(
+        TaskPauseInterval.createOpen({ taskId: TASK_ID, startedAt }),
+      );
+
+      const output = await sut.useCase.execute({
+        actor: actor(),
+        taskId: TASK_ID,
+        status,
+        occurredAt: transitionAt,
+      });
+
+      const interval = [...sut.unitOfWork.pauseIntervalRepository.items.values()][0];
+      expect(interval).toMatchObject({ endedAt: transitionAt, durationSeconds: 3661 });
+      expect(output.completedAt).toBe(status === "DONE" ? transitionAt.toISOString() : null);
+      expect(sut.historyRepository.items).toEqual([
+        expect.objectContaining({ fromStatus: "PAUSED", toStatus: status }),
+      ]);
+    },
+  );
+
+  it("rejeita intervalo aberto duplicado sem persistência parcial", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("IN_PROGRESS"));
+    await sut.unitOfWork.pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({ taskId: TASK_ID }),
+    );
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "PAUSED" }),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("IN_PROGRESS");
+    expect(sut.historyRepository.items).toHaveLength(0);
+  });
+
+  it("rejeita intervalo aberto inconsistente ao sair de um estado não pausado", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("IN_PROGRESS"));
+    await sut.unitOfWork.pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({ taskId: TASK_ID }),
+    );
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "DONE" }),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("IN_PROGRESS");
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.completedAt).toBeNull();
+    expect(sut.historyRepository.items).toHaveLength(0);
+  });
+
+  it("rejeita Task pausada sem intervalo aberto", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("PAUSED"));
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "DONE" }),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("PAUSED");
+    expect(sut.historyRepository.items).toHaveLength(0);
   });
 
   it("rejeita Task inexistente ou de outro tenant", async () => {
@@ -323,6 +426,70 @@ describe("TransitionTaskStatus", () => {
       "TODO",
     );
     expect(historyFailure.historyRepository.items).toHaveLength(0);
+  });
+
+  it("faz rollback completo quando a criação da pausa falha", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("IN_PROGRESS"));
+    sut.unitOfWork.pauseIntervalRepository.failOnCreate = true;
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "PAUSED" }),
+    ).rejects.toThrow("Falha ao persistir pausa");
+
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("IN_PROGRESS");
+    expect(sut.unitOfWork.pauseIntervalRepository.items.size).toBe(0);
+    expect(sut.historyRepository.items).toHaveLength(0);
+  });
+
+  it("faz rollback completo quando o fechamento da pausa falha", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("PAUSED"));
+    await sut.unitOfWork.pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({
+        taskId: TASK_ID,
+        startedAt: new Date("2026-08-12T11:00:00Z"),
+      }),
+    );
+    sut.unitOfWork.pauseIntervalRepository.failOnClose = true;
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "DONE" }),
+    ).rejects.toThrow("Falha ao fechar pausa");
+
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("PAUSED");
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.completedAt).toBeNull();
+    expect([...sut.unitOfWork.pauseIntervalRepository.items.values()][0]).toMatchObject({
+      endedAt: null,
+      durationSeconds: null,
+    });
+    expect(sut.historyRepository.items).toHaveLength(0);
+  });
+
+  it("reverte Task e pausa fechada quando a criação do histórico falha", async () => {
+    const sut = buildSut();
+    await seedActor(sut.memberships);
+    await sut.taskRepository.create(buildTask("PAUSED"));
+    await sut.unitOfWork.pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({
+        taskId: TASK_ID,
+        startedAt: new Date("2026-08-12T11:00:00Z"),
+      }),
+    );
+    sut.historyRepository.failOnCreate = true;
+
+    await expect(
+      sut.useCase.execute({ actor: actor(), taskId: TASK_ID, status: "DONE" }),
+    ).rejects.toThrow("Falha ao persistir histórico");
+
+    expect((await sut.taskRepository.findById(COMPANY_ID, TASK_ID))?.status).toBe("PAUSED");
+    expect([...sut.unitOfWork.pauseIntervalRepository.items.values()][0]).toMatchObject({
+      endedAt: null,
+      durationSeconds: null,
+    });
+    expect(sut.historyRepository.items).toHaveLength(0);
   });
 
   it("retorna output completo com datas ISO", async () => {

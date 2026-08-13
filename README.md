@@ -11,6 +11,7 @@ Principais características:
 - **Multiempresa (tenants)**: `Company` = tenant, `User` = identidade global, `Membership` = vínculo entre usuário e empresa.
 - **Autenticação JWT**: login, refresh token com rotação/revogação e logout; rotas protegidas exigem `Authorization: Bearer <access token>`.
 - **Kanban** com colunas personalizáveis (A Fazer, Em Andamento, Pausado, Concluído) e histórico de status imutável.
+- **Ciclo de pausas transacional**: pausar abre um intervalo, retomar ou concluir fecha a pausa e calcula sua duração em segundos.
 - **Timelines** semanal, mensal e anual com filtros e indicadores.
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
 - **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído (`ArtifactStorage`); em desenvolvimento os executáveis são gravados no filesystem local (`ARTIFACT_STORAGE_PATH`, default `./storage/releases`), fora do PostgreSQL.
@@ -152,6 +153,14 @@ GET    /companies/:companyId/releases                → lista releases da empre
 GET    /companies/:companyId/releases/:releaseId     → obtém uma release
 POST   /companies/:companyId/releases/:releaseId/publish → publica a release (grava artefato no storage)
 DELETE /companies/:companyId/releases/:releaseId     → remove uma release
+
+POST  /companies/:companyId/tasks                    → cria uma tarefa
+GET   /companies/:companyId/tasks                    → lista tarefas
+GET   /companies/:companyId/tasks/:taskId            → obtém tarefa e histórico
+PATCH /companies/:companyId/tasks/:taskId            → atualiza uma tarefa
+PATCH /companies/:companyId/tasks/:taskId/status     → inicia, pausa, retoma ou conclui uma tarefa
+POST  /companies/:companyId/tasks/:taskId/time-entries → registra horas por duração
+GET   /companies/:companyId/tasks/:taskId/time-entries → lista horas e total da tarefa
 ```
 
 As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.

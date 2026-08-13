@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingState } from "@/components/common/loading-state";
 import { Button } from "@/components/ui/button";
+import { attachmentsClient } from "@/features/attachments/attachment-client";
+import type { AttachmentOutput } from "@/features/attachments/attachment-contracts";
+import {
+  useCreateTaskLink,
+  useRemoveTaskAttachment,
+  useUploadTaskFile,
+} from "@/features/attachments/attachment-mutations";
+import { useTaskAttachments } from "@/features/attachments/attachment-queries";
+import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
 import type { TaskCard, TaskDetail, TaskStatus } from "@/features/tasks/task-contracts";
 import { useTaskDetail } from "@/features/tasks/task-queries";
 import { ApiError } from "@/lib/http/api-error";
@@ -34,8 +43,174 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
 
   const taskId = task?.id ?? null;
   const detailQuery = useTaskDetail(isOpen ? companyId : null, taskId);
+  const attachmentsQuery = useTaskAttachments(isOpen ? companyId : null, taskId, isOpen);
+  const capabilitiesQuery = useCompanyCapabilities(isOpen ? companyId : null);
+  const upload = useUploadTaskFile(isOpen ? companyId : null, taskId);
+  const createLink = useCreateTaskLink(isOpen ? companyId : null, taskId);
+  const removeAttachment = useRemoveTaskAttachment(isOpen ? companyId : null, taskId);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<AttachmentOutput | null>(null);
+  const confirmationRef = useRef<HTMLDivElement>(null);
+  const confirmationTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [downloadPending, setDownloadPending] = useState<Record<string, boolean>>({});
+  const [downloadErrors, setDownloadErrors] = useState<Record<string, string | undefined>>({});
+  const pendingDownloadsRef = useRef(new Set<string>());
+  const downloadControllersRef = useRef(new Map<string, AbortController>());
+  const downloadGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  const abortDownloads = useCallback(() => {
+    downloadGenerationRef.current += 1;
+    for (const controller of downloadControllersRef.current.values()) controller.abort();
+    downloadControllersRef.current.clear();
+    pendingDownloadsRef.current.clear();
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resetar estado ao trocar tenant ou task
+  useEffect(() => {
+    setDownloadPending({});
+    setDownloadErrors({});
+    abortDownloads();
+    setSelectedFile(null);
+    setUploadTitle("");
+    setFileError(null);
+    setLinkUrl("");
+    setLinkTitle("");
+    setLinkError(null);
+    setConfirmation(null);
+  }, [abortDownloads, companyId, taskId]);
+
+  useEffect(() => {
+    if (!isOpen) upload.abort();
+    if (!isOpen) createLink.abort();
+    if (!isOpen) removeAttachment.abort();
+    return () => {
+      upload.abort();
+      createLink.abort();
+      removeAttachment.abort();
+    };
+  }, [createLink.abort, isOpen, removeAttachment.abort, upload.abort]);
+
+  useEffect(() => {
+    if (upload.isSuccess) {
+      setSelectedFile(null);
+      setUploadTitle("");
+      setFileError(null);
+    }
+  }, [upload.isSuccess]);
+
+  function selectFile(file: File | null): void {
+    setFileError(null);
+    if (file && file.size > 10 * 1024 * 1024) {
+      setSelectedFile(null);
+      setFileError("O arquivo excede o limite de 10 MB.");
+      return;
+    }
+    setSelectedFile(file);
+  }
+
+  function submitUpload(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (!selectedFile) {
+      setFileError("Selecione um arquivo.");
+      return;
+    }
+    if (upload.upload(selectedFile, uploadTitle)) {
+      setFileError(null);
+    }
+  }
+
+  function submitLink(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const url = linkUrl.trim();
+    const title = linkTitle.trim();
+    if (!title) {
+      setLinkError("Informe um título.");
+      return;
+    }
+    try {
+      const parsed = new URL(url);
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("invalid protocol");
+    } catch {
+      setLinkError("Informe uma URL HTTP ou HTTPS válida.");
+      return;
+    }
+    if (createLink.create(url, title)) setLinkError(null);
+  }
+
+  useEffect(() => {
+    if (!isOpen) abortDownloads();
+    return abortDownloads;
+  }, [abortDownloads, isOpen]);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+      abortDownloads();
+    },
+    [abortDownloads],
+  );
+
+  async function downloadFile(attachment: AttachmentOutput): Promise<void> {
+    if (!taskId || pendingDownloadsRef.current.has(attachment.id)) return;
+    const controller = new AbortController();
+    const generation = downloadGenerationRef.current;
+    pendingDownloadsRef.current.add(attachment.id);
+    downloadControllersRef.current.set(attachment.id, controller);
+    setDownloadPending((current) => ({ ...current, [attachment.id]: true }));
+    setDownloadErrors((current) => ({ ...current, [attachment.id]: undefined }));
+    try {
+      const downloaded = await attachmentsClient.downloadTaskFile(companyId, taskId, attachment, {
+        signal: controller.signal,
+      });
+      if (
+        controller.signal.aborted ||
+        generation !== downloadGenerationRef.current ||
+        !mountedRef.current ||
+        !isOpen
+      )
+        return;
+      const objectUrl = URL.createObjectURL(downloaded.blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = downloaded.fileName;
+      try {
+        link.click();
+      } finally {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+    } catch (error) {
+      if (
+        isAbortError(error) ||
+        controller.signal.aborted ||
+        generation !== downloadGenerationRef.current
+      ) {
+        return;
+      }
+      setDownloadErrors((current) => ({
+        ...current,
+        [attachment.id]: messageForDownloadError(
+          error instanceof Error ? error : new Error("Download error"),
+        ),
+      }));
+    } finally {
+      if (downloadControllersRef.current.get(attachment.id) === controller) {
+        downloadControllersRef.current.delete(attachment.id);
+        pendingDownloadsRef.current.delete(attachment.id);
+        if (mountedRef.current) {
+          setDownloadPending((current) => ({ ...current, [attachment.id]: false }));
+        }
+      }
+    }
+  }
 
   const close = useCallback(() => {
+    abortDownloads();
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (typeof dialog.close === "function") dialog.close();
@@ -46,7 +221,80 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
       previousActiveElement.current = null;
     }, 0);
     onClose();
-  }, [onClose]);
+  }, [abortDownloads, onClose]);
+
+  useEffect(() => {
+    if (createLink.isSuccess) {
+      setLinkUrl("");
+      setLinkTitle("");
+      setLinkError(null);
+      close();
+    }
+  }, [close, createLink.isSuccess]);
+
+  useEffect(() => {
+    if (!confirmation) return;
+    if (removeAttachment.success[confirmation.id]) {
+      setConfirmation(null);
+      return;
+    }
+    window.setTimeout(() => {
+      const dialog = confirmationRef.current;
+      if (!dialog) return;
+      dialog.focus();
+      const firstControl = dialog.querySelector<HTMLElement>(
+        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+      );
+      firstControl?.focus();
+    }, 0);
+  }, [confirmation, removeAttachment.success]);
+
+  useEffect(() => {
+    if (!confirmation) return;
+    const dialog = confirmationRef.current;
+    if (!dialog) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setConfirmation(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      event.stopPropagation();
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+        ),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", onKeyDown);
+    return () => dialog.removeEventListener("keydown", onKeyDown);
+  }, [confirmation]);
+
+  useEffect(() => {
+    if (confirmation) return;
+    const trigger = confirmationTriggerRef.current;
+    if (trigger) {
+      window.setTimeout(() => trigger.focus(), 0);
+      confirmationTriggerRef.current = null;
+    }
+  }, [confirmation]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -116,17 +364,149 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
           />
         )}
         {!detailQuery.isPending && !detailQuery.isError && detail && (
-          <TaskDetailContent task={task} detail={detail} />
+          <TaskDetailContent
+            task={task}
+            detail={detail}
+            attachmentsQuery={attachmentsQuery}
+            downloadPending={downloadPending}
+            downloadErrors={downloadErrors}
+            onDownload={downloadFile}
+            canUpload={
+              capabilitiesQuery.isSuccess &&
+              capabilitiesQuery.data.capabilities["tasks.update"] === true
+            }
+            selectedFile={selectedFile}
+            uploadTitle={uploadTitle}
+            fileError={fileError}
+            uploadError={upload.error}
+            uploadPending={upload.isPending}
+            onFileChange={selectFile}
+            onTitleChange={setUploadTitle}
+            onUpload={submitUpload}
+            linkUrl={linkUrl}
+            linkTitle={linkTitle}
+            linkError={linkError}
+            createLinkError={createLink.error}
+            createLinkPending={createLink.isPending}
+            onLinkUrlChange={setLinkUrl}
+            onLinkTitleChange={setLinkTitle}
+            onCreateLink={submitLink}
+            canRemove={
+              capabilitiesQuery.isSuccess &&
+              capabilitiesQuery.data.capabilities["tasks.update"] === true
+            }
+            removePending={removeAttachment.pending}
+            removeErrors={removeAttachment.errors}
+            onRequestRemove={(attachment, trigger) => {
+              confirmationTriggerRef.current = trigger;
+              setConfirmation(attachment);
+            }}
+          />
         )}
         {!detailQuery.isPending && !detailQuery.isError && !detail && (
           <EmptyState title="Nenhuma tarefa selecionada" />
         )}
       </div>
+      {confirmation && (
+        <div
+          ref={confirmationRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="remove-attachment-title"
+          tabIndex={-1}
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+        >
+          <div className="w-[min(100%,28rem)] rounded-xl border bg-card p-5 text-card-foreground shadow-xl">
+            <h2 id="remove-attachment-title" className="text-base font-semibold">
+              Remover attachment?
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Remover "{confirmation.title ?? confirmation.fileName ?? "Sem título"}"? Esta ação não
+              pode ser desfeita.
+            </p>
+            {removeAttachment.errors[confirmation.id] && (
+              <p role="alert" className="mt-3 text-sm text-destructive">
+                {removeAttachment.errors[confirmation.id]}
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfirmation(null)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={removeAttachment.pending[confirmation.id]}
+                aria-busy={removeAttachment.pending[confirmation.id]}
+                onClick={() => void removeAttachment.remove(confirmation.id)}
+              >
+                {removeAttachment.pending[confirmation.id] ? "Removendo..." : "Remover"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </dialog>
   );
 }
 
-function TaskDetailContent({ task, detail }: { task: TaskCard | null; detail: TaskDetail }) {
+function TaskDetailContent({
+  task,
+  detail,
+  attachmentsQuery,
+  downloadPending,
+  downloadErrors,
+  onDownload,
+  canUpload,
+  selectedFile,
+  uploadTitle,
+  fileError,
+  uploadError,
+  uploadPending,
+  onFileChange,
+  onTitleChange,
+  onUpload,
+  linkUrl,
+  linkTitle,
+  linkError,
+  createLinkError,
+  createLinkPending,
+  onLinkUrlChange,
+  onLinkTitleChange,
+  onCreateLink,
+  canRemove,
+  removePending,
+  removeErrors,
+  onRequestRemove,
+}: {
+  task: TaskCard | null;
+  detail: TaskDetail;
+  attachmentsQuery: ReturnType<typeof useTaskAttachments>;
+  downloadPending: Record<string, boolean>;
+  downloadErrors: Record<string, string | undefined>;
+  onDownload: (attachment: AttachmentOutput) => Promise<void>;
+  canUpload: boolean;
+  selectedFile: File | null;
+  uploadTitle: string;
+  fileError: string | null;
+  uploadError: string | null;
+  uploadPending: boolean;
+  onFileChange: (file: File | null) => void;
+  onTitleChange: (title: string) => void;
+  onUpload: (event: React.FormEvent<HTMLFormElement>) => void;
+  linkUrl: string;
+  linkTitle: string;
+  linkError: string | null;
+  createLinkError: string | null;
+  createLinkPending: boolean;
+  onLinkUrlChange: (url: string) => void;
+  onLinkTitleChange: (title: string) => void;
+  onCreateLink: (event: React.FormEvent<HTMLFormElement>) => void;
+  canRemove: boolean;
+  removePending: Record<string, boolean>;
+  removeErrors: Record<string, string | undefined>;
+  onRequestRemove: (attachment: AttachmentOutput, trigger: HTMLButtonElement) => void;
+}) {
   return (
     <div className="grid gap-6">
       <section>
@@ -140,6 +520,87 @@ function TaskDetailContent({ task, detail }: { task: TaskCard | null; detail: Ta
           </span>
         </div>
       </section>
+
+      <AttachmentsSection
+        query={attachmentsQuery}
+        downloadPending={downloadPending}
+        downloadErrors={downloadErrors}
+        onDownload={onDownload}
+        canRemove={canRemove}
+        removePending={removePending}
+        removeErrors={removeErrors}
+        onRequestRemove={onRequestRemove}
+      />
+      {canUpload && (
+        <div className="grid gap-3">
+          <form className="grid gap-3 rounded-lg border border-dashed p-4" onSubmit={onUpload}>
+            <h4 className="text-sm font-semibold">Adicionar arquivo</h4>
+            <label className="grid gap-1 text-sm font-medium">
+              Arquivo
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,application/pdf,image/jpeg,image/png,image/gif,image/webp"
+                disabled={uploadPending}
+                onChange={(event) => onFileChange(event.currentTarget.files?.[0] ?? null)}
+              />
+            </label>
+            {selectedFile && (
+              <p className="text-xs text-muted-foreground">
+                {selectedFile.name} · {formatBytes(selectedFile.size)}
+              </p>
+            )}
+            <label className="grid gap-1 text-sm font-medium">
+              Título (opcional)
+              <input
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+                value={uploadTitle}
+                disabled={uploadPending}
+                onChange={(event) => onTitleChange(event.currentTarget.value)}
+              />
+            </label>
+            {(fileError || uploadError) && (
+              <p role="alert" className="text-sm text-destructive">
+                {fileError ?? uploadError}
+              </p>
+            )}
+            <Button type="submit" disabled={uploadPending || !selectedFile}>
+              {uploadPending ? "Enviando arquivo..." : "Enviar arquivo"}
+            </Button>
+          </form>
+          <form className="grid gap-3 rounded-lg border border-dashed p-4" onSubmit={onCreateLink}>
+            <h4 className="text-sm font-semibold">Adicionar link</h4>
+            <label className="grid gap-1 text-sm font-medium">
+              URL
+              <input
+                type="url"
+                required
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+                value={linkUrl}
+                disabled={createLinkPending}
+                onChange={(event) => onLinkUrlChange(event.currentTarget.value)}
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Título
+              <input
+                required
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+                value={linkTitle}
+                disabled={createLinkPending}
+                onChange={(event) => onLinkTitleChange(event.currentTarget.value)}
+              />
+            </label>
+            {(linkError || createLinkError) && (
+              <p role="alert" className="text-sm text-destructive">
+                {linkError ?? createLinkError}
+              </p>
+            )}
+            <Button type="submit" disabled={createLinkPending} aria-busy={createLinkPending}>
+              {createLinkPending ? "Adicionando link..." : "Adicionar link"}
+            </Button>
+          </form>
+        </div>
+      )}
 
       <dl className="grid gap-3 text-sm">
         <DetailItem label="Descrição">
@@ -194,6 +655,167 @@ function TaskDetailContent({ task, detail }: { task: TaskCard | null; detail: Ta
   );
 }
 
+function AttachmentsSection({
+  query,
+  downloadPending,
+  downloadErrors,
+  onDownload,
+  canRemove,
+  removePending,
+  removeErrors,
+  onRequestRemove,
+}: {
+  query: ReturnType<typeof useTaskAttachments>;
+  downloadPending: Record<string, boolean>;
+  downloadErrors: Record<string, string | undefined>;
+  onDownload: (attachment: AttachmentOutput) => Promise<void>;
+  canRemove: boolean;
+  removePending: Record<string, boolean>;
+  removeErrors: Record<string, string | undefined>;
+  onRequestRemove: (attachment: AttachmentOutput, trigger: HTMLButtonElement) => void;
+}) {
+  return (
+    <section>
+      <h4 className="mb-3 text-sm font-semibold">Attachments</h4>
+      {query.isPending && <LoadingState label="Carregando attachments..." />}
+      {query.isError && (
+        <ErrorState
+          message={messageForAttachmentError(query.error)}
+          onRetry={() => void query.refetch()}
+        />
+      )}
+      {!query.isPending && !query.isError && query.data?.length === 0 && (
+        <EmptyState title="Nenhum attachment" description="Esta tarefa não possui attachments." />
+      )}
+      {!query.isPending && !query.isError && query.data && query.data.length > 0 && (
+        <div className="grid gap-4">
+          <AttachmentGroup
+            title="Arquivos"
+            items={query.data.filter((item) => item.kind === "FILE")}
+            downloadPending={downloadPending}
+            downloadErrors={downloadErrors}
+            onDownload={onDownload}
+            canRemove={canRemove}
+            removePending={removePending}
+            removeErrors={removeErrors}
+            onRequestRemove={onRequestRemove}
+          />
+          <AttachmentGroup
+            title="Links"
+            items={query.data.filter((item) => item.kind === "LINK")}
+            downloadPending={downloadPending}
+            downloadErrors={downloadErrors}
+            onDownload={onDownload}
+            canRemove={canRemove}
+            removePending={removePending}
+            removeErrors={removeErrors}
+            onRequestRemove={onRequestRemove}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AttachmentGroup({
+  title,
+  items,
+  downloadPending,
+  downloadErrors,
+  onDownload,
+  canRemove,
+  removePending,
+  removeErrors,
+  onRequestRemove,
+}: {
+  title: string;
+  items: AttachmentOutput[];
+  downloadPending: Record<string, boolean>;
+  downloadErrors: Record<string, string | undefined>;
+  onDownload: (attachment: AttachmentOutput) => Promise<void>;
+  canRemove: boolean;
+  removePending: Record<string, boolean>;
+  removeErrors: Record<string, string | undefined>;
+  onRequestRemove: (attachment: AttachmentOutput, trigger: HTMLButtonElement) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h5 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h5>
+      <ul className="grid gap-2">
+        {items.map((attachment) => (
+          <li key={attachment.id} className="rounded-md border p-3 text-sm">
+            <p className="font-medium">{attachment.title ?? attachment.fileName ?? "Sem título"}</p>
+            {attachment.kind === "LINK" ? (
+              <a
+                href={attachment.url ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block break-all text-primary underline"
+              >
+                {attachment.url}
+              </a>
+            ) : (
+              <>
+                <p className="mt-1 text-muted-foreground">
+                  {attachment.fileName} · {attachment.mimeType ?? "tipo desconhecido"} ·{" "}
+                  {formatBytes(attachment.sizeBytes)}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  disabled={downloadPending[attachment.id]}
+                  onClick={() => void onDownload(attachment)}
+                >
+                  {downloadPending[attachment.id] ? "Baixando..." : "Baixar arquivo"}
+                </Button>
+                {downloadErrors[attachment.id] && (
+                  <p className="mt-2 text-sm text-destructive" role="alert">
+                    {downloadErrors[attachment.id]}
+                  </p>
+                )}
+              </>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Criado por {attachment.createdBy} em {formatDate(attachment.createdAt)}
+            </p>
+            {canRemove && (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  className="mt-2"
+                  disabled={removePending[attachment.id]}
+                  aria-busy={removePending[attachment.id]}
+                  onClick={(event) => onRequestRemove(attachment, event.currentTarget)}
+                >
+                  {removePending[attachment.id] ? "Removendo..." : "Remover attachment"}
+                </Button>
+                {removeErrors[attachment.id] && (
+                  <p className="mt-2 text-sm text-destructive" role="alert">
+                    {removeErrors[attachment.id]}
+                  </p>
+                )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatBytes(value: number | null): string {
+  if (value === null) return "tamanho desconhecido";
+  if (value < 1024) return `${value} B`;
+  return `${(value / 1024 / 1024).toFixed(2)} MB`;
+}
+
 function DetailItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:gap-4">
@@ -219,4 +841,30 @@ export function messageForDetailError(error: Error): string {
     if (error.status >= 500) return "Não foi possível carregar os detalhes. Tente novamente.";
   }
   return "Não foi possível carregar os detalhes. Verifique sua conexão e tente novamente.";
+}
+
+function messageForAttachmentError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403)
+      return "Você não tem permissão para visualizar os attachments desta tarefa.";
+    if (error.status === 404)
+      return "A tarefa não foi encontrada. Os attachments não puderam ser carregados.";
+    if (error.status >= 500) return "Não foi possível carregar os attachments. Tente novamente.";
+  }
+  return "Não foi possível carregar os attachments. Verifique sua conexão e tente novamente.";
+}
+
+export function messageForDownloadError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403)
+      return "Você não tem permissão para baixar este arquivo, ou ela foi perdida.";
+    if (error.status === 404) return "O attachment ou a tarefa não foi encontrado.";
+    if (error.status === 422) return "Não foi possível confirmar a integridade deste arquivo.";
+    if (error.status >= 500) return "Não foi possível baixar o arquivo. Tente novamente.";
+  }
+  return "Não foi possível baixar o arquivo. Verifique sua conexão e tente novamente.";
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }

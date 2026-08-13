@@ -5,6 +5,8 @@ import type { PermissionResolver } from "@/modules/permissions/application/ports
 import type { CreateTask } from "@/modules/tasks/application/use-cases/create-task";
 import type { GetTask } from "@/modules/tasks/application/use-cases/get-task";
 import type { ListTasks } from "@/modules/tasks/application/use-cases/list-tasks";
+import type { ListTimeEntries } from "@/modules/tasks/application/use-cases/list-time-entries";
+import type { RegisterTimeEntry } from "@/modules/tasks/application/use-cases/register-time-entry";
 import type { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
 import type { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
 import { ValidationError } from "@/shared/errors/typed-errors";
@@ -15,6 +17,8 @@ export interface TaskRouteOptions {
   transition: TransitionTaskStatus;
   list: ListTasks;
   get: GetTask;
+  registerTimeEntry: RegisterTimeEntry;
+  listTimeEntries: ListTimeEntries;
   permissionResolver: PermissionResolver;
 }
 
@@ -161,6 +165,60 @@ const statusBody = {
   additionalProperties: false,
 } as const;
 
+const timeEntryBody = {
+  type: "object",
+  properties: {
+    durationMinutes: { type: "integer", minimum: 1, maximum: 1440 },
+    description: { type: "string", maxLength: 1000 },
+  },
+  required: ["durationMinutes"],
+  additionalProperties: false,
+} as const;
+
+const timeEntryResponse = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    companyId: { type: "string", format: "uuid" },
+    taskId: { type: "string", format: "uuid" },
+    userId: { type: "string", format: "uuid" },
+    startedAt: { type: ["string", "null"], format: "date-time" },
+    endedAt: { type: ["string", "null"], format: "date-time" },
+    durationMinutes: { type: "integer", minimum: 1, maximum: 1440 },
+    description: { type: ["string", "null"] },
+    createdAt: { type: "string", format: "date-time" },
+  },
+  required: [
+    "id",
+    "companyId",
+    "taskId",
+    "userId",
+    "startedAt",
+    "endedAt",
+    "durationMinutes",
+    "description",
+    "createdAt",
+  ],
+  additionalProperties: false,
+} as const;
+
+const timeEntryListQuery = {
+  type: "object",
+  properties: { limit: { type: "integer", minimum: 1, maximum: 100, default: 100 } },
+  additionalProperties: false,
+} as const;
+
+const timeEntryListResponse = {
+  type: "object",
+  properties: {
+    items: { type: "array", items: timeEntryResponse },
+    totalDurationMinutes: { type: "integer", minimum: 0 },
+    hasMore: { type: "boolean" },
+  },
+  required: ["items", "totalDurationMinutes", "hasMore"],
+  additionalProperties: false,
+} as const;
+
 const listQuery = {
   type: "object",
   properties: {
@@ -293,6 +351,30 @@ export async function registerTaskRoutes(
     },
   );
 
+  app.get(
+    "/companies/:companyId/tasks/:taskId/time-entries",
+    {
+      schema: {
+        tags: ["Apontamentos"],
+        description: "Lista os apontamentos de horas de uma tarefa.",
+        headers: userHeader,
+        params: taskDetailParams,
+        querystring: timeEntryListQuery,
+        response: { 200: timeEntryListResponse },
+      },
+    },
+    async (request) => {
+      const { companyId, taskId } = request.params as { companyId: string; taskId: string };
+      assertAllowedQuery(request, ["limit"]);
+      const actor = await actorFor(request, companyId, options.permissionResolver);
+      return options.listTimeEntries.execute({
+        actor,
+        taskId,
+        filters: request.query,
+      });
+    },
+  );
+
   app.patch(
     "/companies/:companyId/tasks/:taskId",
     {
@@ -334,6 +416,38 @@ export async function registerTaskRoutes(
         taskId,
         changes: dates(changes, ["startDate", "plannedEndDate"]) as never,
       });
+    },
+  );
+
+  app.post(
+    "/companies/:companyId/tasks/:taskId/time-entries",
+    {
+      schema: {
+        tags: ["Apontamentos"],
+        description: "Registra horas trabalhadas manualmente em uma tarefa.",
+        headers: userHeader,
+        params: taskDetailParams,
+        body: timeEntryBody,
+        response: { 201: timeEntryResponse },
+      },
+      preValidation: async (request) => {
+        assertAllowedKeys(request.body as Record<string, unknown>, [
+          "durationMinutes",
+          "description",
+        ]);
+      },
+    },
+    async (request, reply) => {
+      const { companyId, taskId } = request.params as { companyId: string; taskId: string };
+      const body = request.body as Record<string, unknown>;
+      assertAllowedKeys(body, ["durationMinutes", "description"]);
+      const actor = await actorFor(request, companyId, options.permissionResolver);
+      const output = await options.registerTimeEntry.execute({
+        actor,
+        taskId,
+        data: body as never,
+      });
+      return reply.status(201).send(output);
     },
   );
 

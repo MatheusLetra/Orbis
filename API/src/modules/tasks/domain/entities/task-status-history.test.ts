@@ -46,10 +46,23 @@ describe("TaskStatusHistory", () => {
     expect(history.changedAt).toBe(changedAt);
   });
 
+  it("cria histórico direto de pausa para conclusão", () => {
+    const history = TaskStatusHistory.createTransition({
+      taskId: "task-1",
+      fromStatus: "PAUSED",
+      toStatus: "DONE",
+      changedBy: "user-1",
+      changedAt,
+    });
+
+    expect(history.fromStatus).toBe("PAUSED");
+    expect(history.toStatus).toBe("DONE");
+  });
+
   it.each([
     ["TODO", "TODO"],
     ["TODO", "PAUSED"],
-    ["PAUSED", "DONE"],
+    ["PAUSED", "TODO"],
     ["DONE", "TODO"],
   ] as const)("rejeita histórico inválido %s → %s", (fromStatus, toStatus) => {
     expect(() =>

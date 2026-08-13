@@ -1,13 +1,25 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { Database } from "@/infrastructure/database/client";
-import { companies, memberships, requisitions, users } from "@/infrastructure/database/schema";
+import {
+  companies,
+  memberships,
+  requisitions,
+  taskPauseIntervals,
+  timeEntries,
+  users,
+} from "@/infrastructure/database/schema";
 import { Task } from "@/modules/tasks/domain/entities/task";
+import { TaskPauseInterval } from "@/modules/tasks/domain/entities/task-pause-interval";
 import { TaskStatusHistory } from "@/modules/tasks/domain/entities/task-status-history";
+import { TimeEntry } from "@/modules/tasks/domain/entities/time-entry";
+import { DrizzleTaskPauseIntervalRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-pause-interval-repository";
 import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-repository";
 import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
+import { DrizzleTimeEntryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-time-entry-repository";
 import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
+import { BusinessRuleError } from "@/shared/errors/typed-errors";
 import { createTestDatabase, isTestDatabaseAvailable } from "@/test/db-test-helper";
 
 const available = await isTestDatabaseAvailable();
@@ -47,12 +59,16 @@ describe.skipIf(!available)("persistência de Tasks e histórico", () => {
   let db: Database;
   let taskRepository: DrizzleTaskRepository;
   let historyRepository: DrizzleTaskStatusHistoryRepository;
+  let pauseIntervalRepository: DrizzleTaskPauseIntervalRepository;
+  let timeEntryRepository: DrizzleTimeEntryRepository;
   let unitOfWork: DrizzleTaskUnitOfWork;
 
   beforeAll(async () => {
     db = await createTestDatabase();
     taskRepository = new DrizzleTaskRepository(db);
     historyRepository = new DrizzleTaskStatusHistoryRepository(db);
+    pauseIntervalRepository = new DrizzleTaskPauseIntervalRepository(db);
+    timeEntryRepository = new DrizzleTimeEntryRepository(db);
     unitOfWork = new DrizzleTaskUnitOfWork(db);
   });
 
@@ -188,6 +204,110 @@ describe.skipIf(!available)("persistência de Tasks e histórico", () => {
     expect("delete" in historyRepository).toBe(false);
   });
 
+  it("cria, busca e fecha um intervalo de pausa", async () => {
+    await taskRepository.create(buildTask());
+    const startedAt = new Date("2026-08-12T10:00:00.250Z");
+    const endedAt = new Date("2026-08-12T10:01:01.999Z");
+    const interval = await pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({ taskId: TASK_A, startedAt }),
+    );
+
+    const open = await db.transaction((transaction) =>
+      new DrizzleTaskPauseIntervalRepository(transaction).findOpenByTaskForUpdate(TASK_A),
+    );
+    expect(open).toMatchObject({ taskId: TASK_A, startedAt, endedAt: null });
+
+    interval.close(endedAt);
+    await pauseIntervalRepository.close(interval);
+
+    await expect(
+      db.transaction((transaction) =>
+        new DrizzleTaskPauseIntervalRepository(transaction).findOpenByTaskForUpdate(TASK_A),
+      ),
+    ).resolves.toBeNull();
+    const rows = await db.select().from(taskPauseIntervals);
+    expect(rows).toEqual([
+      expect.objectContaining({ endedAt, durationSeconds: 61, taskId: TASK_A }),
+    ]);
+  });
+
+  it("detecta múltiplos intervalos abertos preexistentes", async () => {
+    await taskRepository.create(buildTask());
+    await pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({ taskId: TASK_A, startedAt: new Date("2026-08-12T10:00:00Z") }),
+    );
+    await pauseIntervalRepository.create(
+      TaskPauseInterval.createOpen({ taskId: TASK_A, startedAt: new Date("2026-08-12T11:00:00Z") }),
+    );
+
+    await expect(
+      db.transaction((transaction) =>
+        new DrizzleTaskPauseIntervalRepository(transaction).findOpenByTaskForUpdate(TASK_A),
+      ),
+    ).rejects.toBeInstanceOf(BusinessRuleError);
+  });
+
+  it("persiste TimeEntry manual com vínculo tenant-aware", async () => {
+    await taskRepository.create(
+      buildTask(TASK_A, COMPANY_A, { status: "DONE", completedAt: new Date() }),
+    );
+    const entry = await timeEntryRepository.create(
+      TimeEntry.create({
+        companyId: COMPANY_A,
+        taskId: TASK_A,
+        userId: USER_A,
+        durationMinutes: 90,
+        description: "Trabalho",
+        createdAt: new Date("2026-08-13T12:00:00Z"),
+      }),
+    );
+
+    expect(entry).toMatchObject({
+      companyId: COMPANY_A,
+      taskId: TASK_A,
+      userId: USER_A,
+      durationMinutes: 90,
+      description: "Trabalho",
+      startedAt: null,
+      endedAt: null,
+    });
+    expect(await db.select().from(timeEntries).where(eq(timeEntries.id, entry.id))).toHaveLength(1);
+  });
+
+  it("lista TimeEntries ordenado, limita e soma todas as entradas por tenant", async () => {
+    await taskRepository.create(buildTask());
+    await taskRepository.create(buildTask(TASK_B, COMPANY_B));
+    const entries = [
+      TimeEntry.create({
+        companyId: COMPANY_A,
+        taskId: TASK_A,
+        userId: USER_A,
+        durationMinutes: 30,
+        createdAt: new Date("2026-08-13T10:00:00Z"),
+      }),
+      TimeEntry.create({
+        companyId: COMPANY_A,
+        taskId: TASK_A,
+        userId: USER_A,
+        durationMinutes: 45,
+        createdAt: new Date("2026-08-13T11:00:00Z"),
+      }),
+      TimeEntry.create({
+        companyId: COMPANY_B,
+        taskId: TASK_B,
+        userId: USER_B,
+        durationMinutes: 90,
+        createdAt: new Date("2026-08-13T09:00:00Z"),
+      }),
+    ];
+    for (const entry of entries) await timeEntryRepository.create(entry);
+
+    const listed = await timeEntryRepository.listByTask(COMPANY_A, TASK_A, 2);
+    expect(listed.map((entry) => entry.durationMinutes)).toEqual([30, 45]);
+    expect(await timeEntryRepository.sumDurationByTask(COMPANY_A, TASK_A)).toBe(75);
+    expect(await timeEntryRepository.sumDurationByTask(COMPANY_B, TASK_B)).toBe(90);
+  });
+
   it("isola histórico pelo tenant da Task pai", async () => {
     await taskRepository.create(buildTask(TASK_A, COMPANY_A));
     await historyRepository.create(
@@ -246,6 +366,39 @@ describe.skipIf(!available)("persistência de Tasks e histórico", () => {
     ).rejects.toThrow("falha após transição");
 
     expect((await taskRepository.findById(COMPANY_A, TASK_A))?.status).toBe("TODO");
+    expect(await historyRepository.listByTask(COMPANY_A, TASK_A)).toEqual([]);
+  });
+
+  it("faz rollback de Task, pausa e histórico juntos", async () => {
+    await taskRepository.create(buildTask(TASK_A, COMPANY_A, { status: "IN_PROGRESS" }));
+
+    await expect(
+      unitOfWork.execute(async ({ tasks, taskStatusHistory, taskPauseIntervals }) => {
+        const task = await tasks.findByIdForUpdate(COMPANY_A, TASK_A);
+        if (!task) throw new Error("Task não encontrada");
+        const occurredAt = new Date("2026-08-12T12:00:00Z");
+        task.transitionTo("PAUSED", occurredAt);
+        await tasks.update(task);
+        await taskPauseIntervals.create(
+          TaskPauseInterval.createOpen({ taskId: TASK_A, startedAt: occurredAt }),
+        );
+        await taskStatusHistory.create(
+          TaskStatusHistory.createTransition({
+            taskId: TASK_A,
+            fromStatus: "IN_PROGRESS",
+            toStatus: "PAUSED",
+            changedBy: USER_A,
+            changedAt: occurredAt,
+          }),
+        );
+        throw new Error("falha após pausa");
+      }),
+    ).rejects.toThrow("falha após pausa");
+
+    expect(await taskRepository.findById(COMPANY_A, TASK_A)).toMatchObject({
+      status: "IN_PROGRESS",
+    });
+    expect(await db.select().from(taskPauseIntervals)).toEqual([]);
     expect(await historyRepository.listByTask(COMPANY_A, TASK_A)).toEqual([]);
   });
 

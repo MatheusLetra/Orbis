@@ -52,6 +52,41 @@ describe("ApiClient", () => {
     await request.catch((error: unknown) => expect(error).toBeInstanceOf(ApiError));
   });
 
+  it("envia FormData intacto sem Content-Type manual", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ ok: true }));
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    client.setAccessToken("access-token");
+    const body = new FormData();
+    body.append("file", new Blob(["file"], { type: "application/pdf" }), "file.pdf");
+    await client.request("/upload", { method: "POST", body });
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    const headers = new Headers(init?.headers);
+    expect(init?.body).toBe(body);
+    expect(headers.get("Content-Type")).toBeNull();
+    expect(headers.get("Authorization")).toBe("Bearer access-token");
+    expect(init?.credentials).toBe("include");
+  });
+
+  it("retorna Blob e headers no caminho binário e preserva erro JSON", async () => {
+    const blob = new Blob(["file"], { type: "text/plain" });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(blob, { headers: { "Content-Type": "text/plain" } }));
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    const controller = new AbortController();
+    const result = await client.requestBlob("/file", { signal: controller.signal });
+    expect(result.blob).toBeInstanceOf(Blob);
+    expect(result.headers.get("Content-Type")).toContain("text/plain");
+    expect(fetcher.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+
+    fetcher.mockResolvedValueOnce(json({ error: { code: "FORBIDDEN", message: "Negado" } }, 403));
+    await expect(client.requestBlob("/file")).rejects.toMatchObject({
+      status: 403,
+      code: "FORBIDDEN",
+      message: "Negado",
+    });
+  });
+
   it("faz um único refresh para 401 concorrentes e repete cada request uma vez", async () => {
     let protectedCalls = 0;
     let refreshCalls = 0;

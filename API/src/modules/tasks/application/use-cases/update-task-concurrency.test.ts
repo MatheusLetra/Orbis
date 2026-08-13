@@ -2,7 +2,12 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { Database } from "@/infrastructure/database/client";
-import { companies, memberships, users } from "@/infrastructure/database/schema";
+import {
+  companies,
+  memberships,
+  taskPauseIntervals,
+  users,
+} from "@/infrastructure/database/schema";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
@@ -321,5 +326,25 @@ describe.skipIf(!available)("concorrência entre UpdateTask e TransitionTaskStat
       completedAt: null,
     });
     expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(2);
+  });
+
+  it("serializa duas pausas concorrentes sem criar intervalos duplicados", async () => {
+    const actor = {
+      userId: USER_ID,
+      companyId: COMPANY_ID,
+      permissions: ["tasks.update"],
+    } as const;
+
+    const results = await Promise.allSettled([
+      transitionTaskStatus.execute({ actor, taskId: TASK_ID, status: "PAUSED" }),
+      transitionTaskStatus.execute({ actor, taskId: TASK_ID, status: "PAUSED" }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((result) => result.status === "rejected");
+    expect(rejected).toMatchObject({ reason: expect.any(BusinessRuleError) });
+    expect(await taskRepository.findById(COMPANY_ID, TASK_ID)).toMatchObject({ status: "PAUSED" });
+    expect(await db.select().from(taskPauseIntervals)).toHaveLength(1);
+    expect(await historyRepository.listByTask(COMPANY_ID, TASK_ID)).toHaveLength(3);
   });
 });

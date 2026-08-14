@@ -244,6 +244,70 @@ describe("useTaskTransition", () => {
     await waitFor(() => expect(result.current.pendingTaskIds.size).toBe(0));
     expect(client.getQueryData<TaskCard[]>(key)?.[0]).toEqual(canonical);
   });
+
+  it("remove da lista filtrada e restaura na posição original no rollback", async () => {
+    const client = createQueryClient();
+    const key = taskKeys.list("company-a", { status: "TODO" });
+    client.setQueryData(key, [task("before"), task("task-a"), task("after")]);
+    const request = deferred<TaskOutput>();
+    vi.spyOn(tasksClient, "transition").mockReturnValue(request.promise);
+    const { result } = renderHook(() => useTaskTransition(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => {
+      result.current.transition({
+        companyId: "company-a",
+        taskId: "task-a",
+        fromStatus: "TODO",
+        status: "IN_PROGRESS",
+      });
+    });
+    await waitFor(() =>
+      expect(client.getQueryData<TaskCard[]>(key)?.map(({ id }) => id)).toEqual([
+        "before",
+        "after",
+      ]),
+    );
+    request.reject(new ApiError({ status: 409, code: "CONFLICT", message: "stale" }));
+    await waitFor(() =>
+      expect(client.getQueryData<TaskCard[]>(key)?.map(({ id }) => id)).toEqual([
+        "before",
+        "task-a",
+        "after",
+      ]),
+    );
+  });
+
+  it("não aplica rollback antigo sobre lista filtrada já substituída", async () => {
+    const client = createQueryClient();
+    const key = taskKeys.list("company-a", { status: "TODO" });
+    client.setQueryData(key, [task("task-a")]);
+    const request = deferred<TaskOutput>();
+    vi.spyOn(tasksClient, "transition").mockReturnValue(request.promise);
+    const { result } = renderHook(() => useTaskTransition(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => {
+      result.current.transition({
+        companyId: "company-a",
+        taskId: "task-a",
+        fromStatus: "TODO",
+        status: "IN_PROGRESS",
+      });
+    });
+    await waitFor(() => expect(client.getQueryData<TaskCard[]>(key)).toEqual([]));
+    const canonical = [task("server-task")];
+    client.setQueryData(key, canonical);
+    request.reject(new ApiError({ status: 409, code: "CONFLICT", message: "stale" }));
+    await waitFor(() => expect(result.current.pendingTaskIds.size).toBe(0));
+    expect(client.getQueryData(key)).toEqual(canonical);
+    act(() => result.current.clearError());
+    expect(result.current.error).toBeNull();
+  });
 });
 
 describe("messageForTransitionError", () => {
@@ -384,4 +448,34 @@ describe("useUpdateTask", () => {
   });
   it("mapeia falha de rede", () =>
     expect(messageForUpdateError(new TypeError("network"))).toContain("conexão"));
+
+  it("refaz capabilities, lista e detalhe após 403 e permite limpar/resetar", async () => {
+    const client = createQueryClient();
+    vi.spyOn(tasksClient, "update").mockRejectedValue(
+      new ApiError({ status: 403, code: "FORBIDDEN", message: "negado" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useUpdateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => {
+      result.current.update({
+        companyId: "company-a",
+        taskId: "task-a",
+        title: "Novo",
+        priority: "HIGH",
+      });
+    });
+    await waitFor(() => expect(result.current.error).toContain("permissão"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["company-capabilities", "company-a"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.detail("company-a", "task-a") });
+    act(() => {
+      result.current.clearError();
+      result.current.reset();
+    });
+    expect(result.current.error).toBeNull();
+  });
 });

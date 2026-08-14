@@ -47,6 +47,24 @@ describe("POST /companies", () => {
     await app.close();
   });
 
+  it("aceita timezone e settings opcionais", async () => {
+    const { app, modules } = await build();
+    const response = await app.inject({
+      method: "POST",
+      url: "/companies",
+      headers: await authHeaders(modules, OWNER_ID),
+      payload: {
+        name: "Orbis Corp",
+        timezone: "UTC",
+        settings: { segment: "tech" },
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ timezone: "UTC", settings: { segment: "tech" } });
+    await app.close();
+  });
+
   it("retorna 401 sem o header de usuário", async () => {
     const { app } = await build();
     const response = await app.inject({
@@ -342,6 +360,25 @@ describe("PATCH /companies/:companyId", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ name: "Orbis SA", timezone: "America/New_York" });
+    await app.close();
+  });
+
+  it("aceita payload parcial somente com settings", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: OWNER_ID, position: "GESTOR" }),
+    );
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}`,
+      headers: await authHeaders(modules, OWNER_ID),
+      payload: { settings: { theme: "dark" } },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ name: "Orbis", settings: { theme: "dark" } });
     await app.close();
   });
 

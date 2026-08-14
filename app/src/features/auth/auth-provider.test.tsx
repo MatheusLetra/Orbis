@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "@/lib/http/api-client";
 import { AuthProvider, useAuth } from "./auth-provider";
@@ -57,6 +57,50 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
     expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+  });
+
+  it.each(["token-sem-payload", "header.e30.signature"])(
+    "rejeita access token sem subject: %s",
+    async (token) => {
+      vi.spyOn(apiClient, "refresh").mockResolvedValue(token);
+      render(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>,
+      );
+      expect(await screen.findByText("unauthenticated")).toBeInTheDocument();
+    },
+  );
+
+  it("exige AuthProvider ao usar o hook", () => {
+    expect(() => renderHook(() => useAuth())).toThrow(
+      "useAuth deve ser usado dentro de AuthProvider",
+    );
+  });
+
+  it("ignora refresh e session lost depois do unmount", async () => {
+    let resolveRefresh: (token: string) => void = () => undefined;
+    let loseSession: (() => void) | undefined;
+    vi.mocked(apiClient.onSessionLost).mockImplementation((listener) => {
+      loseSession = listener;
+      return vi.fn();
+    });
+    vi.spyOn(apiClient, "refresh").mockReturnValue(
+      new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }),
+    );
+    const view = render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    view.unmount();
+    await act(async () => {
+      loseSession?.();
+      resolveRefresh(accessToken());
+    });
+    expect(apiClient.getAccessToken()).toBeNull();
   });
 
   it("faz login mantendo somente o access token em memória", async () => {

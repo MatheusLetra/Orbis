@@ -264,6 +264,43 @@ describe("GET /companies/:companyId/members", () => {
     await app.close();
   });
 
+  it.each([
+    ["ausente", ""],
+    ["vazia", "?search=   "],
+  ])("aceita pesquisa opcional %s", async (_label, query) => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    const user = await seedUser(modules);
+    await seedActorMembership(modules, company.id);
+    await seedMembership(modules, company.id, user.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/members${query}`,
+      headers: await authHeaders(modules, USER_ID),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toContainEqual({ userId: user.id, name: "Ana" });
+    await app.close();
+  });
+
+  it("rejeita parâmetro de query desconhecido", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    await seedActorMembership(modules, company.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/members?extra=x`,
+      headers: await authHeaders(modules, USER_ID),
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
   it("isola o tenant e exige users.read", async () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);

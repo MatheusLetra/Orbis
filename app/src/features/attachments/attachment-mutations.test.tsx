@@ -37,6 +37,16 @@ const linkOutput = {
   url: "https://example.com/docs",
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (cause: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("useUploadTaskFile", () => {
   beforeEach(() => vi.restoreAllMocks());
 
@@ -93,6 +103,52 @@ describe("useUploadTaskFile", () => {
     });
     act(() => result.current.upload(new File(["file"], "file.pdf"), ""));
     await waitFor(() => expect(result.current.error).toBeTruthy());
+  });
+
+  it("invalida capabilities no 403, limpa erro e rejeita contexto incompleto", async () => {
+    const client = createQueryClient();
+    vi.spyOn(attachmentsClient, "uploadTaskFile").mockRejectedValue(
+      new ApiError({ status: 403, code: "FORBIDDEN", message: "falha" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result, rerender } = renderHook(
+      ({ companyId, taskId }) => useUploadTaskFile(companyId, taskId),
+      {
+        initialProps: {
+          companyId: "company-a" as string | null,
+          taskId: "task-a" as string | null,
+        },
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.upload(new File(["file"], "file.pdf"), ""));
+    await waitFor(() => expect(result.current.error).toContain("permissão"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["company-capabilities", "company-a"] });
+    act(() => result.current.clearError());
+    expect(result.current.error).toBeNull();
+    rerender({ companyId: null, taskId: "task-a" });
+    expect(result.current.upload(new File(["file"], "file.pdf"), "")).toBe(false);
+  });
+
+  it("ignora sucesso stale após abort e após troca de Task", async () => {
+    const request = deferred<typeof output>();
+    vi.spyOn(attachmentsClient, "uploadTaskFile").mockReturnValue(request.promise);
+    const { result, rerender } = renderHook(
+      ({ taskId }) => useUploadTaskFile("company-a", taskId),
+      {
+        initialProps: { taskId: "task-a" },
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.upload(new File(["file"], "file.pdf"), ""));
+    rerender({ taskId: "task-b" });
+    request.resolve(output);
+    await Promise.resolve();
+    expect(result.current.isSuccess).toBe(false);
   });
 });
 
@@ -168,6 +224,38 @@ describe("useCreateTaskLink", () => {
     act(() => result.current.create("https://example.com", "Docs"));
     await waitFor(() => expect(result.current.error).toBeTruthy());
   });
+
+  it("invalida capabilities no 403 e não confirma sucesso abortado durante invalidação", async () => {
+    const client = createQueryClient();
+    vi.spyOn(attachmentsClient, "createTaskLink").mockRejectedValueOnce(
+      new ApiError({ status: 403, code: "FORBIDDEN", message: "falha" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useCreateTaskLink("company-a", "task-a"), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => result.current.create("https://example.com", "Docs"));
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["company-capabilities", "company-a"] });
+
+    const request = deferred<typeof linkOutput>();
+    const invalidation = deferred<void>();
+    invalidate.mockReturnValueOnce(invalidation.promise);
+    vi.mocked(attachmentsClient.createTaskLink).mockReturnValueOnce(request.promise);
+    act(() => result.current.create("https://example.com", "Docs"));
+    request.resolve(linkOutput);
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: attachmentKeys.task("company-a", "task-a"),
+      }),
+    );
+    act(() => result.current.abort());
+    invalidation.resolve();
+    await waitFor(() => expect(result.current.isSuccess).toBe(false));
+    expect(result.current.isSuccess).toBe(false);
+  });
 });
 
 describe("useRemoveTaskAttachment", () => {
@@ -224,5 +312,46 @@ describe("useRemoveTaskAttachment", () => {
     });
     act(() => result.current.remove("file-1"));
     await waitFor(() => expect(result.current.errors["file-1"]).toBeTruthy());
+  });
+
+  it.each([404, 409])("invalida attachments após conflito HTTP %s", async (status) => {
+    const client = createQueryClient();
+    vi.spyOn(attachmentsClient, "remove").mockRejectedValue(
+      new ApiError({ status, code: "ERROR", message: "falha" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useRemoveTaskAttachment("company-a", "task-a"), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    act(() => result.current.remove("file-1"));
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: attachmentKeys.task("company-a", "task-a"),
+      }),
+    );
+  });
+
+  it("invalida capabilities após 403 e rejeita IDs ausentes", async () => {
+    const client = createQueryClient();
+    vi.spyOn(attachmentsClient, "remove").mockRejectedValue(
+      new ApiError({ status: 403, code: "FORBIDDEN", message: "falha" }),
+    );
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result, rerender } = renderHook(
+      ({ companyId }) => useRemoveTaskAttachment(companyId, "task-a"),
+      {
+        initialProps: { companyId: "company-a" as string | null },
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    act(() => result.current.remove("file-1"));
+    await waitFor(() => expect(result.current.errors["file-1"]).toBeTruthy());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["company-capabilities", "company-a"] });
+    rerender({ companyId: null });
+    expect(result.current.remove("file-2")).toBe(false);
   });
 });

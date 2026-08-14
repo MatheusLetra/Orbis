@@ -17,6 +17,7 @@ import {
   InMemoryUserRepository,
 } from "@/test/fakes/identity-fakes";
 import { CreateMembership } from "./create-membership";
+import { ListCompanyMembers } from "./list-company-members";
 import { ListMemberships } from "./list-memberships";
 
 async function build() {
@@ -239,5 +240,18 @@ describe("ListMemberships", () => {
 
     expect(output).toHaveLength(1);
     expect(output[0]?.companyId).toBe(ctx.company.id);
+  });
+});
+
+describe("ListCompanyMembers", () => {
+  it("rejeita pesquisa acima do limite", async () => {
+    const ctx = await build();
+    const actor = await actorFor(ctx, "gestor-1", "GESTOR");
+    const repository = { listActiveByCompany: async () => [] };
+    const useCase = new ListCompanyMembers(repository, ctx.accessService, ctx.authorization);
+
+    await expect(useCase.execute({ actor, search: "a".repeat(201) })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
   });
 });

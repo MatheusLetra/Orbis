@@ -14,9 +14,15 @@ describe("parseTtlToMs", () => {
     expect(parseTtlToMs(" 15m ")).toBe(900_000);
   });
 
-  it("lança erro para formato inválido", () => {
-    expect(() => parseTtlToMs("15")).toThrow("TTL inválido");
-    expect(() => parseTtlToMs("abc")).toThrow("TTL inválido");
-    expect(() => parseTtlToMs("")).toThrow("TTL inválido");
+  it("aceita os limites numéricos representáveis", () => {
+    expect(parseTtlToMs("0ms")).toBe(0);
+    expect(parseTtlToMs(`${Number.MAX_SAFE_INTEGER}ms`)).toBe(Number.MAX_SAFE_INTEGER);
   });
+
+  it.each(["15", "abc", "", "-1s", "+1s", "1.5s", "1S", "1 s"])(
+    "lança erro para formato inválido: %s",
+    (ttl) => {
+      expect(() => parseTtlToMs(ttl)).toThrow(`TTL inválido: "${ttl}"`);
+    },
+  );
 });

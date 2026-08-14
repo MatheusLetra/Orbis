@@ -189,4 +189,18 @@ describe("CapacityCalculator validações", () => {
       BusinessRuleError,
     );
   });
+
+  it.each([
+    ["inválida", new Date("invalid")],
+    ["anterior à inicial", date("2026-08-09")],
+  ])("rejeita data prevista %s retornada pelo calendário", (_label, plannedDeliveryDate) => {
+    const invalidCalendar = {
+      isBusinessDay: vi.fn(),
+      addBusinessDays: vi.fn().mockReturnValue(plannedDeliveryDate),
+    } as unknown as BusinessCalendar;
+
+    expect(() => new CapacityCalculator(invalidCalendar).calculate(input())).toThrow(
+      BusinessRuleError,
+    );
+  });
 });

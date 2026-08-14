@@ -33,6 +33,11 @@ const detailState = {
   error: null as Error | null,
   refetch: vi.fn(),
 };
+const transitionState = {
+  transition: vi.fn(() => true),
+  pendingTaskIds: new Set<string>(),
+  error: null as string | null,
+};
 
 vi.mock("@/features/companies/active-company-provider", () => ({
   useActiveCompany: () => companyState,
@@ -86,12 +91,7 @@ vi.mock("@/features/companies/capabilities-queries", () => ({
   useCompanyCapabilities: vi.fn(() => capabilitiesState),
 }));
 vi.mock("@/features/tasks/task-mutations", () => ({
-  useTaskTransition: () => ({
-    transition: vi.fn(),
-    pendingTaskIds: new Set<string>(),
-    error: null,
-    clearError: vi.fn(),
-  }),
+  useTaskTransition: () => transitionState,
   useCreateTask: () => ({
     create: vi.fn(),
     isPending: false,
@@ -142,6 +142,9 @@ describe("KanbanPage", () => {
     detailState.data = null;
     detailState.error = null;
     detailState.refetch.mockReset();
+    transitionState.transition.mockReset().mockReturnValue(true);
+    transitionState.pendingTaskIds = new Set<string>();
+    transitionState.error = null;
   });
 
   it("não executa query tenant-aware sem empresa ativa", async () => {
@@ -150,6 +153,17 @@ describe("KanbanPage", () => {
     render(<KanbanPage />);
     expect(screen.getByText("Carregando empresa ativa...")).toBeInTheDocument();
     expect(useTasks).toHaveBeenCalledWith(null);
+  });
+
+  it.each([
+    ["error", "Não foi possível carregar suas empresas."],
+    ["ready", "Nenhuma empresa disponível"],
+  ] as const)("renderiza estado de empresa %s sem empresa ativa", (status, message) => {
+    companyState.status = status;
+    companyState.activeCompany = null;
+    companyState.companies = [];
+    render(<KanbanPage />);
+    expect(screen.getByText(message)).toBeInTheDocument();
   });
 
   it("usa a empresa ativa, mostra loading e board vazio", () => {
@@ -224,6 +238,25 @@ describe("KanbanPage", () => {
     await user.click(screen.getByRole("button", { name: /Ver detalhes da tarefa task-alpha/ }));
     await waitFor(() => expect(useTaskDetail).toHaveBeenCalledWith("company-a", "task-alpha"));
     expect(screen.getByRole("heading", { name: "Detalhes da tarefa" })).toBeInTheDocument();
+  });
+
+  it("fecha o detalhe pelo botão e remove a seleção", async () => {
+    queryState.data = [task("task-alpha")];
+    detailState.data = { ...task("task-alpha"), history: [] };
+    const user = userEvent.setup();
+    render(<KanbanPage />);
+    await user.click(screen.getByRole("button", { name: /Ver detalhes da tarefa task-alpha/ }));
+    await user.click(screen.getByRole("button", { name: "Fechar" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Detalhes da tarefa" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("exibe erro de transição no board", () => {
+    queryState.data = [task("task-alpha")];
+    transitionState.error = "A tarefa mudou no servidor";
+    render(<KanbanPage />);
+    expect(screen.getByText("A tarefa mudou no servidor")).toBeInTheDocument();
   });
 
   it("fecha detalhe ao trocar de empresa", async () => {

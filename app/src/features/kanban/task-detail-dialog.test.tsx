@@ -8,7 +8,7 @@ import type { TaskCard, TaskDetail } from "@/features/tasks/task-contracts";
 import type { TimeEntryListOutput } from "@/features/tasks/time-entry-contracts";
 import { ApiError } from "@/lib/http/api-error";
 import { createQueryClient } from "@/lib/query/query-client";
-import { TaskDetailDialog } from "./task-detail-dialog";
+import { messageForDownloadError, TaskDetailDialog } from "./task-detail-dialog";
 
 const task: TaskCard = {
   id: "task-1",
@@ -89,6 +89,27 @@ const capabilitiesState = {
     },
   },
 };
+const uploadState = {
+  upload: vi.fn(() => true),
+  abort: vi.fn(),
+  isPending: false,
+  isSuccess: false,
+  error: null as string | null,
+};
+const createLinkState = {
+  create: vi.fn(() => true),
+  abort: vi.fn(),
+  isPending: false,
+  isSuccess: false,
+  error: null as string | null,
+};
+const removeState = {
+  remove: vi.fn(() => true),
+  abort: vi.fn(),
+  pending: {} as Record<string, boolean>,
+  errors: {} as Record<string, string | undefined>,
+  success: {} as Record<string, boolean>,
+};
 
 vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({ status: "authenticated", user: { id: "user-1" } }),
@@ -110,27 +131,9 @@ vi.mock("@/features/companies/capabilities-queries", () => ({
   useCompanyCapabilities: () => capabilitiesState,
 }));
 vi.mock("@/features/attachments/attachment-mutations", () => ({
-  useUploadTaskFile: () => ({
-    upload: vi.fn(() => true),
-    abort: vi.fn(),
-    isPending: false,
-    isSuccess: false,
-    error: null,
-  }),
-  useCreateTaskLink: () => ({
-    create: vi.fn(() => true),
-    abort: vi.fn(),
-    isPending: false,
-    isSuccess: false,
-    error: null,
-  }),
-  useRemoveTaskAttachment: () => ({
-    remove: vi.fn(() => true),
-    abort: vi.fn(),
-    pending: {},
-    errors: {},
-    success: {},
-  }),
+  useUploadTaskFile: () => uploadState,
+  useCreateTaskLink: () => createLinkState,
+  useRemoveTaskAttachment: () => removeState,
 }));
 
 function renderDialog(
@@ -169,6 +172,23 @@ describe("TaskDetailDialog", () => {
     timeEntriesQueryState.data = { items: [], totalDurationMinutes: 0, hasMore: false };
     timeEntriesQueryState.error = null;
     timeEntriesQueryState.refetch.mockReset();
+    capabilitiesState.isSuccess = true;
+    capabilitiesState.data.capabilities["tasks.update"] = true;
+    uploadState.upload.mockReset().mockReturnValue(true);
+    uploadState.abort.mockReset();
+    uploadState.isPending = false;
+    uploadState.isSuccess = false;
+    uploadState.error = null;
+    createLinkState.create.mockReset().mockReturnValue(true);
+    createLinkState.abort.mockReset();
+    createLinkState.isPending = false;
+    createLinkState.isSuccess = false;
+    createLinkState.error = null;
+    removeState.remove.mockReset().mockReturnValue(true);
+    removeState.abort.mockReset();
+    removeState.pending = {};
+    removeState.errors = {};
+    removeState.success = {};
   });
 
   it("renderiza loading enquanto carrega", () => {
@@ -397,6 +417,18 @@ describe("TaskDetailDialog", () => {
     expect(timeEntriesQueryState.refetch).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    [new ApiError({ status: 403, code: "FORBIDDEN", message: "negado" }), /permissão/],
+    [new ApiError({ status: 404, code: "NOT_FOUND", message: "ausente" }), /não foi encontrada/],
+    [new TypeError("network"), /conexão/],
+  ])("mapeia branch ausente de erro das horas", (error, message) => {
+    queryState.data = detail;
+    timeEntriesQueryState.isError = true;
+    timeEntriesQueryState.error = error;
+    renderDialog();
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
   it("exibe estado vazio quando não há task selecionada", () => {
     renderDialog({ task: null });
     expect(screen.getByText("Nenhuma tarefa selecionada")).toBeInTheDocument();
@@ -407,6 +439,49 @@ describe("TaskDetailDialog", () => {
     renderDialog();
     expect(screen.getByLabelText("Arquivo")).toHaveAttribute("type", "file");
     expect(screen.getByRole("button", { name: "Enviar arquivo" })).toBeDisabled();
+  });
+
+  it("seleciona arquivo, altera título e envia os valores escolhidos", async () => {
+    queryState.data = detail;
+    renderDialog();
+    const file = new File(["conteúdo"], "evidencia.pdf", { type: "application/pdf" });
+    const user = userEvent.setup();
+
+    await user.upload(screen.getByLabelText("Arquivo"), file);
+    await user.type(screen.getByLabelText("Título (opcional)"), "Evidência");
+    expect(screen.getByText(/evidencia.pdf/)).toHaveTextContent("9 B");
+    await user.click(screen.getByRole("button", { name: "Enviar arquivo" }));
+
+    expect(uploadState.upload).toHaveBeenCalledWith(file, "Evidência");
+  });
+
+  it("rejeita arquivo acima de 10 MB e exige seleção no submit", () => {
+    queryState.data = detail;
+    renderDialog();
+    const input = screen.getByLabelText("Arquivo");
+    const oversized = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "grande.pdf");
+    fireEvent.change(input, { target: { files: [oversized] } });
+    expect(screen.getByRole("alert")).toHaveTextContent("excede o limite de 10 MB");
+
+    const form = screen.getByRole("button", { name: "Enviar arquivo" }).closest("form");
+    if (!form) throw new Error("Formulário de upload não encontrado");
+    fireEvent.submit(form);
+    expect(screen.getByRole("alert")).toHaveTextContent("Selecione um arquivo");
+    expect(uploadState.upload).not.toHaveBeenCalled();
+  });
+
+  it("exibe estados de erro e envio das mutações de attachment", () => {
+    queryState.data = detail;
+    uploadState.isPending = true;
+    uploadState.error = "Falha no upload";
+    createLinkState.isPending = true;
+    createLinkState.error = "Falha no link";
+    renderDialog();
+
+    expect(screen.getByText("Falha no upload")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviando arquivo..." })).toBeDisabled();
+    expect(screen.getByText("Falha no link")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionando link..." })).toBeDisabled();
   });
 
   it("exibe formulário LINK, valida campos e preserva valores após erro", async () => {
@@ -441,6 +516,24 @@ describe("TaskDetailDialog", () => {
     if (!emptyTitleForm) throw new Error("Formulário de link não encontrado");
     fireEvent.submit(emptyTitleForm);
     expect(screen.getByRole("alert")).toHaveTextContent("Informe um título");
+  });
+
+  it("aceita somente HTTP(S) e cria LINK com valores normalizados", () => {
+    queryState.data = detail;
+    renderDialog();
+    const url = screen.getByLabelText("URL");
+    const title = screen.getByLabelText("Título", { selector: "input" });
+    const form = screen.getByRole("button", { name: "Adicionar link" }).closest("form");
+    if (!form) throw new Error("Formulário de link não encontrado");
+
+    fireEvent.change(url, { target: { value: "ftp://example.com" } });
+    fireEvent.change(title, { target: { value: " Arquivo " } });
+    fireEvent.submit(form);
+    expect(screen.getByRole("alert")).toHaveTextContent("URL HTTP ou HTTPS válida");
+
+    fireEvent.change(url, { target: { value: " https://example.com/docs " } });
+    fireEvent.submit(form);
+    expect(createLinkState.create).toHaveBeenCalledWith("https://example.com/docs", "Arquivo");
   });
 
   it("foca no título ao abrir e fecha com Escape restaurando foco", async () => {
@@ -585,6 +678,70 @@ describe("TaskDetailDialog", () => {
     expect(screen.getByText(/Remover.*Manual/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.getByText("Manual")).toBeInTheDocument();
+  });
+
+  it("aciona remoção e apresenta pending e erro na confirmação", async () => {
+    queryState.data = detail;
+    attachmentsQueryState.data = [buildFile("file-1")];
+    const view = renderDialog();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remover attachment" }));
+    removeState.pending = { "file-1": true };
+    removeState.errors = { "file-1": "Não foi possível remover" };
+    view.rerender(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskDetailDialog companyId="company-a" task={task} isOpen onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    const confirm = screen.getAllByRole("button", { name: "Removendo..." })[1];
+    if (!confirm) throw new Error("Botão de confirmação ausente");
+    expect(confirm).toBeDisabled();
+    expect(screen.getAllByText("Não foi possível remover")).toHaveLength(2);
+    fireEvent.click(confirm);
+    expect(removeState.remove).not.toHaveBeenCalled();
+  });
+
+  it("confirma a remoção e fecha a confirmação após sucesso", async () => {
+    queryState.data = detail;
+    attachmentsQueryState.data = [buildFile("file-1")];
+    const view = renderDialog();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remover attachment" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remover" }));
+    expect(removeState.remove).toHaveBeenCalledWith("file-1");
+
+    removeState.success = { "file-1": true };
+    view.rerender(
+      <QueryClientProvider client={createQueryClient()}>
+        <TaskDetailDialog companyId="company-a" task={task} isOpen onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Remover attachment?" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("renderiza fallbacks reais de detalhe e metadados de FILE", () => {
+    queryState.data = {
+      ...detail,
+      description: null,
+      assigneeId: "user-fallback",
+      requisitionId: "req-fallback",
+      startDate: "data-inválida",
+      plannedEndDate: "2026-03-01T10:00:00.000Z",
+      completedAt: null,
+      history: [],
+    };
+    attachmentsQueryState.data = [
+      { ...buildFile("file-1"), title: null, mimeType: null, sizeBytes: null },
+    ];
+    renderDialog({ task: { ...task, assignee: null, requisition: null } });
+
+    expect(screen.getByText("Sem descrição")).toBeInTheDocument();
+    expect(screen.getByText("user-fallback")).toBeInTheDocument();
+    expect(screen.getByText("req-fallback")).toBeInTheDocument();
+    expect(screen.getByText("data-inválida")).toBeInTheDocument();
+    expect(screen.getByText(/tipo desconhecido/)).toHaveTextContent("tamanho desconhecido");
+    expect(screen.getByText("Nenhuma alteração de status registrada.")).toBeInTheDocument();
   });
 
   it("mantém foco na confirmação, fecha com Escape e restaura no acionador", async () => {
@@ -836,6 +993,22 @@ describe("TaskDetailDialog", () => {
     renderDialog();
     await userEvent.setup().click(screen.getByRole("button", { name: "Baixar arquivo" }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith("blob:failed-click"));
+  });
+});
+
+describe("messageForDownloadError", () => {
+  it.each([
+    [403, "permissão"],
+    [404, "não foi encontrado"],
+    [500, "Tente novamente"],
+  ])("mapeia HTTP %s", (status, expected) => {
+    expect(
+      messageForDownloadError(new ApiError({ status, code: "ERROR", message: "falha" })),
+    ).toContain(expected);
+  });
+
+  it("mapeia falha de rede", () => {
+    expect(messageForDownloadError(new TypeError("network"))).toContain("conexão");
   });
 });
 

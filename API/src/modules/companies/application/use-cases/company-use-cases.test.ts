@@ -173,6 +173,24 @@ describe("UpdateCompany", () => {
     expect(output.timezone).toBe("America/New_York");
   });
 
+  it("atualiza somente settings quando fornecido", async () => {
+    const { companyRepository, membershipRepository, accessService, authorization, resolver } =
+      build();
+    const company = await companyRepository.create(seedCompany("Orbis"));
+    await linkUser(membershipRepository, "user-1", company.id);
+    const actor = await resolver.resolve("user-1", company.id);
+
+    const output = await new UpdateCompany(companyRepository, accessService, authorization).execute(
+      {
+        actor,
+        companyId: company.id,
+        changes: { settings: { theme: "dark" } },
+      },
+    );
+
+    expect(output).toMatchObject({ name: "Orbis", settings: { theme: "dark" } });
+  });
+
   it("rejeita mudanças vazias", async () => {
     const { companyRepository, membershipRepository, accessService, authorization, resolver } =
       build();

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseAttachmentOutputs, parseAttachmentRemoval } from "./attachment-contracts";
+import {
+  parseAttachmentOutput,
+  parseAttachmentOutputs,
+  parseAttachmentRemoval,
+} from "./attachment-contracts";
 
 const valid = {
   id: "attachment-1",
@@ -45,5 +49,28 @@ describe("attachment contracts", () => {
   it("valida resposta de remoção", () => {
     expect(parseAttachmentRemoval({ id: "attachment-1" })).toEqual({ id: "attachment-1" });
     expect(() => parseAttachmentRemoval({})).toThrow("Contrato de remoção");
+  });
+
+  it("aceita owner de requisition e parseia saída unitária", () => {
+    const attachment = { ...valid, owner: { type: "REQUISITION", requisitionId: "req-a" } };
+    expect(parseAttachmentOutput(attachment)).toEqual(attachment);
+  });
+
+  it.each([
+    null,
+    { ...valid, kind: "UNKNOWN" },
+    { ...valid, sizeBytes: -1 },
+    { ...valid, owner: { type: "REQUISITION" } },
+    {
+      ...valid,
+      kind: "LINK",
+      url: null,
+      fileName: null,
+      mimeType: null,
+      checksum: null,
+      sizeBytes: null,
+    },
+  ])("rejeita variação inválida %#", (attachment) => {
+    expect(() => parseAttachmentOutput(attachment)).toThrow("Contrato de attachment inválido");
   });
 });

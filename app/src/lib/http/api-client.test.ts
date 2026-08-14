@@ -63,6 +63,21 @@ describe("ApiClient", () => {
     await request.catch((error: unknown) => expect(error).toBeInstanceOf(ApiError));
   });
 
+  it("trata resposta vazia e aplica fallbacks de erro HTTP", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json({}, 418));
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+
+    await expect(client.request("/empty", { authenticated: false })).resolves.toBeUndefined();
+    await expect(client.request("/teapot", { authenticated: false })).rejects.toMatchObject({
+      status: 418,
+      code: "HTTP_ERROR",
+      message: "Erro HTTP 418",
+    });
+  });
+
   it("envia FormData intacto sem Content-Type manual", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(json({ ok: true }));
     const client = new ApiClient("https://api.orbis.test", fetcher);
@@ -96,6 +111,14 @@ describe("ApiClient", () => {
       code: "FORBIDDEN",
       message: "Negado",
     });
+  });
+
+  it("usa MIME vazio quando o download não informa Content-Type", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(new Uint8Array([1, 2])));
+    const result = await new ApiClient("https://api.orbis.test", fetcher).requestBlob("/file", {
+      authenticated: false,
+    });
+    expect(result.blob.type).toBe("");
   });
 
   it("envia bearer, credentials e AbortSignal no caminho binário", async () => {

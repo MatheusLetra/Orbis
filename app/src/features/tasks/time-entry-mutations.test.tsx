@@ -100,6 +100,62 @@ describe("useRegisterTimeEntry", () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
+  it("confirma sucesso após invalidação e expõe clear/reset", async () => {
+    const client = createQueryClient();
+    const onSuccess = vi.fn();
+    vi.spyOn(timeEntriesClient, "createForTask").mockResolvedValue(output);
+    const { result } = renderHook(
+      () => useRegisterTimeEntry("company-a", "task-a", { onSuccess }),
+      { wrapper: wrapper(client) },
+    );
+    act(() => result.current.register({ durationMinutes: 30, description: "feito" }));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(onSuccess).toHaveBeenCalledWith(output);
+    act(() => {
+      result.current.clearError();
+      result.current.reset();
+    });
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignora AbortError e erro stale após abort", async () => {
+    let rejectCreate: (cause: unknown) => void = () => undefined;
+    const onError = vi.fn();
+    vi.spyOn(timeEntriesClient, "createForTask").mockImplementation(
+      () => new Promise((_resolve, reject) => (rejectCreate = reject)),
+    );
+    const { result } = renderHook(() => useRegisterTimeEntry("company-a", "task-a", { onError }), {
+      wrapper: wrapper(createQueryClient()),
+    });
+    act(() => result.current.register({ durationMinutes: 10 }));
+    act(() => result.current.abort());
+    rejectCreate(new DOMException("Aborted", "AbortError"));
+    await Promise.resolve();
+    expect(result.current.error).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("aborta e reseta estado ao trocar tenant/Task e bloqueia IDs ausentes", async () => {
+    vi.spyOn(timeEntriesClient, "createForTask").mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    const { result, rerender } = renderHook(
+      ({ companyId, taskId }) => useRegisterTimeEntry(companyId, taskId),
+      {
+        initialProps: {
+          companyId: "company-a" as string | null,
+          taskId: "task-a" as string | null,
+        },
+        wrapper: wrapper(createQueryClient()),
+      },
+    );
+    act(() => result.current.register({ durationMinutes: 10 }));
+    rerender({ companyId: "company-b", taskId: "task-b" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(false));
+    rerender({ companyId: null, taskId: "task-b" });
+    expect(result.current.register({ durationMinutes: 10 })).toBe(false);
+  });
+
   it("permite hooks de tasks diferentes operarem independentemente", async () => {
     const create = vi.spyOn(timeEntriesClient, "createForTask").mockResolvedValue(output);
     const client = createQueryClient();

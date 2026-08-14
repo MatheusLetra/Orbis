@@ -69,6 +69,20 @@ describe("attachments client", () => {
     );
   });
 
+  it("envia FILE em FormData com título normalizado", async () => {
+    const request = vi.spyOn(apiClient, "request").mockResolvedValue(fileAttachment);
+    const file = new File(["abc"], "manual.pdf", { type: "application/pdf" });
+    await attachmentsClient.uploadTaskFile("company/a", "task/b", file, "  Manual  ");
+
+    const [path, options] = request.mock.calls[0] ?? [];
+    expect(path).toBe("/companies/company%2Fa/tasks/task%2Fb/attachments/files");
+    expect(options).toMatchObject({ method: "POST" });
+    const body = options?.body;
+    expect(body).toBeInstanceOf(FormData);
+    expect((body as FormData).get("file")).toBe(file);
+    expect((body as FormData).get("title")).toBe("Manual");
+  });
+
   it("remove attachment com endpoint, IDs codificados e AbortSignal", async () => {
     const signal = new AbortController().signal;
     const request = vi.spyOn(apiClient, "request").mockResolvedValue({ id: "attachment/a" });

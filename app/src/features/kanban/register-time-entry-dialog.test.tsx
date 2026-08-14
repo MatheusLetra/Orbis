@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CompanyCapabilities } from "@/features/companies/capabilities-contracts";
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { ApiError } from "@/lib/http/api-error";
-import { canRegisterTimeEntry, RegisterTimeEntryDialog } from "./register-time-entry-dialog";
+import {
+  canRegisterTimeEntry,
+  messageForRegisterTimeEntryError,
+  RegisterTimeEntryDialog,
+} from "./register-time-entry-dialog";
 
 const mutationState = vi.hoisted(() => ({
   register: vi.fn(() => true),
@@ -123,6 +127,29 @@ describe("canRegisterTimeEntry", () => {
     expect(canRegisterTimeEntry(task, undefined, "company-a", "user-a", true)).toBe(false);
     expect(canRegisterTimeEntry(task, capabilities, "company-a", "user-a", false)).toBe(false);
   });
+
+  it("bloqueia Task ausente", () => {
+    expect(canRegisterTimeEntry(null, capabilities, "company-a", "user-a", true)).toBe(false);
+  });
+});
+
+describe("messageForRegisterTimeEntryError", () => {
+  it.each([
+    [400, "falha"],
+    [401, "sessão"],
+    [403, "permissão"],
+    [404, "não foi encontrada"],
+    [422, "falha"],
+    [500, "Tente novamente"],
+  ])("mapeia HTTP %s", (status, expected) => {
+    expect(
+      messageForRegisterTimeEntryError(new ApiError({ status, code: "ERROR", message: "falha" })),
+    ).toContain(expected);
+  });
+
+  it("mapeia falha de rede", () => {
+    expect(messageForRegisterTimeEntryError(new TypeError("network"))).toContain("conexão");
+  });
 });
 
 describe("RegisterTimeEntryDialog", () => {
@@ -193,6 +220,7 @@ describe("RegisterTimeEntryDialog", () => {
   });
 
   it.each([
+    ["", "Informe a duração em minutos."],
     ["0", "A duração mínima é de 1 minuto."],
     ["-1", "A duração mínima é de 1 minuto."],
     ["1.5", "Informe um número inteiro de minutos."],
@@ -201,7 +229,7 @@ describe("RegisterTimeEntryDialog", () => {
     const user = userEvent.setup();
     renderDialog();
     await user.click(screen.getByRole("button", { name: "Registrar horas na tarefa Task A" }));
-    await user.type(screen.getByLabelText("Duração (minutos)"), value);
+    if (value) await user.type(screen.getByLabelText("Duração (minutos)"), value);
     await user.click(submitButton());
     expect(screen.getByRole("alert")).toHaveTextContent(message);
     expect(mutationState.register).not.toHaveBeenCalled();
@@ -288,6 +316,20 @@ describe("RegisterTimeEntryDialog", () => {
     await user.click(screen.getByRole("button", { name: "Registrar horas na tarefa Task A" }));
     expect(screen.getByLabelText("Duração (minutos)")).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("Registrando horas");
+  });
+
+  it("fecha pelo botão Cancelar e limpa erros ao editar", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Registrar horas na tarefa Task A" }));
+    await user.click(submitButton());
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Duração (minutos)"), "10");
+    await user.type(screen.getByLabelText("Descrição (opcional)"), "feito");
+    expect(mutationState.clearError).toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("dialog", { name: "Registrar horas" })).not.toBeInTheDocument();
+    expect(mutationState.abort).toHaveBeenCalled();
   });
 
   it("fecha e limpa somente após sucesso confirmado", async () => {

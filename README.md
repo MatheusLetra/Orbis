@@ -254,7 +254,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M6 | Catálogo de software: systems / versions / releases / storage | ✅ Concluído |
 | M7 | Requisições | ⏳ Próximo |
 | M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
-| M13 | Capacidade e previsão | ⚠️ Funcionalmente concluído; coverage global pendente |
-| M14 | Timeline semanal | ⏳ Próximo após coverage |
+| M13 | Capacidade e previsão | ✅ Concluído |
+| M14 | Timeline semanal | ⏳ Próximo |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. A auditoria automatizada BUILD de 2026-08-14 passou 11/11 cenários em Chromium real, incluindo Capacity, TimeEntry, responsividade e Attachments. Os thresholds globais de coverage ainda não são atendidos e devem ser corrigidos antes de M14.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. A auditoria automatizada passou 11/11 cenários em Chromium real. Coverage global aprovado: app com 95,78% statements, 91,61% branches, 98,31% functions e 96,83% lines; API com 98,30%, 94,63%, 98,61% e 98,57%. M14 está desbloqueada.

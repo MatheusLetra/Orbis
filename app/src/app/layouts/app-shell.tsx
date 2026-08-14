@@ -43,6 +43,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="app-shell-actions">
+              <Button asChild variant="ghost" size="sm">
+                <a href="/chat">Chat</a>
+              </Button>
               <NotificationCenter
                 key={company.activeCompany?.id ?? "no-company"}
                 companyId={company.activeCompany?.id ?? null}

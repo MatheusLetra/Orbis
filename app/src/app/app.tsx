@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProviders } from "@/app/providers/app-providers";
 import { useAuth } from "@/features/auth/auth-provider";
 import { LoginPage } from "@/features/auth/login-page";
+import { ChatPage } from "@/features/chat/chat-page";
 import { CompanyPage } from "@/features/companies/company-page";
 import { KanbanPage } from "@/features/kanban/kanban-page";
 import { TimelinePage } from "@/features/timeline/timeline-page";
@@ -25,6 +26,16 @@ function AppRoutes() {
       <Route
         path="/login"
         element={auth.status === "authenticated" ? <Navigate to="/" replace /> : <LoginPage />}
+      />
+      <Route
+        path="/chat"
+        element={
+          auth.status === "authenticated" ? (
+            <ChatPage />
+          ) : (
+            <Navigate to="/login" replace state={{ from: location }} />
+          )
+        }
       />
       <Route
         path="/kanban"

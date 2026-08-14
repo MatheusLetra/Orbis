@@ -411,10 +411,15 @@ export const conversations = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     type: text("type").notNull().default("direct"),
+    directKey: text("direct_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("conversations_company_idx").on(table.companyId)],
+  (table) => [
+    index("conversations_company_idx").on(table.companyId),
+    uniqueIndex("conversations_company_direct_key_unique").on(table.companyId, table.directKey),
+    check("conversations_type_direct_check", sql`${table.type} = 'direct'`),
+  ],
 );
 
 export const conversationMembers = pgTable(
@@ -435,6 +440,7 @@ export const conversationMembers = pgTable(
       table.conversationId,
       table.userId,
     ),
+    index("conversation_members_user_conversation_idx").on(table.userId, table.conversationId),
   ],
 );
 
@@ -452,7 +458,13 @@ export const messages = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     editedAt: timestamp("edited_at", { withTimezone: true }),
   },
-  (table) => [index("messages_conversation_created_idx").on(table.conversationId, table.createdAt)],
+  (table) => [
+    index("messages_conversation_created_id_idx").on(
+      table.conversationId,
+      table.createdAt,
+      table.id,
+    ),
+  ],
 );
 
 export const auditLogs = pgTable(

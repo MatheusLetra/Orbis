@@ -14,6 +14,7 @@ import { createErrorHandler } from "./infrastructure/http/error-handler";
 import { registerAttachmentRoutes } from "./modules/attachments/http/attachment.routes";
 import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
 import { registerCapacityRoutes } from "./modules/capacity/http/capacity.routes";
+import { registerChatRoutes } from "./modules/chat/http/chat.routes";
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
@@ -173,6 +174,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
         calculateCapacity: modules.calculateCapacity,
         permissionResolver: modules.permissionResolver,
       });
+      if (modules.chat) {
+        await registerChatRoutes(protectedRoutes, {
+          ...modules.chat,
+          permissionResolver: modules.permissionResolver,
+        });
+      }
       if (modules.requisitions) {
         await registerRequisitionRoutes(protectedRoutes, {
           ...modules.requisitions,

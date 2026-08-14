@@ -9,6 +9,16 @@ export const fixture = {
   actorId: "00000000-0000-4000-8000-000000000011",
   thirdId: "00000000-0000-4000-8000-000000000012",
   developerAId: "00000000-0000-4000-8000-000000000013",
+  chatOutsiderId: "00000000-0000-4000-8000-000000000014",
+  chatOutsiderEmail: "audit-chat-outsider@orbis.test",
+  chatOutsiderPassword: "AuditChatOutsider-2026!",
+  chatTenantBPeerId: "00000000-0000-4000-8000-000000000015",
+  actorMembershipA: "00000000-0000-4000-8000-000000000021",
+  thirdMembershipA: "00000000-0000-4000-8000-000000000022",
+  developerMembershipA: "00000000-0000-4000-8000-000000000023",
+  actorMembershipB: "00000000-0000-4000-8000-000000000024",
+  chatOutsiderMembershipA: "00000000-0000-4000-8000-000000000025",
+  chatTenantBPeerMembership: "00000000-0000-4000-8000-000000000026",
   taskOwn: "00000000-0000-4000-8000-000000000101",
   taskThird: "00000000-0000-4000-8000-000000000102",
   taskUnassigned: "00000000-0000-4000-8000-000000000103",
@@ -48,7 +58,19 @@ export const fixture = {
   preferenceBRequisitionAssigned: "00000000-0000-4000-8000-000000000418",
   preferenceBRequisitionCompleted: "00000000-0000-4000-8000-000000000419",
   preferenceBReleasePublished: "00000000-0000-4000-8000-000000000420",
+  chatConversationA: "00000000-0000-4000-8000-000000000501",
+  chatConversationB: "00000000-0000-4000-8000-000000000502",
+  chatConversationAMemberActor: "00000000-0000-4000-8000-000000000511",
+  chatConversationAMemberThird: "00000000-0000-4000-8000-000000000512",
+  chatConversationBMemberActor: "00000000-0000-4000-8000-000000000513",
+  chatConversationBMemberPeer: "00000000-0000-4000-8000-000000000514",
+  chatXssBody: '<img src=x onerror="window.__auditXss=true"><script>window.__auditXss=true</script>',
+  chatLongBody: `CHAT-LONGO-${"conteudo-sem-quebra-".repeat(80)}`,
 } as const;
+
+export function chatMessageId(sequence: number): string {
+  return `00000000-0000-4000-8000-${String(600 + sequence).padStart(12, "0")}`;
+}
 
 export const fixtureFile = Buffer.from("orbis-browser-audit-file-v1", "utf8");
 export const secondFixtureFile = Buffer.from("orbis-browser-audit-file-v2", "utf8");

@@ -26,6 +26,9 @@ vi.mock("@/features/auth/login-page", () => ({
 vi.mock("@/features/companies/company-page", () => ({
   CompanyPage: () => <p>Página da empresa</p>,
 }));
+vi.mock("@/features/chat/chat-page", () => ({
+  ChatPage: () => <p>Página do chat</p>,
+}));
 vi.mock("@/features/kanban/kanban-page", () => ({
   KanbanPage: () => <p>Página do kanban</p>,
 }));
@@ -89,6 +92,14 @@ describe("App routes", () => {
   it("renderiza o kanban para usuário autenticado", () => {
     renderRoute("/kanban", "authenticated");
     expect(screen.getByText("Página do kanban")).toBeInTheDocument();
+  });
+
+  it("renderiza e protege o chat", async () => {
+    const authenticated = renderRoute("/chat", "authenticated");
+    expect(screen.getByText("Página do chat")).toBeInTheDocument();
+    authenticated.unmount();
+    renderRoute("/chat", "unauthenticated");
+    expect(await screen.findByText("Página de login; origem: /chat")).toBeInTheDocument();
   });
 
   it("renderiza e protege a timeline", async () => {

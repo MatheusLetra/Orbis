@@ -14,6 +14,12 @@ import { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-ca
 import { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
 import { BusinessCalendar } from "@/modules/capacity/domain/services/business-calendar";
 import { CapacityCalculator } from "@/modules/capacity/domain/services/capacity-calculator";
+import { ChatAuthorizationService } from "@/modules/chat/application/services/chat-authorization-service";
+import { CreateDirectConversation } from "@/modules/chat/application/use-cases/create-direct-conversation";
+import { ListConversations } from "@/modules/chat/application/use-cases/list-conversations";
+import { ListMessages } from "@/modules/chat/application/use-cases/list-messages";
+import { MarkConversationRead } from "@/modules/chat/application/use-cases/mark-conversation-read";
+import { SendMessage } from "@/modules/chat/application/use-cases/send-message";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -92,6 +98,12 @@ import {
   InMemorySystemVersionRepository,
 } from "./fakes/catalog-fakes";
 import {
+  InMemoryChatUnitOfWork,
+  InMemoryConversationMemberRepository,
+  InMemoryConversationRepository,
+  InMemoryMessageRepository,
+} from "./fakes/chat-fakes";
+import {
   fakePasswordHasher,
   InMemoryCompanyRepository,
   InMemoryMembershipRepository,
@@ -145,6 +157,9 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     yearlyTimeline: InMemoryYearlyRequisitionTimelineReadRepository;
     notifications: InMemoryNotificationRepository;
     notificationPreferences: InMemoryNotificationPreferenceRepository;
+    conversations: InMemoryConversationRepository;
+    conversationMembers: InMemoryConversationMemberRepository;
+    messages: InMemoryMessageRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -297,6 +312,14 @@ export function buildTestModules(
   );
   const notifications = new InMemoryNotificationRepository();
   const notificationPreferences = new InMemoryNotificationPreferenceRepository();
+  const conversationMembers = new InMemoryConversationMemberRepository();
+  const conversations = new InMemoryConversationRepository(conversationMembers);
+  const messages = new InMemoryMessageRepository();
+  const chatUnitOfWork = new InMemoryChatUnitOfWork({
+    conversations,
+    members: conversationMembers,
+    messages,
+  });
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
     attachmentRepository,
     attachmentBlobRepository,
@@ -304,6 +327,12 @@ export function buildTestModules(
   const accessService = new MembershipAccessService(memberships);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(memberships);
+  const chatAuthorization = new ChatAuthorizationService(
+    companies,
+    memberships,
+    users,
+    authorization,
+  );
   const tokenService = new JoseTokenService({
     accessSecret: TEST_ACCESS_SECRET,
     refreshSecret: TEST_REFRESH_SECRET,
@@ -335,6 +364,9 @@ export function buildTestModules(
       yearlyTimeline: yearlyTimelineReadRepository,
       notifications,
       notificationPreferences,
+      conversations,
+      conversationMembers,
+      messages,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -382,6 +414,23 @@ export function buildTestModules(
       authorization,
     ),
     permissionResolver,
+    chat: {
+      createConversation: new CreateDirectConversation(chatUnitOfWork, chatAuthorization),
+      listConversations: new ListConversations(
+        conversations,
+        conversationMembers,
+        messages,
+        chatAuthorization,
+      ),
+      listMessages: new ListMessages(conversations, messages, chatAuthorization),
+      sendMessage: new SendMessage(chatUnitOfWork, chatAuthorization),
+      markRead: new MarkConversationRead(
+        conversations,
+        conversationMembers,
+        messages,
+        chatAuthorization,
+      ),
+    },
     notifications: {
       list: new ListNotifications(notifications, accessService),
       markRead: new MarkNotificationRead(notifications, accessService),

@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt as scryptCallback } from "node:crypto";
 import postgres from "postgres";
-import { fixture, fixtureFile, secondFixtureFile } from "./fixture-types";
+import { chatMessageId, fixture, fixtureFile, secondFixtureFile } from "./fixture-types";
 
 const scrypt = (password: string, salt: string) =>
   new Promise<Buffer>((resolve, reject) =>
@@ -16,6 +16,7 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, prepare: false });
   const actorHash = await passwordHash(fixture.actorPassword);
   const thirdHash = await passwordHash(fixture.thirdPassword);
+  const chatOutsiderHash = await passwordHash(fixture.chatOutsiderPassword);
   const checksum = createHash("sha256").update(fixtureFile).digest("hex");
   const secondChecksum = createHash("sha256").update(secondFixtureFile).digest("hex");
   const now = new Date("2026-01-02T12:00:00.000Z");
@@ -30,12 +31,16 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
     await tx`insert into users (id, email, name, password_hash, is_active, created_at, updated_at)
       values (${fixture.actorId}, ${fixture.actorEmail}, ${fixture.actorName}, ${actorHash}, true, ${now}, ${now}),
              (${fixture.thirdId}, ${fixture.thirdEmail}, 'Audit Third', ${thirdHash}, true, ${now}, ${now}),
-             (${fixture.developerAId}, 'audit-developer@orbis.test', 'Audit Developer', ${actorHash}, true, ${now}, ${now})`;
+             (${fixture.developerAId}, 'audit-developer@orbis.test', 'Audit Developer', ${actorHash}, true, ${now}, ${now}),
+             (${fixture.chatOutsiderId}, ${fixture.chatOutsiderEmail}, 'Audit Chat Outsider', ${chatOutsiderHash}, true, ${now}, ${now}),
+             (${fixture.chatTenantBPeerId}, 'audit-chat-tenant-b@orbis.test', 'Audit Chat Tenant B', ${actorHash}, true, ${now}, ${now})`;
     await tx`insert into memberships (id, company_id, user_id, position, permissions, is_active, created_at, updated_at)
-      values ('00000000-0000-4000-8000-000000000021', ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read"])}, true, ${now}, ${now}),
-             ('00000000-0000-4000-8000-000000000022', ${fixture.companyA}, ${fixture.thirdId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read"])}, true, ${now}, ${now}),
-             ('00000000-0000-4000-8000-000000000023', ${fixture.companyA}, ${fixture.developerAId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read"])}, true, ${now}, ${now}),
-              ('00000000-0000-4000-8000-000000000024', ${fixture.companyB}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.read", "requisitions.read", "company.read"])}, true, ${now}, ${now})`;
+      values (${fixture.actorMembershipA}, ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read", "chat.use"])}, true, ${now}, ${now}),
+             (${fixture.thirdMembershipA}, ${fixture.companyA}, ${fixture.thirdId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
+             (${fixture.developerMembershipA}, ${fixture.companyA}, ${fixture.developerAId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
+             (${fixture.actorMembershipB}, ${fixture.companyB}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.read", "requisitions.read", "company.read", "chat.use"])}, true, ${now}, ${now}),
+             (${fixture.chatOutsiderMembershipA}, ${fixture.companyA}, ${fixture.chatOutsiderId}, 'DESENVOLVEDOR', ${JSON.stringify(["chat.use"])}, true, ${now}, ${now}),
+             (${fixture.chatTenantBPeerMembership}, ${fixture.companyB}, ${fixture.chatTenantBPeerId}, 'DESENVOLVEDOR', ${JSON.stringify(["chat.use"])}, true, ${now}, ${now})`;
     await tx`insert into tasks (id, company_id, title, description, priority, status, assignee_id, completed_at, created_at, updated_at)
       values (${fixture.taskOwn}, ${fixture.companyA}, 'Audit própria', ${longTaskDescription}, 'MEDIUM', 'TODO', ${fixture.actorId}, null, ${now}, ${now}),
              (${fixture.taskThird}, ${fixture.companyA}, 'Audit terceiro', 'Task atribuída a terceiro', 'HIGH', 'IN_PROGRESS', ${fixture.thirdId}, null, ${now}, ${now}),
@@ -84,8 +89,33 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
              (${fixture.preferenceBTaskAssigned}, ${fixture.actorId}, ${fixture.companyB}, 'TASK_ASSIGNED', false, ${now}, ${now}),
              (${fixture.preferenceBTaskStatusChanged}, ${fixture.actorId}, ${fixture.companyB}, 'TASK_STATUS_CHANGED', true, ${now}, ${now}),
              (${fixture.preferenceBRequisitionAssigned}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_ASSIGNED', true, ${now}, ${now}),
-             (${fixture.preferenceBRequisitionCompleted}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_COMPLETED', false, ${now}, ${now}),
-             (${fixture.preferenceBReleasePublished}, ${fixture.actorId}, ${fixture.companyB}, 'RELEASE_PUBLISHED', true, ${now}, ${now})`;
+              (${fixture.preferenceBRequisitionCompleted}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_COMPLETED', false, ${now}, ${now}),
+              (${fixture.preferenceBReleasePublished}, ${fixture.actorId}, ${fixture.companyB}, 'RELEASE_PUBLISHED', true, ${now}, ${now})`;
+    const directKeyA = [fixture.actorId, fixture.thirdId].sort().join(":");
+    const directKeyB = [fixture.actorId, fixture.chatTenantBPeerId].sort().join(":");
+    const chatAUpdatedAt = new Date("2026-01-02T13:00:56.000Z");
+    const chatBUpdatedAt = new Date("2026-01-02T14:00:02.000Z");
+    await tx`insert into conversations (id, company_id, type, direct_key, created_at, updated_at)
+      values (${fixture.chatConversationA}, ${fixture.companyA}, 'direct', ${directKeyA}, ${now}, ${chatAUpdatedAt}),
+             (${fixture.chatConversationB}, ${fixture.companyB}, 'direct', ${directKeyB}, ${now}, ${chatBUpdatedAt})`;
+    await tx`insert into conversation_members (id, conversation_id, user_id, last_read_at, created_at)
+      values (${fixture.chatConversationAMemberActor}, ${fixture.chatConversationA}, ${fixture.actorId}, ${new Date("2026-01-02T13:00:52.000Z")}, ${now}),
+             (${fixture.chatConversationAMemberThird}, ${fixture.chatConversationA}, ${fixture.thirdId}, null, ${now}),
+             (${fixture.chatConversationBMemberActor}, ${fixture.chatConversationB}, ${fixture.actorId}, null, ${now}),
+             (${fixture.chatConversationBMemberPeer}, ${fixture.chatConversationB}, ${fixture.chatTenantBPeerId}, ${chatBUpdatedAt}, ${now})`;
+    for (let sequence = 1; sequence <= 56; sequence += 1) {
+      const senderId = sequence % 2 === 0 ? fixture.thirdId : fixture.actorId;
+      const body = sequence === 55
+        ? fixture.chatXssBody
+        : sequence === 56
+          ? fixture.chatLongBody
+          : `Audit paginada ${String(sequence).padStart(2, "0")} - ${senderId === fixture.actorId ? "própria" : "alheia"}`;
+      await tx`insert into messages (id, conversation_id, sender_id, body, created_at)
+        values (${chatMessageId(sequence)}, ${fixture.chatConversationA}, ${senderId}, ${body}, ${new Date(`2026-01-02T13:00:${String(sequence).padStart(2, "0")}.000Z`)})`;
+    }
+    await tx`insert into messages (id, conversation_id, sender_id, body, created_at)
+      values (${chatMessageId(57)}, ${fixture.chatConversationB}, ${fixture.actorId}, 'Mensagem exclusiva tenant B', ${new Date("2026-01-02T14:00:01.000Z")}),
+             (${chatMessageId(58)}, ${fixture.chatConversationB}, ${fixture.chatTenantBPeerId}, 'Resposta exclusiva tenant B', ${chatBUpdatedAt})`;
   });
   await sql.end();
 }

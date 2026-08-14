@@ -22,7 +22,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Concluída — M14.1 cobre todos os itens |
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Concluída — M15.1 e M15.2 concluídas |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Concluída |
-| 17 | M17 — Chat | [M17.md](milestones/M17.md) | Não iniciada |
+| 17 | M17 — Chat | [M17.md](milestones/M17.md) | Concluída |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Não iniciada |
 | 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Não iniciada |
 | 20 | M20 — Hardening, observabilidade e deploy | [M20.md](milestones/M20.md) | Não iniciada |
@@ -251,3 +251,14 @@ M15 está concluída com M15.1 e M15.2.
 - [x] PostgreSQL 991/991, app 532/532, coverage acima dos thresholds e Playwright global 39/39.
 
 M16 está concluída. Eventos de vencimento, TimeEntries, pausas, Capacity, Timelines, menções e chat permanecem fora do escopo. A próxima milestone formal é M17 — Chat.
+
+## Progresso M17
+
+- [x] Conversas diretas tenant-aware com dois participantes e par canônico único.
+- [x] Persistência PostgreSQL de conversas, membros, mensagens e leitura.
+- [x] Cinco endpoints HTTP documentados no OpenAPI, com `chat.use` e isolamento por participação.
+- [x] Histórico por cursor `(createdAt, id)`, unread de terceiros e leitura idempotente.
+- [x] Rota `/chat` responsiva, React Query tenant-aware e envio sem optimistic update.
+- [x] PostgreSQL 1010/1010, app 620/620, coverage acima dos thresholds e Playwright global 49/49.
+
+M17 está concluída. O transporte aprovado é HTTP explícito, sem WebSocket, polling, EventSource, Redis ou presença. Chat não publica `CHAT_MESSAGE` e não altera Notifications M16. A próxima milestone formal é M18 — Relatórios.

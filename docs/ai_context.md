@@ -297,13 +297,9 @@ Notificações devem ser disparadas por eventos/use cases, não por componentes 
 
 Chat interno por empresa.
 
-Persistência no PostgreSQL.
+M17 implementa conversas diretas entre exatamente dois membros ativos, uma conversa por par/tenant, mensagens persistidas, histórico por cursor e leitura por membro. O acesso exige `chat.use`, membership ativa e participação na conversa.
 
-WebSocket para tempo real.
-
-Redis é opcional para pub/sub e escala horizontal.
-
-PostgreSQL continua sendo a fonte de verdade.
+PostgreSQL é a fonte de verdade. O transporte implementado é somente HTTP explícito; não há WebSocket, polling, EventSource, Redis, presença ou refresh automático. Tempo real e pub/sub permanecem evoluções futuras condicionadas a necessidade concreta.
 
 ## 12. Segurança
 

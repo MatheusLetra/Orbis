@@ -16,7 +16,7 @@ Principais características:
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
 - **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído (`ArtifactStorage`); em desenvolvimento os executáveis são gravados no filesystem local (`ARTIFACT_STORAGE_PATH`, default `./storage/releases`), fora do PostgreSQL.
 - **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
-- **Notificações configuráveis in-app**, persistidas e isoladas por tenant; chat, relatórios e auditoria evoluem em milestones posteriores.
+- **Notificações configuráveis in-app** e **chat direto persistido**, ambos isolados por tenant.
 - **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
 
 > **Regra de domínio:** o termo oficial é **Requisição**. O conceito de "ordem" do sistema original não deve ser utilizado.
@@ -176,6 +176,12 @@ GET   /companies/:companyId/notifications               → lista notificações
 PATCH /companies/:companyId/notifications/:notificationId/read → marca notificação própria como lida
 GET   /companies/:companyId/notification-preferences    → lista preferências próprias
 PATCH /companies/:companyId/notification-preferences    → atualiza preferência in-app própria
+
+GET   /companies/:companyId/conversations                              → lista conversas diretas próprias
+POST  /companies/:companyId/conversations                              → cria conversa direta
+GET   /companies/:companyId/conversations/:conversationId/messages     → lista histórico paginado
+POST  /companies/:companyId/conversations/:conversationId/messages     → envia mensagem
+PATCH /companies/:companyId/conversations/:conversationId/read         → marca conversa como lida
 ```
 
 As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
@@ -235,6 +241,7 @@ As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium em
 | `npm run audit:capacity` | Executa Capacity |
 | `npm run audit:timeline` | Executa a timeline semanal |
 | `npm run audit:notifications` | Executa a central de notificações |
+| `npm run audit:chat` | Executa o Chat |
 
 Cada execução gera relatório HTML, JSON, screenshots, vídeos/traces em `artifacts/browser-audit/`. Falhas são classificadas como ambiente, fixture, funcional, visual, acessibilidade ou console inesperado. A execução é serial quando depende de banco e o avanço do roadmap fica bloqueado enquanto qualquer auditoria obrigatória falhar ou não for executada.
 
@@ -268,5 +275,6 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M14 | Timeline semanal | ✅ Concluído; M14.1 cobre todos os itens |
 | M15 | Timeline mensal/anual | ✅ Concluída; M15.1 e M15.2 concluídas |
 | M16 | Notificações persistidas in-app | ✅ Concluída |
+| M17 | Chat direto persistido e tenant-aware | ✅ Concluída |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M16 está concluída sem WebSocket ou polling; a próxima milestone formal é M17 — Chat.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M17 está concluída com transporte HTTP explícito, sem WebSocket ou polling; a próxima milestone formal é M18 — Relatórios.

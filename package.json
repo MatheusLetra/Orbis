@@ -11,6 +11,7 @@
     "audit:time-entries": "tsx audit/scripts/run-browser-audit.ts time-entries",
     "audit:capacity": "tsx audit/scripts/run-browser-audit.ts capacity",
     "audit:notifications": "tsx audit/scripts/run-browser-audit.ts notifications",
+    "audit:chat": "tsx audit/scripts/run-browser-audit.ts chat",
     "audit:timeline": "tsx audit/scripts/run-browser-audit.ts timeline",
     "audit:timeline-monthly": "tsx audit/scripts/run-browser-audit.ts timeline-monthly"
   },

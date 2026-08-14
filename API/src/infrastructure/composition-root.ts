@@ -22,6 +22,16 @@ import { BusinessCalendar } from "@/modules/capacity/domain/services/business-ca
 import { CapacityCalculator } from "@/modules/capacity/domain/services/capacity-calculator";
 import { DrizzleCompanyCapacitySettingsRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-company-capacity-settings-repository";
 import { DrizzleDeveloperAvailabilityRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-developer-availability-repository";
+import { ChatAuthorizationService } from "@/modules/chat/application/services/chat-authorization-service";
+import { CreateDirectConversation } from "@/modules/chat/application/use-cases/create-direct-conversation";
+import { ListConversations } from "@/modules/chat/application/use-cases/list-conversations";
+import { ListMessages } from "@/modules/chat/application/use-cases/list-messages";
+import { MarkConversationRead } from "@/modules/chat/application/use-cases/mark-conversation-read";
+import { SendMessage } from "@/modules/chat/application/use-cases/send-message";
+import { DrizzleConversationMemberRepository } from "@/modules/chat/infrastructure/repositories/drizzle-conversation-member-repository";
+import { DrizzleConversationRepository } from "@/modules/chat/infrastructure/repositories/drizzle-conversation-repository";
+import { DrizzleMessageRepository } from "@/modules/chat/infrastructure/repositories/drizzle-message-repository";
+import { DrizzleChatUnitOfWork } from "@/modules/chat/infrastructure/unit-of-work/drizzle-chat-unit-of-work";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -110,6 +120,13 @@ export interface OrbisModules {
   getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
   setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
+  chat?: {
+    createConversation: CreateDirectConversation;
+    listConversations: ListConversations;
+    listMessages: ListMessages;
+    sendMessage: SendMessage;
+    markRead: MarkConversationRead;
+  };
   notifications?: {
     list: ListNotifications;
     markRead: MarkNotificationRead;
@@ -205,9 +222,19 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const attachmentUnitOfWork = new DrizzleAttachmentUnitOfWork(database);
   const notificationRepository = new DrizzleNotificationRepository(database);
   const notificationPreferenceRepository = new DrizzleNotificationPreferenceRepository(database);
+  const conversationRepository = new DrizzleConversationRepository(database);
+  const conversationMemberRepository = new DrizzleConversationMemberRepository(database);
+  const messageRepository = new DrizzleMessageRepository(database);
+  const chatUnitOfWork = new DrizzleChatUnitOfWork(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
+  const chatAuthorization = new ChatAuthorizationService(
+    companyRepository,
+    membershipRepository,
+    userRepository,
+    authorization,
+  );
   const permissionResolver = new MembershipPermissionResolver(membershipRepository);
   const preferenceResolver = new PreferenceResolver(notificationPreferenceRepository);
   const releaseRecipientResolver = new MembershipReleaseRecipientResolver(
@@ -276,6 +303,23 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       authorization,
     ),
     permissionResolver,
+    chat: {
+      createConversation: new CreateDirectConversation(chatUnitOfWork, chatAuthorization),
+      listConversations: new ListConversations(
+        conversationRepository,
+        conversationMemberRepository,
+        messageRepository,
+        chatAuthorization,
+      ),
+      listMessages: new ListMessages(conversationRepository, messageRepository, chatAuthorization),
+      sendMessage: new SendMessage(chatUnitOfWork, chatAuthorization),
+      markRead: new MarkConversationRead(
+        conversationRepository,
+        conversationMemberRepository,
+        messageRepository,
+        chatAuthorization,
+      ),
+    },
     notifications: {
       list: new ListNotifications(notificationRepository, accessService),
       markRead: new MarkNotificationRead(notificationRepository, accessService),

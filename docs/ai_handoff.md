@@ -33,6 +33,7 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M14 — Timeline semanal: concluída; M14.1 cobre todos os itens.
 - M15 — Timeline mensal/anual: concluída; M15.1 e M15.2 concluídas.
 - M16 — Notificações: concluída.
+- M17 — Chat: concluída.
 
 ## Contratos preservados
 
@@ -414,3 +415,17 @@ Os endpoints são `GET /companies/:companyId/notifications`, `PATCH /companies/:
 Validação final: API 991/991 com PostgreSQL real serial; app 532/532. Coverage API 97,66% statements, 92,40% branches, 97,85% functions e 98,37% lines; app 95,71%, 90,03%, 96,91% e 96,94%. Playwright M16 13/13 em `artifacts/browser-audit/2026-08-14T19-15-09-164Z-8a914e38-babb-418a-a9ad-7a0e118fe0be/`; global 39/39 em `artifacts/browser-audit/2026-08-14T19-16-02-233Z-b9fe2673-1af8-4668-9204-f316d4d40dd1/`. Typecheck, lint, build, `tsc` raiz e diff-check aprovados. M11–M15, Attachments, Capacity, Timelines e `commands/` foram preservados.
 
 Próxima milestone formal: M17 — Chat. Não assumir que M16 fornece WebSocket; M17 deve definir seu próprio transporte em tempo real.
+
+## M17 — Chat concluído
+
+M17 implementou somente conversas diretas tenant-aware. Cada conversa possui exatamente dois participantes distintos e uma chave canônica única por empresa; criação aceita apenas `participantId`, e ator/tenant vêm da autenticação. `chat.use`, empresa/membership ativas e participação são verificadas no backend. Mensagens aceitam body trimado de 1–5000 caracteres, não possuem edição, remoção, anexos ou menções.
+
+Os cinco endpoints ficam sob `/companies/:companyId/conversations`. O histórico usa cursor opaco `(createdAt, id)`, default 50 e máximo 100. Unread conta somente mensagens do outro posteriores a `lastReadAt`; leitura é idempotente e conversa sem mensagem alheia preserva `lastReadAt: null`. Criação de conversa/membros e envio/atualização de `updatedAt` são transacionais.
+
+A migration `0006_lumpy_rafael_vega.sql` adicionou `direct_key`, constraints e índices; o backfill falha de forma segura diante de legado inválido ou duplicado. O frontend expõe `/chat` no AppShell, usa React Query e AbortSignal com keys tenant-aware, proteção stale, paginação e envio sem optimistic update.
+
+Transporte M17: somente HTTP explícito, sem WebSocket, polling, EventSource, Redis, presença ou refresh automático. Chat não gera `CHAT_MESSAGE` e Notifications M16 permanece inalterada.
+
+Validação final: API 1010/1010 com PostgreSQL real; app 620/620 serial. Coverage API 97,30% statements, 91,81% branches, 97,48% functions e 98,14% lines; app 96,02%, 90,68%, 97,25% e 97,15%. Playwright Chat 10/10 em `artifacts/browser-audit/2026-08-14T20-01-14-853Z-99afb962-395f-46b6-b729-5a7887625faf/`; global 49/49 em `artifacts/browser-audit/2026-08-14T20-11-59-505Z-e14a31c2-7932-4c54-807c-7466ebc72b77/`. Typecheck, lint, builds, `tsc` raiz e diff-check passaram.
+
+Próxima milestone formal: M18 — Relatórios.

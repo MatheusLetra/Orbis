@@ -43,6 +43,13 @@
       "when": 1786733112561,
       "tag": "0005_loose_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786736481391,
+      "tag": "0006_lumpy_rafael_vega",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("combobox", { name: "Empresa ativa" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Alternar tema" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sair" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Chat" })).toHaveAttribute("href", "/chat");
     expect(screen.getByText("Conteúdo")).toBeInTheDocument();
     expect(screen.getByText(/gestão de requisições/)).toBeInTheDocument();
   });
@@ -106,17 +107,22 @@ describe("AppShell", () => {
     const user = userEvent.setup();
     renderShell();
     const select = screen.getByRole("combobox", { name: "Empresa ativa" });
+    const chat = screen.getByRole("link", { name: "Chat" });
     const theme = screen.getByRole("button", { name: "Alternar tema" });
     const logout = screen.getByRole("button", { name: "Sair" });
 
     await user.tab();
     expect(select).toHaveFocus();
     await user.tab();
+    expect(chat).toHaveFocus();
+    await user.tab();
     expect(theme).toHaveFocus();
     await user.tab();
     expect(logout).toHaveFocus();
     await user.tab({ shift: true });
     expect(theme).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(chat).toHaveFocus();
     await user.tab({ shift: true });
     expect(select).toHaveFocus();
   });

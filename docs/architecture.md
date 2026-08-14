@@ -816,7 +816,8 @@ Conversation
 ```text
 ConversationMember
 ├── conversationId
-└── userId
+├── userId
+└── lastReadAt?
 ```
 
 ```text
@@ -829,27 +830,23 @@ Message
 └── editedAt?
 ```
 
-### Tempo real
+**Implementação M17:** somente conversas `direct` entre exatamente dois participantes distintos. `directKey` é o par canônico interno e possui unicidade com `companyId`; não é exposto pela API. O acesso exige `chat.use`, empresa/membership ativas e participação na conversa.
+
+Criação de conversa/membros e envio de mensagem/atualização de `Conversation.updatedAt` são transacionais. Mensagens são imutáveis no contrato M17, apesar de `editedAt` nullable existir no schema para evolução futura. O histórico usa cursor opaco `(createdAt, id)`; unread considera somente mensagens de terceiros posteriores a `lastReadAt`.
+
+### Transporte
 
 ```text
 Browser
-  ⇅ WebSocket
+  ⇅ HTTP autenticado
 Fastify
-  ⇅
+  ↓
 Message Application Service
   ↓
 PostgreSQL
 ```
 
-Para múltiplas instâncias:
-
-```text
-Fastify instance A ─┐
-Fastify instance B ─┼─ Redis Pub/Sub
-Fastify instance C ─┘
-```
-
-Redis é transporte de eventos em tempo real, não fonte de verdade.
+M17 não implementa WebSocket, polling, EventSource, Redis, presença ou refresh automático. PostgreSQL é a fonte de verdade. WebSocket e Redis pub/sub podem ser avaliados futuramente para entrega em tempo real ou múltiplas instâncias, sem substituir persistência e somente após necessidade operacional concreta.
 
 ## 22. Redis
 

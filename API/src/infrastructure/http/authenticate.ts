@@ -12,6 +12,12 @@ declare module "fastify" {
   }
 }
 
+declare module "fastify" {
+  interface FastifyInstance {
+    orbisReadiness: { ready: boolean };
+  }
+}
+
 export function createAuthenticateHook(tokenService: TokenService) {
   return async function authenticate(request: FastifyRequest): Promise<void> {
     const header = request.headers.authorization;
@@ -28,6 +34,7 @@ export function createAuthenticateHook(tokenService: TokenService) {
       const payload = await tokenService.verifyAccessToken(token);
       request.auth = { userId: payload.sub };
     } catch {
+      request.log?.warn({ requestId: request.id }, "authentication failed");
       throw new UnauthorizedError("Token de acesso inválido ou expirado");
     }
   };

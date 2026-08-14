@@ -16,9 +16,7 @@ describe("Release", () => {
     expect(release.channel).toBe("STABLE");
     expect(release.status).toBe("DRAFT");
     expect(release.artifactName).toBeNull();
-    expect(release.storageKey).toBeNull();
-    expect(release.checksum).toBeNull();
-    expect(release.sizeBytes).toBeNull();
+    expect(release.artifactLocation).toBeNull();
     expect(release.publishedAt).toBeNull();
     expect(release.createdBy).toBe("user-1");
   });
@@ -46,9 +44,7 @@ describe("Release", () => {
       channel: "STABLE",
       status: "PUBLISHED",
       artifactName: "app.exe",
-      storageKey: "company-1/release-1/app.exe",
-      checksum: "abc123",
-      sizeBytes: 42,
+      artifactLocation: "https://downloads.example.test/app.exe",
       publishedAt,
       createdBy: "user-1",
       createdAt: now,
@@ -70,16 +66,12 @@ describe("Release", () => {
 
     release.publish({
       artifactName: "app.exe",
-      storageKey: "company-1/release-id/app.exe",
-      checksum: "deadbeef",
-      sizeBytes: 1024,
+      artifactLocation: "  /releases/app.exe  ",
     });
 
     expect(release.status).toBe("PUBLISHED");
     expect(release.artifactName).toBe("app.exe");
-    expect(release.storageKey).toBe("company-1/release-id/app.exe");
-    expect(release.checksum).toBe("deadbeef");
-    expect(release.sizeBytes).toBe(1024);
+    expect(release.artifactLocation).toBe("/releases/app.exe");
     expect(release.publishedAt).toBeInstanceOf(Date);
   });
 });

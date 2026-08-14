@@ -12,4 +12,5 @@ export interface RefreshTokenRepository {
   create(token: RefreshTokenRecord): Promise<RefreshTokenRecord>;
   findByTokenHash(tokenHash: string): Promise<RefreshTokenRecord | null>;
   revoke(id: string, replacedById?: string): Promise<void>;
+  rotate(currentId: string, replacement: RefreshTokenRecord): Promise<boolean>;
 }

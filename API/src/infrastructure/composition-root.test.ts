@@ -14,10 +14,7 @@ function databaseThatMustNotBeUsed(): Database {
 
 describe("buildModules", () => {
   it("constrói todos os módulos sem abrir conexão com PostgreSQL", () => {
-    const modules = buildModules(
-      databaseThatMustNotBeUsed(),
-      loadEnv({ NODE_ENV: "test", ARTIFACT_STORAGE_PATH: "/tmp/orbis-composition-test" }),
-    );
+    const modules = buildModules(databaseThatMustNotBeUsed(), loadEnv({ NODE_ENV: "test" }));
 
     const useCases = [
       modules.createUser,

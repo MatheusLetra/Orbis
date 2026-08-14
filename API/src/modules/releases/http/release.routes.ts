@@ -34,9 +34,7 @@ const releaseResponse = {
     channel: { type: "string" },
     status: { type: "string" },
     artifactName: { type: ["string", "null"] },
-    storageKey: { type: ["string", "null"] },
-    checksum: { type: ["string", "null"] },
-    sizeBytes: { type: ["integer", "null"] },
+    artifactLocation: { type: ["string", "null"], maxLength: 2048 },
     publishedAt: { type: ["string", "null"], format: "date-time" },
     createdBy: { type: "string" },
     createdAt: { type: "string", format: "date-time" },
@@ -49,9 +47,7 @@ const releaseResponse = {
     "channel",
     "status",
     "artifactName",
-    "storageKey",
-    "checksum",
-    "sizeBytes",
+    "artifactLocation",
     "publishedAt",
     "createdBy",
     "createdAt",
@@ -154,8 +150,7 @@ export async function registerReleaseRoutes(
     {
       schema: {
         tags: ["Releases"],
-        description:
-          "Publica uma release: grava o artefato no storage e atualiza os metadados (status, checksum, tamanho, data).",
+        description: "Publica uma release persistindo apenas os metadados e a localização manual.",
         headers: userHeader,
         params: {
           type: "object",
@@ -168,12 +163,25 @@ export async function registerReleaseRoutes(
         body: {
           type: "object",
           properties: {
-            artifactName: { type: "string" },
-            contentBase64: { type: "string", description: "Conteúdo do artefato em base64" },
+            artifactName: { type: "string", maxLength: 200 },
+            artifactLocation: { type: "string", minLength: 1, maxLength: 2048 },
           },
-          required: ["artifactName", "contentBase64"],
+          required: ["artifactName", "artifactLocation"],
         },
-        response: { 200: releaseResponse },
+        response: {
+          200: releaseResponse,
+          409: {
+            type: "object",
+            properties: {
+              error: {
+                type: "object",
+                properties: { code: { type: "string" }, message: { type: "string" } },
+                required: ["code", "message"],
+              },
+            },
+            required: ["error"],
+          },
+        },
       },
     },
     async (request) => {

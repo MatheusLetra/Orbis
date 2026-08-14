@@ -65,7 +65,6 @@ import { GetRelease } from "@/modules/releases/application/use-cases/get-release
 import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
 import { DrizzleReleaseRepository } from "@/modules/releases/infrastructure/repositories/drizzle-release-repository";
-import { LocalArtifactStorage } from "@/modules/releases/infrastructure/storage/local-artifact-storage";
 import { GetTaskReport } from "@/modules/reports/application/use-cases/get-task-report";
 import { DrizzleTaskReportReadRepository } from "@/modules/reports/infrastructure/repositories/drizzle-task-report-read-repository";
 import { AddRequisitionAssignee } from "@/modules/requisitions/application/use-cases/add-requisition-assignee";
@@ -262,12 +261,13 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     preferenceResolver,
     releaseRecipientResolver,
   );
-  const artifactStorage = new LocalArtifactStorage(env.ARTIFACT_STORAGE_PATH);
   const tokenService = new JoseTokenService({
     accessSecret: env.JWT_ACCESS_SECRET,
     refreshSecret: env.JWT_REFRESH_SECRET,
     accessTokenTtl: env.JWT_ACCESS_TTL,
     refreshTokenTtl: env.JWT_REFRESH_TTL,
+    issuer: env.JWT_ISSUER,
+    audience: env.JWT_AUDIENCE,
   });
   const refreshTokenTtlMs = parseTtlToMs(env.JWT_REFRESH_TTL);
 
@@ -454,7 +454,6 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       getRelease: new GetRelease(releaseRepository, accessService, authorization),
       publishRelease: new PublishRelease(
         releaseRepository,
-        artifactStorage,
         accessService,
         authorization,
         notificationHandler,
@@ -570,10 +569,15 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         { refreshTokenTtlMs },
         auditRecorder,
       ),
-      refreshToken: new RefreshToken(tokenService, refreshTokenRepository, {
-        refreshTokenTtlMs,
-      }),
-      logout: new Logout(tokenService, refreshTokenRepository),
+      refreshToken: new RefreshToken(
+        tokenService,
+        refreshTokenRepository,
+        {
+          refreshTokenTtlMs,
+        },
+        auditRecorder,
+      ),
+      logout: new Logout(tokenService, refreshTokenRepository, auditRecorder),
     },
   };
 }

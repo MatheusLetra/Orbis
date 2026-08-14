@@ -48,6 +48,7 @@ async function runLogged(
 }
 
 async function main(): Promise<void> {
+  console.log(`Browser audit starting: ${suite} (${artifactDir})`);
   await mkdir(artifactDir, { recursive: true });
   await mkdir(runtimeDir, { recursive: true });
   const dbPort = await freePort();
@@ -80,25 +81,33 @@ async function main(): Promise<void> {
       AUDIT_HEADED: headed ? "1" : "0",
     },
   });
+  console.log(`Browser audit completed: ${suite}`);
 }
 
-try {
-  await main();
-} catch (error) {
-  await writeFile(
-    join(artifactDir, "failure.json"),
-    JSON.stringify(
-      {
-        classification: browserStarted ? "functional-failure" : "environment-failure",
-        message: error instanceof Error ? error.message : String(error),
-      },
-      null,
-      2,
-    ),
-  );
-  throw error;
-} finally {
-  await cleanupServices(services);
-  await database?.stop();
-  await cleanupDirectory(runtimeDir);
+async function run(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
+    await writeFile(
+      join(artifactDir, "failure.json"),
+      JSON.stringify(
+        {
+          classification: browserStarted ? "functional-failure" : "environment-failure",
+          message: error instanceof Error ? error.message : String(error),
+        },
+        null,
+        2,
+      ),
+    );
+    throw error;
+  } finally {
+    await cleanupServices(services);
+    await database?.stop();
+    await cleanupDirectory(runtimeDir);
+  }
 }
+
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

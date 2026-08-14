@@ -141,4 +141,12 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
       });
     }
   }
+
+  async rotate(currentId: string, replacement: RefreshTokenRecord): Promise<boolean> {
+    const current = this.items.get(currentId);
+    if (!current || current.revokedAt) return false;
+    this.items.set(currentId, { ...current, revokedAt: new Date(), replacedById: replacement.id });
+    this.items.set(replacement.id, { ...replacement });
+    return true;
+  }
 }

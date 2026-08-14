@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@/infrastructure/database/client";
 import { releases } from "@/infrastructure/database/schema";
@@ -40,6 +40,23 @@ export class DrizzleReleaseRepository implements ReleaseRepository {
       .returning();
 
     return toEntity(requireRow(rows[0]));
+  }
+
+  async publishIfDraft(
+    id: string,
+    artifact: { artifactName: string; artifactLocation: string },
+  ): Promise<Release | null> {
+    const rows = await this.db
+      .update(releases)
+      .set({
+        artifactName: artifact.artifactName,
+        artifactLocation: artifact.artifactLocation,
+        status: "PUBLISHED",
+        publishedAt: new Date(),
+      })
+      .where(and(eq(releases.id, id), eq(releases.status, "DRAFT")))
+      .returning();
+    return rows[0] ? toEntity(rows[0]) : null;
   }
 
   async delete(id: string): Promise<void> {

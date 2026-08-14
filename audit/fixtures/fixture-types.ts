@@ -72,6 +72,9 @@ export const fixture = {
   auditReleasePublished: "00000000-0000-4000-8000-000000000606",
   auditConfiguration: "00000000-0000-4000-8000-000000000607",
   auditTenantB: "00000000-0000-4000-8000-000000000608",
+  m20System: "00000000-0000-4000-8000-000000000701",
+  m20Version: "00000000-0000-4000-8000-000000000702",
+  m20Release: "00000000-0000-4000-8000-000000000703",
   chatXssBody: '<img src=x onerror="window.__auditXss=true"><script>window.__auditXss=true</script>',
   chatLongBody: `CHAT-LONGO-${"conteudo-sem-quebra-".repeat(80)}`,
 } as const;

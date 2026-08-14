@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
@@ -50,7 +51,41 @@ export async function buildApp(options: BuildAppOptions = {}) {
             createLoggerConfig({ level: config.LOG_LEVEL, environment: config.NODE_ENV }),
         };
 
-  const app = Fastify(fastifyOptions);
+  const readiness = { ready: true };
+  const app = Fastify({
+    ...fastifyOptions,
+    requestIdHeader: "x-request-id",
+    genReqId: (request) => {
+      const incoming = request.headers["x-request-id"];
+      return typeof incoming === "string" && /^[A-Za-z0-9._:-]{1,128}$/.test(incoming)
+        ? incoming
+        : randomUUID();
+    },
+  });
+
+  app.decorate("orbisReadiness", readiness);
+  app.addHook("onSend", async (request, reply) => {
+    reply.header("X-Request-ID", request.id);
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    reply.header("X-Frame-Options", "DENY");
+    if (config.NODE_ENV === "production") {
+      reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+  });
+  app.addHook("onResponse", async (request, reply) => {
+    request.log.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        route: request.routeOptions.url,
+        statusCode: reply.statusCode,
+        durationMs: reply.elapsedTime,
+        userId: request.auth?.userId,
+      },
+      "request completed",
+    );
+  });
 
   app.setErrorHandler(
     createErrorHandler({ exposeInternalDetails: config.NODE_ENV !== "production" }),
@@ -69,7 +104,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     origin: config.FRONTEND_ORIGIN,
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    exposedHeaders: ["X-Orbis-File-Name"],
+    exposedHeaders: ["X-Orbis-File-Name", "X-Request-ID"],
   });
   await app.register(cookie);
   await app.register(multipart, {
@@ -147,7 +182,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
     routePrefix: "/reference",
   });
 
-  registerHealthRoute(app as unknown as FastifyInstance, { database: options.database });
+  registerHealthRoute(app as unknown as FastifyInstance, {
+    database: options.database,
+    readiness,
+  });
 
   if (options.modules) {
     const { modules } = options;

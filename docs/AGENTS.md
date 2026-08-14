@@ -608,25 +608,20 @@ System
 
 Uma release deve estar vinculada a uma versão.
 
-Não armazenar executáveis diretamente no PostgreSQL.
+O Orbis não armazena executáveis nem qualquer artefato de Release. Não usar PostgreSQL BYTEA, filesystem, S3 ou qualquer serviço de storage para Releases.
 
 Persistir metadados da release, como:
 
 - nome;
 - versão;
 - tipo/canal;
-- caminho/chave do artefato;
-- checksum;
-- tamanho;
+- `artifactLocation`, string opaca trimada, não vazia e limitada a 2048 caracteres;
 - data;
 - status.
 
-O armazenamento físico deve ser abstraído por uma porta, permitindo:
+O backend não faz fetch, download, HEAD, checksum, MIME inspection, validação externa ou resolução de caminhos. Não criar endpoint de download binário de Release. O usuário é responsável pela existência, acesso e integridade do artefato localizado.
 
-- filesystem local em desenvolvimento;
-- storage S3-compatible ou equivalente em produção.
-
-Esta porta destina-se apenas a releases/executáveis. Anexos de requisições e tarefas **não** usam esta porta: são armazenados no próprio PostgreSQL (BYTEA em tabela dedicada, ver §12.1 e `docs/architecture.md §17.2`).
+Anexos de requisições e tarefas continuam armazenados no próprio PostgreSQL (BYTEA em tabela dedicada, ver §12.1 e `docs/architecture.md §17.2`) e não são afetados pelo modelo de Releases.
 
 ## 20. Notificações
 

@@ -14,7 +14,7 @@ Principais características:
 - **Ciclo de pausas transacional**: pausar abre um intervalo, retomar ou concluir fecha a pausa e calcula sua duração em segundos.
 - **Timelines** semanal, mensal e anual com filtros e indicadores.
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
-- **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído (`ArtifactStorage`); em desenvolvimento os executáveis são gravados no filesystem local (`ARTIFACT_STORAGE_PATH`, default `./storage/releases`), fora do PostgreSQL.
+- **Sistemas → Versões → Releases** com localização manual (`artifactLocation`); o Orbis não armazena nem acessa artefatos de Releases.
 - **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
 - **Notificações configuráveis in-app** e **chat direto persistido**, ambos isolados por tenant.
 - **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
@@ -82,7 +82,7 @@ Suba um PostgreSQL local (ex.: via Docker) com banco `orbis`. Há duas opções:
 
 ```bash
 cd API
-docker build -t orbis-db .   # contém migrations + script de init
+  docker build -f Dockerfile.postgres -t orbis-db .   # contém migrations + script de init
 docker run --name orbis-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
@@ -116,6 +116,8 @@ Verificar o health check:
 
 ```bash
 curl http://localhost:3333/health
+curl http://localhost:3333/health/live
+curl http://localhost:3333/health/ready
 ```
 
 Documentação da API (Scalar) — **todo endpoint é documentado automaticamente**:
@@ -158,7 +160,7 @@ DELETE /companies/:companyId/versions/:versionId       → remove uma versão
 POST   /companies/:companyId/releases                → cria uma release em rascunho
 GET    /companies/:companyId/releases                → lista releases da empresa
 GET    /companies/:companyId/releases/:releaseId     → obtém uma release
-POST   /companies/:companyId/releases/:releaseId/publish → publica a release (grava artefato no storage)
+POST   /companies/:companyId/releases/:releaseId/publish → publica metadados + artifactLocation
 DELETE /companies/:companyId/releases/:releaseId     → remove uma release
 
 POST  /companies/:companyId/tasks                    → cria uma tarefa
@@ -185,6 +187,9 @@ POST  /companies/:companyId/conversations                              → cria 
 GET   /companies/:companyId/conversations/:conversationId/messages     → lista histórico paginado
 POST  /companies/:companyId/conversations/:conversationId/messages     → envia mensagem
 PATCH /companies/:companyId/conversations/:conversationId/read         → marca conversa como lida
+
+GET   /health/live                         → liveness sem banco
+GET   /health/ready                        → readiness com banco
 ```
 
 As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.

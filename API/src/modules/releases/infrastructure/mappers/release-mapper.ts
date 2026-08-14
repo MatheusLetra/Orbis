@@ -12,9 +12,7 @@ export type ReleaseRow = {
   channel: ReleaseChannel;
   status: ReleaseStatus;
   artifactName: string | null;
-  storageKey: string | null;
-  checksum: string | null;
-  sizeBytes: number | null;
+  artifactLocation: string | null;
   publishedAt: Date | null;
   createdBy: string;
   createdAt: Date;
@@ -29,9 +27,7 @@ export function toEntity(row: ReleaseRow): Release {
     channel: row.channel,
     status: row.status,
     artifactName: row.artifactName,
-    storageKey: row.storageKey,
-    checksum: row.checksum,
-    sizeBytes: row.sizeBytes,
+    artifactLocation: row.artifactLocation,
     publishedAt: row.publishedAt,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
@@ -47,9 +43,7 @@ export function toInsertValues(release: Release): ReleaseRow {
     channel: release.channel,
     status: release.status,
     artifactName: release.artifactName,
-    storageKey: release.storageKey,
-    checksum: release.checksum,
-    sizeBytes: release.sizeBytes,
+    artifactLocation: release.artifactLocation,
     publishedAt: release.publishedAt,
     createdBy: release.createdBy,
     createdAt: release.createdAt,

@@ -50,6 +50,13 @@
       "when": 1786736481391,
       "tag": "0006_lumpy_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786740000000,
+      "tag": "0007_m20_release_location",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,3 @@
-import type { ArtifactStorage } from "@/modules/releases/application/ports/artifact-storage";
 import type { Release } from "@/modules/releases/domain/entities/release";
 import type { ReleaseRepository } from "@/modules/releases/domain/repositories/release-repository";
 import type { System } from "@/modules/systems/domain/entities/system";
@@ -103,31 +102,17 @@ export class InMemoryReleaseRepository implements ReleaseRepository {
     return release;
   }
 
+  async publishIfDraft(
+    id: string,
+    artifact: { artifactName: string; artifactLocation: string },
+  ): Promise<Release | null> {
+    const release = this.items.get(id);
+    if (release?.status !== "DRAFT") return null;
+    release.publish(artifact);
+    return release;
+  }
+
   async delete(id: string): Promise<void> {
     this.items.delete(id);
-  }
-}
-
-export class InMemoryArtifactStorage implements ArtifactStorage {
-  private readonly items = new Map<string, Buffer>();
-
-  async save(key: string, content: Buffer): Promise<void> {
-    this.items.set(key, content);
-  }
-
-  async read(key: string): Promise<Buffer> {
-    const content = this.items.get(key);
-    if (!content) {
-      throw new Error("Artefato não encontrado");
-    }
-    return content;
-  }
-
-  async delete(key: string): Promise<void> {
-    this.items.delete(key);
-  }
-
-  has(key: string): boolean {
-    return this.items.has(key);
   }
 }

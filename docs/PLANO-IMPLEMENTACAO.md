@@ -16,16 +16,16 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 8 | M08 — Requisições | [M08.md](milestones/M08.md) | Concluída |
 | 9 | M09 — Tarefas e histórico de status | [M09.md](milestones/M09.md) | Concluída |
 | 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Concluída |
-| 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Em andamento |
+| 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Concluída |
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Concluída |
-| 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Em andamento |
+| 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Concluída |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Concluída — M14.1 cobre todos os itens |
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Concluída — M15.1 e M15.2 concluídas |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Concluída |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Concluída |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Concluída |
 | 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Concluída |
-| 20 | M20 — Hardening, observabilidade e deploy | [M20.md](milestones/M20.md) | Não iniciada |
+| 20 | M20 — Hardening, observabilidade e deploy | [M20.md](milestones/M20.md) | Concluída |
 
 ## Dependências resumidas
 
@@ -49,7 +49,7 @@ Todas → M20
 
 ## Correção pré-M11
 
-Antes de iniciar M11, foi implementado o `LocalArtifactStorage` previsto em M07 e corrigido o escopo do `.gitignore` para preservar o código-fonte do adapter. O módulo Releases recebeu testes reais de filesystem. M11 está **Em andamento**; o hardening concorrente e as unidades M11.2A, M11.2B, M11.3A, M11.3B, M11.4 e M11.5 foram concluídos.
+O histórico pré-M20 usava `LocalArtifactStorage` para Releases. M20 removeu esse caminho e consolidou Releases como metadados + `artifactLocation` manual, sem armazenamento ou acesso físico. Attachments continuam em PostgreSQL BYTEA.
 
 ## Progresso M11
 

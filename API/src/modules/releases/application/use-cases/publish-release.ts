@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   type AuditRecorder,
   NOOP_AUDIT_RECORDER,
@@ -15,11 +14,10 @@ import {
   type ReleaseOutput,
   toReleaseOutput,
 } from "@/modules/releases/application/dto/release-dtos";
-import type { ArtifactStorage } from "@/modules/releases/application/ports/artifact-storage";
 import type { ReleaseRepository } from "@/modules/releases/domain/repositories/release-repository";
 import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
 import type { UseCase } from "@/shared/application/use-case";
-import { BusinessRuleError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/shared/errors/typed-errors";
 
 export interface PublishReleaseCommand {
   actor: AuthenticatedUser;
@@ -30,7 +28,6 @@ export interface PublishReleaseCommand {
 export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOutput> {
   constructor(
     private readonly releaseRepository: ReleaseRepository,
-    private readonly storage: ArtifactStorage,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
     private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
@@ -55,22 +52,16 @@ export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOut
     }
 
     if (release.status !== "DRAFT") {
-      throw new BusinessRuleError("Apenas releases em rascunho podem ser publicadas");
+      throw new ConflictError("Apenas releases em rascunho podem ser publicadas");
     }
 
-    const content = Buffer.from(parsed.data.contentBase64, "base64");
-    const checksum = createHash("sha256").update(content).digest("hex");
-    const storageKey = `${input.actor.companyId}/${input.releaseId}/${parsed.data.artifactName}`;
-
-    await this.storage.save(storageKey, content);
-
-    release.publish({
+    const updated = await this.releaseRepository.publishIfDraft(input.releaseId, {
       artifactName: parsed.data.artifactName,
-      storageKey,
-      checksum,
-      sizeBytes: content.byteLength,
+      artifactLocation: parsed.data.artifactLocation,
     });
-    const updated = await this.releaseRepository.update(release);
+    if (!updated) {
+      throw new ConflictError("Apenas releases em rascunho podem ser publicadas");
+    }
 
     await this.notifications
       .handle({

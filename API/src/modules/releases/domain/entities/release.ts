@@ -14,9 +14,7 @@ export interface ReleaseProps {
   channel: ReleaseChannel;
   status: ReleaseStatus;
   artifactName: string | null;
-  storageKey: string | null;
-  checksum: string | null;
-  sizeBytes: number | null;
+  artifactLocation: string | null;
   publishedAt: Date | null;
   createdBy: string;
   createdAt: Date;
@@ -32,9 +30,7 @@ export interface CreateReleaseData {
 
 export interface ReleaseArtifactData {
   artifactName: string;
-  storageKey: string;
-  checksum: string;
-  sizeBytes: number;
+  artifactLocation: string;
 }
 
 export class Release extends Entity<string> {
@@ -53,9 +49,7 @@ export class Release extends Entity<string> {
       channel: data.channel ?? "STABLE",
       status: "DRAFT",
       artifactName: null,
-      storageKey: null,
-      checksum: null,
-      sizeBytes: null,
+      artifactLocation: null,
       publishedAt: null,
       createdBy: data.createdBy,
       createdAt: now,
@@ -90,16 +84,8 @@ export class Release extends Entity<string> {
     return this.props.artifactName;
   }
 
-  get storageKey(): string | null {
-    return this.props.storageKey;
-  }
-
-  get checksum(): string | null {
-    return this.props.checksum;
-  }
-
-  get sizeBytes(): number | null {
-    return this.props.sizeBytes;
+  get artifactLocation(): string | null {
+    return this.props.artifactLocation;
   }
 
   get publishedAt(): Date | null {
@@ -115,10 +101,15 @@ export class Release extends Entity<string> {
   }
 
   publish(artifact: ReleaseArtifactData): void {
+    if (this.status !== "DRAFT") {
+      throw new Error("Apenas releases em rascunho podem ser publicadas");
+    }
+    const location = artifact.artifactLocation.trim();
+    if (!location || location.length > 2048) {
+      throw new Error("Localização do artefato inválida");
+    }
     this.props.artifactName = artifact.artifactName;
-    this.props.storageKey = artifact.storageKey;
-    this.props.checksum = artifact.checksum;
-    this.props.sizeBytes = artifact.sizeBytes;
+    this.props.artifactLocation = location;
     this.props.status = "PUBLISHED";
     this.props.publishedAt = new Date();
   }

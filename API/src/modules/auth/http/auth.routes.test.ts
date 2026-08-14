@@ -72,8 +72,10 @@ describe("POST /auth/login", () => {
       modules,
       config: loadEnv({
         NODE_ENV: "production",
-        JWT_ACCESS_SECRET: "a".repeat(40),
-        JWT_REFRESH_SECRET: "b".repeat(40),
+        JWT_ACCESS_SECRET: "aB1!xY2#".repeat(5),
+        JWT_REFRESH_SECRET: "bC2@zW3$".repeat(5),
+        DATABASE_URL: "postgres://user:pass@host:5432/orbis",
+        FRONTEND_ORIGIN: "https://app.orbis.test",
       }),
     });
     await seedUser(modules);

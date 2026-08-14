@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { describe, expect, it } from "vitest";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import { Membership } from "@/modules/memberships/domain/entities/membership";
@@ -9,13 +7,12 @@ import { System } from "@/modules/systems/domain/entities/system";
 import { SystemVersion } from "@/modules/versions/domain/entities/system-version";
 import type { AuthenticatedUser } from "@/shared/application/authenticated-user";
 import {
-  BusinessRuleError,
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "@/shared/errors/typed-errors";
 import {
-  InMemoryArtifactStorage,
   InMemoryReleaseRepository,
   InMemorySystemRepository,
   InMemorySystemVersionRepository,
@@ -32,7 +29,6 @@ function build() {
   const systemVersionRepository = new InMemorySystemVersionRepository();
   const systemRepository = new InMemorySystemRepository();
   const membershipRepository = new InMemoryMembershipRepository();
-  const artifactStorage = new InMemoryArtifactStorage();
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
   const resolver = new MembershipPermissionResolver(membershipRepository);
@@ -41,7 +37,6 @@ function build() {
     systemVersionRepository,
     systemRepository,
     membershipRepository,
-    artifactStorage,
     accessService,
     authorization,
     resolver,
@@ -301,12 +296,7 @@ describe("PublishRelease", () => {
       accessService,
       authorization,
     );
-    const publishUseCase = new PublishRelease(
-      releaseRepository,
-      context.artifactStorage,
-      accessService,
-      authorization,
-    );
+    const publishUseCase = new PublishRelease(releaseRepository, accessService, authorization);
     const user = await actor(membershipRepository, "company-1");
     const version = await seedVersion(systemRepository, systemVersionRepository, "company-1");
     const created = await createUseCase.execute({
@@ -316,53 +306,47 @@ describe("PublishRelease", () => {
     return { context, user, created, publishUseCase };
   }
 
-  it("publica a release, grava o artefato no storage e atualiza os metadados", async () => {
+  it("publica a release com localização manual", async () => {
     const { context, user, created, publishUseCase } = await publishSetup();
-    const content = Buffer.from("conteudo-do-artefato");
-    const checksum = createHash("sha256").update(content).digest("hex");
 
     const output = await publishUseCase.execute({
       actor: user,
       releaseId: created.id,
-      data: { artifactName: "app.exe", contentBase64: content.toString("base64") },
+      data: { artifactName: "app.exe", artifactLocation: "  https://example.test/app.exe  " },
     });
 
     expect(output.status).toBe("PUBLISHED");
     expect(output.artifactName).toBe("app.exe");
-    expect(output.checksum).toBe(checksum);
-    expect(output.sizeBytes).toBe(content.byteLength);
+    expect(output.artifactLocation).toBe("https://example.test/app.exe");
     expect(output.publishedAt).not.toBeNull();
-    expect(output.storageKey).toContain("company-1/");
-    expect(context.artifactStorage.has(output.storageKey ?? "")).toBe(true);
-    expect(await context.artifactStorage.read(output.storageKey ?? "")).toEqual(content);
+    expect(context.releaseRepository).toBeDefined();
   });
 
   it("lança BusinessRuleError ao republicar uma release publicada", async () => {
     const { user, created, publishUseCase } = await publishSetup();
-    const content = Buffer.from("x").toString("base64");
     await publishUseCase.execute({
       actor: user,
       releaseId: created.id,
-      data: { artifactName: "app.exe", contentBase64: content },
+      data: { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" },
     });
 
     await expect(
       publishUseCase.execute({
         actor: user,
         releaseId: created.id,
-        data: { artifactName: "app.exe", contentBase64: content },
+        data: { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" },
       }),
-    ).rejects.toBeInstanceOf(BusinessRuleError);
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 
-  it("lança ValidationError para artifactName em branco", async () => {
+  it("lança ValidationError para artifactLocation em branco", async () => {
     const { user, created, publishUseCase } = await publishSetup();
 
     await expect(
       publishUseCase.execute({
         actor: user,
         releaseId: created.id,
-        data: { artifactName: " ", contentBase64: "eA==" },
+        data: { artifactName: "app.exe", artifactLocation: " " },
       }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
@@ -374,7 +358,7 @@ describe("PublishRelease", () => {
       publishUseCase.execute({
         actor: user,
         releaseId: "missing",
-        data: { artifactName: "app.exe", contentBase64: "eA==" },
+        data: { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" },
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -387,7 +371,6 @@ describe("PublishRelease", () => {
       membershipRepository,
       accessService,
       authorization,
-      artifactStorage,
     } = build();
     const createUseCase = new CreateRelease(
       releaseRepository,
@@ -395,12 +378,7 @@ describe("PublishRelease", () => {
       accessService,
       authorization,
     );
-    const publishUseCase = new PublishRelease(
-      releaseRepository,
-      artifactStorage,
-      accessService,
-      authorization,
-    );
+    const publishUseCase = new PublishRelease(releaseRepository, accessService, authorization);
     const manager = await actor(membershipRepository, "company-1");
     const version = await seedVersion(systemRepository, systemVersionRepository, "company-1");
     const created = await createUseCase.execute({
@@ -419,7 +397,7 @@ describe("PublishRelease", () => {
       publishUseCase.execute({
         actor: user,
         releaseId: created.id,
-        data: { artifactName: "app.exe", contentBase64: "eA==" },
+        data: { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" },
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });

@@ -139,9 +139,7 @@ export const releases = pgTable(
     channel: releaseChannelEnum("channel").notNull().default("STABLE"),
     status: releaseStatusEnum("status").notNull().default("DRAFT"),
     artifactName: text("artifact_name"),
-    storageKey: text("storage_key"),
-    checksum: text("checksum"),
-    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    artifactLocation: text("artifact_location"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdBy: uuid("created_by")
       .notNull()
@@ -151,6 +149,10 @@ export const releases = pgTable(
   (table) => [
     index("releases_company_idx").on(table.companyId),
     index("releases_version_idx").on(table.systemVersionId),
+    check(
+      "releases_published_location_check",
+      sql`(${table.status} <> 'PUBLISHED' OR (${table.artifactLocation} IS NOT NULL AND btrim(${table.artifactLocation}) <> '' AND char_length(${table.artifactLocation}) <= 2048))`,
+    ),
   ],
 );
 

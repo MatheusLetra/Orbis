@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { createRateLimitHook } from "@/infrastructure/http/rate-limit";
 import { ForbiddenError, UnauthorizedError } from "@/shared/errors/typed-errors";
 import type { Login } from "../application/use-cases/login";
 import type { Logout } from "../application/use-cases/logout";
@@ -30,9 +31,12 @@ export async function registerAuthRoutes(
   app: FastifyInstance,
   options: AuthRouteOptions,
 ): Promise<void> {
+  const loginRateLimit = createRateLimitHook(100, 60_000);
+  const refreshRateLimit = createRateLimitHook(100, 60_000);
   app.post(
     "/auth/login",
     {
+      preHandler: loginRateLimit,
       schema: {
         tags: ["Auth"],
         description:
@@ -66,7 +70,13 @@ export async function registerAuthRoutes(
       },
     },
     async (request, reply) => {
-      const output = await options.login.execute(request.body as never);
+      let output: Awaited<ReturnType<Login["execute"]>>;
+      try {
+        output = await options.login.execute(request.body as never);
+      } catch (error) {
+        request.log.warn({ requestId: request.id, err: error }, "login failed");
+        throw error;
+      }
       setRefreshCookie(reply, output.refreshToken, options.refreshCookie);
       return reply.status(200).send({ accessToken: output.accessToken, user: output.user });
     },
@@ -75,6 +85,7 @@ export async function registerAuthRoutes(
   app.post(
     "/auth/refresh",
     {
+      preHandler: refreshRateLimit,
       schema: {
         tags: ["Auth"],
         security: [{ refreshCookie: [] }],
@@ -89,7 +100,13 @@ export async function registerAuthRoutes(
       assertTrustedOrigin(request.headers.origin, options.frontendOrigin);
       const refreshToken = request.cookies[REFRESH_COOKIE_NAME];
       if (!refreshToken) throw new UnauthorizedError("Refresh token não fornecido");
-      const output = await options.refreshToken.execute({ refreshToken });
+      let output: Awaited<ReturnType<RefreshToken["execute"]>>;
+      try {
+        output = await options.refreshToken.execute({ refreshToken });
+      } catch (error) {
+        request.log.warn({ requestId: request.id, err: error }, "refresh failed");
+        throw error;
+      }
       setRefreshCookie(reply, output.refreshToken, options.refreshCookie);
       return reply.status(200).send({ accessToken: output.accessToken });
     },
@@ -109,6 +126,7 @@ export async function registerAuthRoutes(
       assertTrustedOrigin(request.headers.origin, options.frontendOrigin);
       const refreshToken = request.cookies[REFRESH_COOKIE_NAME];
       if (refreshToken) await options.logout.execute({ refreshToken });
+      request.log.info({ requestId: request.id }, "logout completed");
       clearRefreshCookie(reply, options.refreshCookie.secure);
       return reply.status(204).send();
     },

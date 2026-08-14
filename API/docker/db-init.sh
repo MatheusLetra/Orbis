@@ -22,6 +22,18 @@ EOSQL
 jq -r '.entries | sort_by(.idx)[] | [.idx, .tag, .when] | @tsv' "$JOURNAL" > "$TMP_JOURNAL"
 
 while read -r idx tag when; do
+  file="$MIGRATIONS_DIR/$tag.sql"
+  if [ ! -f "$file" ]; then
+    echo "Migration SQL não encontrado: $file"
+    exit 1
+  fi
+  hash=$(sha256sum "$file" | cut -d' ' -f1)
+  recorded=$(psql -tA --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    -c "SELECT hash FROM drizzle.__drizzle_migrations WHERE created_at = $when LIMIT 1;" | tr -d ' \r\n')
+  if [ -n "$recorded" ] && [ "$recorded" != "$hash" ]; then
+    echo "Hash divergente para migration $tag"
+    exit 1
+  fi
   last=$(psql -tA --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
     -c "SELECT COALESCE(MAX(created_at), 0) FROM drizzle.__drizzle_migrations;" | tr -d ' \r\n')
 
@@ -29,17 +41,10 @@ while read -r idx tag when; do
     continue
   fi
 
-  file="$MIGRATIONS_DIR/$tag.sql"
-  if [ ! -f "$file" ]; then
-    echo "Migration SQL não encontrado: $file"
-    exit 1
-  fi
-
   echo "Aplicando migration $tag..."
   sed 's/--> statement-breakpoint//g' "$file" | psql -v ON_ERROR_STOP=1 \
     --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"
 
-  hash=$(sha256sum "$file" | cut -d' ' -f1)
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
     -c "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('$hash', $when);"
 

@@ -450,4 +450,12 @@ Transições de Tasks gravam auditoria na mesma `TaskUnitOfWork`. As demais muta
 
 Validação final: API 1.031/1.031 com PostgreSQL real serial e 0 skipped; app 632/632; coverage API 96,96%/90,42%/97,48%/98,05% e app 95,72%/90,54%/96,33%/96,85% em statements/branches/functions/lines; Playwright M19 2/2 em `artifacts/browser-audit/2026-08-14T21-46-14-138Z-265c2927-ce47-4d93-932e-b852088a988a/`; global 56/56 em `artifacts/browser-audit/2026-08-14T21-53-06-174Z-8cac67bf-742e-4eb7-81e1-f2d17fce585b/`; typechecks, lint, builds, Scalar/OpenAPI e diff-check aprovados.
 
-Próxima milestone formal: M20 — Hardening, observabilidade e deploy.
+## M20 — Hardening, observabilidade e deploy concluída
+
+M20 consolidou Releases como metadados + `artifactLocation` manual. O Orbis não armazena, acessa ou baixa artefatos de Releases: não há BYTEA, filesystem, provider externo ou endpoint binário. A localização é trimada, limitada a 2048 caracteres e tratada como valor opaco. Publicação concorrente tem um único vencedor e retorna 409 em republicação.
+
+Attachments de Tasks e Requisitions não foram alterados: continuam em `attachments` + `attachment_blobs` BYTEA, com checksum, MIME, Content-Length, Content-Disposition, autorização, isolamento tenant-aware e carregamento sob demanda.
+
+Hardening entregue: refresh rotation transacional, issuer/audience/tipo JWT, CORS e Origin, cookies seguros, rate limiting em login/refresh sem Redis, headers de segurança, request ID, logs Pino redacted, health/readiness/liveness e graceful shutdown. Deploy possui Dockerfiles de API/app, migrations com validação de hash e procedimentos de backup/restore PostgreSQL.
+
+Validação final: API 1.027 testes e coverage 96,59%/90,05%/97,17%/97,71%; app 632 testes e coverage 95,72%/90,54%/96,33%/96,85%; PostgreSQL real serial; Playwright M20 1/1; Playwright global 57/57; restore isolado, Docker, typecheck, lint, builds e diff-check aprovados. Nenhum storage externo foi usado. M21 permanece bloqueada.

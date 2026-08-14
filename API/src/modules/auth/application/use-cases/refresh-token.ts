@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { UseCase } from "@/shared/application/use-case";
 import { UnauthorizedError, ValidationError } from "@/shared/errors/typed-errors";
 import { hashToken } from "@/shared/utils/hash-token";
@@ -19,6 +23,7 @@ export class RefreshToken implements UseCase<RefreshTokenInput, RefreshTokenOutp
     private readonly tokenService: TokenService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly config: RefreshTokenConfig,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: RefreshTokenInput): Promise<RefreshTokenOutput> {
@@ -49,7 +54,7 @@ export class RefreshToken implements UseCase<RefreshTokenInput, RefreshTokenOutp
     const newRefreshToken = await this.tokenService.signRefreshToken(record.userId, newJti);
     const now = new Date();
 
-    await this.refreshTokenRepository.create({
+    const rotated = await this.refreshTokenRepository.rotate(record.id, {
       id: newJti,
       userId: record.userId,
       tokenHash: hashToken(newRefreshToken),
@@ -58,7 +63,16 @@ export class RefreshToken implements UseCase<RefreshTokenInput, RefreshTokenOutp
       replacedById: null,
       createdAt: now,
     });
-    await this.refreshTokenRepository.revoke(record.id, newJti);
+    if (!rotated) throw new UnauthorizedError("Refresh token inválido ou já utilizado");
+
+    await this.audit.record({
+      companyId: null,
+      actorUserId: record.userId,
+      action: "AUTH_REFRESH_SUCCEEDED",
+      entityType: "USER",
+      entityId: record.userId,
+      metadata: null,
+    });
 
     return { accessToken, refreshToken: newRefreshToken };
   }

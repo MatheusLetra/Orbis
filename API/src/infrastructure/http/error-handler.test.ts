@@ -28,7 +28,6 @@ const prodConfig: AppEnv = {
   JWT_ACCESS_TTL: "15m",
   JWT_REFRESH_TTL: "30d",
   FRONTEND_ORIGIN: "https://app.orbis.example",
-  ARTIFACT_STORAGE_PATH: "./storage/releases",
 };
 
 const typedErrorCases = [

@@ -21,7 +21,7 @@ export class ListReleases implements UseCase<ListReleasesCommand, ReleaseOutput[
 
   async execute(input: ListReleasesCommand): Promise<ReleaseOutput[]> {
     this.authorization.assertCompanyContext(input.actor, input.actor.companyId);
-    this.authorization.assertPermission(input.actor, "systems.read");
+    this.authorization.assertPermission(input.actor, "releases.read");
     await this.accessService.assertAccess(input.actor.userId, input.actor.companyId);
 
     const releases = await this.releaseRepository.listByCompany(input.actor.companyId);

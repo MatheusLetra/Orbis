@@ -119,7 +119,7 @@ describe("notification source use cases", () => {
     await modules.releases.publishRelease.execute({
       actor,
       releaseId: release.id,
-      data: { artifactName: "orbis.tgz", contentBase64: "bTE2" },
+      data: { artifactName: "orbis.tgz", artifactLocation: "https://example.test/orbis.tgz" },
     });
 
     expect(dispatcher.events.map((event) => event.eventType)).toEqual([

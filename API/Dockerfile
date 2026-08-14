@@ -1,16 +1,17 @@
-# Imagem do banco de dados do Orbis (PostgreSQL com schema pronto).
-# Na primeira execução com um volume vazio, cria o banco e aplica as migrations.
-FROM postgres:17-alpine
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
 
-ENV POSTGRES_USER=postgres
-ENV POSTGRES_PASSWORD=postgres
-ENV POSTGRES_DB=orbis
-
-RUN apk add --no-cache jq
-
-COPY src/infrastructure/database/migrations /migrations
-COPY docker/db-init.sh /docker-entrypoint-initdb.d/01-db-init.sh
-RUN chmod +x /docker-entrypoint-initdb.d/01-db-init.sh
-
-HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=12 \
-  CMD pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/dist ./dist
+EXPOSE 3333
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 CMD node -e "fetch('http://127.0.0.1:3333/health/live').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+USER node
+CMD ["node", "dist/main.cjs"]

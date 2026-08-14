@@ -25,6 +25,11 @@ export class ConflictError extends AppError {
   readonly statusCode = 409;
 }
 
+export class TooManyRequestsError extends AppError {
+  readonly code = "TOO_MANY_REQUESTS";
+  readonly statusCode = 429;
+}
+
 export class BusinessRuleError extends AppError {
   readonly code = "BUSINESS_RULE";
   readonly statusCode = 422;

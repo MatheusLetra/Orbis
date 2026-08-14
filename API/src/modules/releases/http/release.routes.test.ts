@@ -71,7 +71,7 @@ describe("POST /companies/:companyId/releases", () => {
       status: "DRAFT",
       channel: "STABLE",
       artifactName: null,
-      storageKey: null,
+      artifactLocation: null,
     });
     await app.close();
   });
@@ -174,7 +174,7 @@ describe("GET /companies/:companyId/releases/:releaseId", () => {
 });
 
 describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
-  it("publica a release, grava o artefato no storage e preenche os metadados", async () => {
+  it("publica a release com localização manual", async () => {
     const { app, modules } = await build();
     const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
     await modules.repositories.memberships.create(
@@ -182,29 +182,23 @@ describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
     );
     const version = await seedVersion(modules, company.id);
     const release = await seedDraftRelease(modules, company.id, version.id);
-    const content = Buffer.from("conteudo-binario");
-
     const response = await app.inject({
       method: "POST",
       url: `/companies/${company.id}/releases/${release.id}/publish`,
       headers: await authHeaders(modules, USER_ID),
-      payload: { artifactName: "app.exe", contentBase64: content.toString("base64") },
+      payload: { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" },
     });
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.status).toBe("PUBLISHED");
     expect(body.artifactName).toBe("app.exe");
-    expect(body.sizeBytes).toBe(content.byteLength);
+    expect(body.artifactLocation).toBe("https://example.test/app.exe");
     expect(body.publishedAt).not.toBeNull();
-    expect(modules.artifactStorage.has(`${company.id}/${release.id}/app.exe`)).toBe(true);
-    expect(await modules.artifactStorage.read(`${company.id}/${release.id}/app.exe`)).toEqual(
-      content,
-    );
     await app.close();
   });
 
-  it("retorna 400 para artefato sem conteúdo", async () => {
+  it("retorna 400 para localização vazia", async () => {
     const { app, modules } = await build();
     const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
     await modules.repositories.memberships.create(
@@ -217,7 +211,7 @@ describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
       method: "POST",
       url: `/companies/${company.id}/releases/${release.id}/publish`,
       headers: await authHeaders(modules, USER_ID),
-      payload: { artifactName: "app.exe", contentBase64: "" },
+      payload: { artifactName: "app.exe", artifactLocation: " " },
     });
 
     expect(response.statusCode).toBe(400);
@@ -233,7 +227,7 @@ describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
     );
     const version = await seedVersion(modules, company.id);
     const release = await seedDraftRelease(modules, company.id, version.id);
-    const payload = { artifactName: "app.exe", contentBase64: "eA==" };
+    const payload = { artifactName: "app.exe", artifactLocation: "https://example.test/app.exe" };
 
     const first = await app.inject({
       method: "POST",
@@ -250,8 +244,8 @@ describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
       payload,
     });
 
-    expect(second.statusCode).toBe(422);
-    expect(second.json().error.code).toBe("BUSINESS_RULE");
+    expect(second.statusCode).toBe(409);
+    expect(second.json().error.code).toBe("CONFLICT");
     await app.close();
   });
 });

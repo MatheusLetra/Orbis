@@ -99,7 +99,6 @@ import {
   InMemoryDeveloperAvailabilityRepository,
 } from "./fakes/capacity-fakes";
 import {
-  InMemoryArtifactStorage,
   InMemoryReleaseRepository,
   InMemorySystemRepository,
   InMemorySystemVersionRepository,
@@ -168,7 +167,6 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     conversationMembers: InMemoryConversationMemberRepository;
     messages: InMemoryMessageRepository;
   };
-  artifactStorage: InMemoryArtifactStorage;
 }
 
 class InMemoryAuditRepository implements AuditLogRepository {
@@ -315,7 +313,6 @@ export function buildTestModules(
   const systems = new InMemorySystemRepository();
   const systemVersions = new InMemorySystemVersionRepository();
   const releases = new InMemoryReleaseRepository();
-  const artifactStorage = new InMemoryArtifactStorage();
   const requisitions = new InMemoryRequisitionRepository();
   const requisitionAssignees = new InMemoryRequisitionAssigneeRepository();
   const requisitionNumberGenerator = new FakeRequisitionNumberGenerator();
@@ -408,7 +405,6 @@ export function buildTestModules(
       conversationMembers,
       messages,
     },
-    artifactStorage,
     audit: { list: new ListAuditLogs(auditRepository, accessService, authorization) },
     auditRecorder,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -557,7 +553,6 @@ export function buildTestModules(
       getRelease: new GetRelease(releases, accessService, authorization),
       publishRelease: new PublishRelease(
         releases,
-        artifactStorage,
         accessService,
         authorization,
         notificationDispatcher,

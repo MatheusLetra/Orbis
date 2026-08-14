@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Database } from "@/infrastructure/database/client";
 import { refreshTokens } from "@/infrastructure/database/schema";
 import type {
@@ -45,5 +45,29 @@ export class DrizzleRefreshTokenRepository implements RefreshTokenRepository {
       .update(refreshTokens)
       .set({ revokedAt: new Date(), ...(replacedById ? { replacedById } : {}) })
       .where(eq(refreshTokens.id, id));
+  }
+
+  async rotate(currentId: string, replacement: RefreshTokenRecord): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const updated = await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(refreshTokens.id, currentId), isNull(refreshTokens.revokedAt)))
+        .returning({ id: refreshTokens.id });
+      if (updated.length === 0) return false;
+      await tx.insert(refreshTokens).values({
+        id: replacement.id,
+        userId: replacement.userId,
+        tokenHash: replacement.tokenHash,
+        expiresAt: replacement.expiresAt,
+        revokedAt: replacement.revokedAt,
+        replacedById: replacement.replacedById,
+      });
+      await tx
+        .update(refreshTokens)
+        .set({ replacedById: replacement.id })
+        .where(eq(refreshTokens.id, currentId));
+      return true;
+    });
   }
 }

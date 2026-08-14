@@ -52,7 +52,7 @@ describe("GET /health", () => {
       url: "/health",
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(503);
     expect(response.json().database).toMatchObject({ status: "unavailable" });
 
     await app.close();

@@ -97,9 +97,7 @@ function buildRelease(
     channel: "STABLE",
     status: "DRAFT",
     artifactName: null,
-    storageKey: null,
-    checksum: null,
-    sizeBytes: null,
+    artifactLocation: null,
     publishedAt: null,
     createdBy: USER_A,
     createdAt: CREATED_AT,
@@ -290,26 +288,20 @@ describe.skipIf(!available)("FASE 5 - repositories e mappers PostgreSQL", () => 
         channel: "STABLE",
         status: "DRAFT",
         artifactName: null,
-        storageKey: null,
-        checksum: null,
-        sizeBytes: null,
+        artifactLocation: null,
         publishedAt: null,
       });
 
       release.publish({
         artifactName: "orbis.tar.gz",
-        storageKey: "releases/orbis.tar.gz",
-        checksum: "a".repeat(64),
-        sizeBytes: 4_294_967_296,
+        artifactLocation: "releases/orbis.tar.gz",
       });
       const published = await releaseRepository.update(release);
 
       expect(published).toMatchObject({
         status: "PUBLISHED",
         artifactName: "orbis.tar.gz",
-        storageKey: "releases/orbis.tar.gz",
-        checksum: "a".repeat(64),
-        sizeBytes: 4_294_967_296,
+        artifactLocation: "releases/orbis.tar.gz",
       });
       expect(published.publishedAt).toBeInstanceOf(Date);
       expect(published.createdAt).toBeInstanceOf(Date);
@@ -347,6 +339,32 @@ describe.skipIf(!available)("FASE 5 - repositories e mappers PostgreSQL", () => 
       await releaseRepository.create(buildRelease(RELEASE_A, COMPANY_A, VERSION_A));
       await releaseRepository.delete(RELEASE_A);
       await expect(releaseRepository.findById(RELEASE_A)).resolves.toBeNull();
+    });
+
+    it("permite uma única publicação concorrente e persiste somente localização", async () => {
+      await releaseRepository.create(buildRelease(RELEASE_A, COMPANY_A, VERSION_A));
+
+      const results = await Promise.all([
+        releaseRepository.publishIfDraft(RELEASE_A, {
+          artifactName: "orbis-a.tgz",
+          artifactLocation: "https://example.test/a",
+        }),
+        releaseRepository.publishIfDraft(RELEASE_A, {
+          artifactName: "orbis-b.tgz",
+          artifactLocation: "/releases/b.tgz",
+        }),
+      ]);
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+      const published = await releaseRepository.findById(RELEASE_A);
+      expect(published?.status).toBe("PUBLISHED");
+      expect(published?.artifactLocation).toMatch(
+        /^(https:\/\/example\.test\/a|\/releases\/b\.tgz)$/,
+      );
+      const rows = await db.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = 'releases' AND column_name = 'artifact_location'`,
+      );
+      expect(rows).toHaveLength(1);
     });
   });
 

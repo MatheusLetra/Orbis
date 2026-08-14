@@ -22,11 +22,13 @@ export function createErrorHandler(options: ErrorHandlerOptions) {
   ): void {
     if (error instanceof AppError) {
       const response = toErrorResponse(error);
+      reply.header("X-Request-ID", request.id);
       void reply.status(response.statusCode).send(response.body);
       return;
     }
 
     if (error instanceof ZodError) {
+      reply.header("X-Request-ID", request.id);
       void reply.status(400).send({
         error: {
           code: "VALIDATION_ERROR",
@@ -38,6 +40,7 @@ export function createErrorHandler(options: ErrorHandlerOptions) {
     }
 
     if (isHttpErrorWithStatus(error) && error.statusCode < 500) {
+      reply.header("X-Request-ID", request.id);
       const hasValidation = "validation" in error && Array.isArray(error.validation);
       void reply.status(error.statusCode).send({
         error: {
@@ -49,7 +52,8 @@ export function createErrorHandler(options: ErrorHandlerOptions) {
       return;
     }
 
-    request.log.error({ err: error }, "erro interno não tratado");
+    request.log.error({ err: error, requestId: request.id }, "erro interno não tratado");
+    reply.header("X-Request-ID", request.id);
 
     const message =
       options.exposeInternalDetails && error instanceof Error

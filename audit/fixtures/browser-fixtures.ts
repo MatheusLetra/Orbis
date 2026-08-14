@@ -34,8 +34,12 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
              (${fixture.developerAId}, 'audit-developer@orbis.test', 'Audit Developer', ${actorHash}, true, ${now}, ${now}),
              (${fixture.chatOutsiderId}, ${fixture.chatOutsiderEmail}, 'Audit Chat Outsider', ${chatOutsiderHash}, true, ${now}, ${now}),
              (${fixture.chatTenantBPeerId}, 'audit-chat-tenant-b@orbis.test', 'Audit Chat Tenant B', ${actorHash}, true, ${now}, ${now})`;
-    await tx`insert into memberships (id, company_id, user_id, position, permissions, is_active, created_at, updated_at)
-           values (${fixture.actorMembershipA}, ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read", "chat.use", "audit.read"])}, true, ${now}, ${now}),
+     await tx`insert into systems (id, company_id, name, is_active, created_at, updated_at)
+       values (${fixture.m20System}, ${fixture.companyA}, 'M20 Release System', true, ${now}, ${now})`;
+     await tx`insert into system_versions (id, company_id, system_id, version, is_active, created_at, updated_at)
+       values (${fixture.m20Version}, ${fixture.companyA}, ${fixture.m20System}, '20.0.0', true, ${now}, ${now})`;
+     await tx`insert into memberships (id, company_id, user_id, position, permissions, is_active, created_at, updated_at)
+            values (${fixture.actorMembershipA}, ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read", "chat.use", "audit.read", "releases.read", "releases.manage"])}, true, ${now}, ${now}),
              (${fixture.thirdMembershipA}, ${fixture.companyA}, ${fixture.thirdId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
              (${fixture.developerMembershipA}, ${fixture.companyA}, ${fixture.developerAId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
               (${fixture.actorMembershipB}, ${fixture.companyB}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.read", "requisitions.read", "company.read", "chat.use", "audit.read"])}, true, ${now}, ${now}),

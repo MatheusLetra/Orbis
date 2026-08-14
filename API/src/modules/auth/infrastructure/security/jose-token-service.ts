@@ -10,6 +10,8 @@ export interface JoseTokenServiceOptions {
   refreshSecret: string;
   accessTokenTtl: string;
   refreshTokenTtl: string;
+  issuer?: string;
+  audience?: string;
 }
 
 export class JoseTokenService implements TokenService {
@@ -24,6 +26,8 @@ export class JoseTokenService implements TokenService {
   async signAccessToken(userId: string): Promise<string> {
     return new SignJWT({})
       .setProtectedHeader({ alg: "HS256" })
+      .setIssuer(this.options.issuer ?? "orbis-api")
+      .setAudience(this.options.audience ?? "orbis")
       .setSubject(userId)
       .setIssuedAt()
       .setExpirationTime(this.options.accessTokenTtl)
@@ -31,7 +35,10 @@ export class JoseTokenService implements TokenService {
   }
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
-    const { payload } = await jwtVerify(token, this.accessKey);
+    const { payload } = await jwtVerify(token, this.accessKey, {
+      issuer: this.options.issuer ?? "orbis-api",
+      audience: this.options.audience ?? "orbis",
+    });
     if (typeof payload.sub !== "string") {
       throw new Error("Token sem subject");
     }
@@ -39,8 +46,10 @@ export class JoseTokenService implements TokenService {
   }
 
   async signRefreshToken(userId: string, jti: string): Promise<string> {
-    return new SignJWT({})
+    return new SignJWT({ tokenType: "refresh" })
       .setProtectedHeader({ alg: "HS256" })
+      .setIssuer(this.options.issuer ?? "orbis-api")
+      .setAudience(this.options.audience ?? "orbis")
       .setSubject(userId)
       .setJti(jti)
       .setIssuedAt()
@@ -49,8 +58,15 @@ export class JoseTokenService implements TokenService {
   }
 
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
-    const { payload } = await jwtVerify(token, this.refreshKey);
-    if (typeof payload.sub !== "string" || typeof payload.jti !== "string") {
+    const { payload } = await jwtVerify(token, this.refreshKey, {
+      issuer: this.options.issuer ?? "orbis-api",
+      audience: this.options.audience ?? "orbis",
+    });
+    if (
+      typeof payload.sub !== "string" ||
+      typeof payload.jti !== "string" ||
+      payload.tokenType !== "refresh"
+    ) {
       throw new Error("Token sem subject/jti");
     }
     return { sub: payload.sub, jti: payload.jti };

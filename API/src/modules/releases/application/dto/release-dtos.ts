@@ -20,7 +20,11 @@ export const publishReleaseSchema = z.object({
     .trim()
     .min(1, "Nome do artefato é obrigatório")
     .max(200, "Nome muito longo"),
-  contentBase64: z.string().min(1, "Conteúdo do artefato é obrigatório"),
+  artifactLocation: z
+    .string()
+    .trim()
+    .min(1, "Localização do artefato é obrigatória")
+    .max(2048, "Localização do artefato muito longa"),
 });
 
 export type PublishReleaseInput = z.infer<typeof publishReleaseSchema>;
@@ -33,9 +37,7 @@ export interface ReleaseOutput {
   channel: string;
   status: string;
   artifactName: string | null;
-  storageKey: string | null;
-  checksum: string | null;
-  sizeBytes: number | null;
+  artifactLocation: string | null;
   publishedAt: string | null;
   createdBy: string;
   createdAt: string;
@@ -50,9 +52,7 @@ export function toReleaseOutput(release: Release): ReleaseOutput {
     channel: release.channel,
     status: release.status,
     artifactName: release.artifactName,
-    storageKey: release.storageKey,
-    checksum: release.checksum,
-    sizeBytes: release.sizeBytes,
+    artifactLocation: release.artifactLocation,
     publishedAt: release.publishedAt?.toISOString() ?? null,
     createdBy: release.createdBy,
     createdAt: release.createdAt.toISOString(),

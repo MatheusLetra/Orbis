@@ -565,29 +565,14 @@ Release
 ├── channel
 ├── status
 ├── artifactName
-├── storageKey
-├── checksum
-├── sizeBytes
+├── artifactLocation
 ├── publishedAt
 └── createdBy
 ```
 
-O artefato físico é externo ao PostgreSQL.
+`artifactLocation` é uma string opaca, trimada, não vazia e limitada a 2048 caracteres. Pode ser URL, caminho, URI ou qualquer valor definido pelo usuário. O Orbis não armazena, resolve, acessa, baixa, inspeciona ou valida o artefato externo. Releases não possuem blob, filesystem, provider externo ou endpoint de download binário.
 
-Criar uma porta:
-
-```text
-ArtifactStorage
-```
-
-Implementações:
-
-```text
-LocalArtifactStorage
-S3ArtifactStorage
-```
-
-> **Implementado (M6):** a porta `ArtifactStorage` (`modules/releases/application/ports`) está implementada com `LocalArtifactStorage` (`modules/releases/infrastructure/storage`) para desenvolvimento, gravando os artefatos no filesystem local em `ARTIFACT_STORAGE_PATH` (default `./storage/releases`, fora do banco e do controle de versão). `PublishRelease` (`modules/releases/application/use-cases`) valida a release em rascunho, grava o conteúdo base64 decodificado, calcula o checksum SHA-256 e preenche `storageKey`, `sizeBytes`, `publishedAt` e o status `PUBLISHED`. Em produção, implementar `S3ArtifactStorage` (ou equivalente S3-compatible) na mesma porta sem alterar o domínio. Esta porta é exclusiva de releases/executáveis; anexos de requisições/tarefas usam PostgreSQL (BYTEA, ver §17.1/§17.2).
+`PublishRelease` atualiza somente metadados e localização no PostgreSQL. A publicação usa update condicional por status `DRAFT`, garantindo um único vencedor concorrente e retornando `409 CONFLICT` em republicação. Release `PUBLISHED` exige localização válida. Exclusão remove somente os dados da Release.
 
 ### 17.1 Anexos de requisições e tarefas
 
@@ -639,12 +624,12 @@ Abordagens avaliadas:
 | **BYTEA em tabela dedicada** (`attachment_blobs`) | TOAST move conteúdo grande para fora da linha automaticamente; listas de metadados não leem o blob; transacional; FK com cascade; backup único com o PostgreSQL; sem infraestrutura externa | Leitura carrega o binário em memória (exige limite de tamanho); backup tende a crescer | **Escolhida** |
 | BYTEA inline na própria `attachments` | Mais simples | Infla a tabela de metadados; listas carregam linhas grandes | Rejeitada |
 | Large Objects (`pg_largeobject`/`lo`) | Melhor para arquivos muito grandes e streaming; dados fora da linha | Gestão complexa (truncate, permissões), checksum manual, manutenção de blobs órfãos; impõe uso de `lo_*` | Reservada como evolução futura para arquivos muito grandes |
-| Storage externo (filesystem/S3) | Escala independente do banco | Exige gerenciamento separado, inconsistência de backup, permissões e presigned URLs | Rejeitada para anexos (decisão de produto); permanece para releases/executáveis (§17) |
+| Storage externo (filesystem/S3) | Escala independente do banco | Exige gerenciamento separado, inconsistência de backup, permissões e presigned URLs | Rejeitada |
 
 Decisão:
 
 - **Anexos**: BYTEA em tabela dedicada com limite de tamanho configurável (recomendação inicial: 10 MB por arquivo). O PostgreSQL é a única fonte de verdade.
-- **Releases/executáveis**: continuam na porta `ArtifactStorage` (filesystem dev / S3 em produção), por serem artefatos grandes e de distribuição.
+- **Releases/executáveis**: não são armazenados pelo Orbis; somente `artifactLocation` é persistido como texto opaco.
 - Se no futuro arquivos muito grandes forem exigidos para anexos, migrar a coluna `bytea` para Large Objects — sem alterar os metadados de `attachments`.
 
 ## 18. Autenticação JWT

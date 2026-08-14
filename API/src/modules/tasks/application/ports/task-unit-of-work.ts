@@ -1,3 +1,4 @@
+import type { AuditRecorder } from "@/modules/audit/application/ports/audit-recorder";
 import type { TaskPauseIntervalRepository } from "@/modules/tasks/domain/repositories/task-pause-interval-repository";
 import type { TaskRepository } from "@/modules/tasks/domain/repositories/task-repository";
 import type { TaskStatusHistoryRepository } from "@/modules/tasks/domain/repositories/task-status-history-repository";
@@ -8,6 +9,7 @@ export interface TaskUnitOfWorkRepositories {
   taskStatusHistory: TaskStatusHistoryRepository;
   taskPauseIntervals: TaskPauseIntervalRepository;
   timeEntries: TimeEntryRepository;
+  audit: AuditRecorder;
 }
 
 export interface TaskUnitOfWork {

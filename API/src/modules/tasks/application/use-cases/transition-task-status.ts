@@ -45,7 +45,7 @@ export class TransitionTaskStatus implements UseCase<TransitionTaskStatusCommand
     }
 
     const result = await this.taskUnitOfWork.execute(
-      async ({ tasks, taskStatusHistory, taskPauseIntervals }) => {
+      async ({ tasks, taskStatusHistory, taskPauseIntervals, audit }) => {
         const task = await tasks.findByIdForUpdate(input.actor.companyId, input.taskId);
         if (!task) {
           throw new NotFoundError("Tarefa não encontrada");
@@ -90,6 +90,14 @@ export class TransitionTaskStatus implements UseCase<TransitionTaskStatusCommand
           await taskPauseIntervals.close(openPause);
         }
         await taskStatusHistory.create(history);
+        await audit.record({
+          companyId: input.actor.companyId,
+          actorUserId: input.actor.userId,
+          action: "TASK_STATUS_CHANGED",
+          entityType: "TASK",
+          entityId: task.id,
+          metadata: { fromStatus, toStatus: parsed.data.status },
+        });
 
         return {
           output: toTaskOutput(updatedTask),

@@ -1,3 +1,7 @@
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import type { RequisitionRepository } from "@/modules/requisitions/domain/repositories/requisition-repository";
@@ -15,6 +19,7 @@ export class DeleteRequisition implements UseCase<DeleteRequisitionCommand, { id
     private readonly requisitionRepository: RequisitionRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: DeleteRequisitionCommand): Promise<{ id: string }> {
@@ -28,6 +33,15 @@ export class DeleteRequisition implements UseCase<DeleteRequisitionCommand, { id
     }
 
     await this.requisitionRepository.delete(input.requisitionId);
+
+    await this.audit.record({
+      companyId: requisition.companyId,
+      actorUserId: input.actor.userId,
+      action: "REQUISITION_DELETED",
+      entityType: "REQUISITION",
+      entityId: requisition.id,
+      metadata: { number: requisition.number },
+    });
 
     return { id: input.requisitionId };
   }

@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import {
   NOOP_NOTIFICATION_DISPATCHER,
@@ -30,6 +34,7 @@ export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOut
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
     private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: PublishReleaseCommand): Promise<ReleaseOutput> {
@@ -77,6 +82,15 @@ export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOut
         data: { releaseId: updated.id },
       })
       .catch(() => undefined);
+
+    await this.audit.record({
+      companyId: updated.companyId,
+      actorUserId: input.actor.userId,
+      action: "RELEASE_PUBLISHED",
+      entityType: "RELEASE",
+      entityId: updated.id,
+      metadata: { versionLabel: updated.versionLabel },
+    });
 
     return toReleaseOutput(updated);
   }

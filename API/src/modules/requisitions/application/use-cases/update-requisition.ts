@@ -1,3 +1,7 @@
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
 import {
@@ -33,6 +37,7 @@ export class UpdateRequisition implements UseCase<UpdateRequisitionCommand, Requ
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
     private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: UpdateRequisitionCommand): Promise<RequisitionOutput> {
@@ -129,6 +134,15 @@ export class UpdateRequisition implements UseCase<UpdateRequisitionCommand, Requ
     }
 
     const updated = await this.requisitionRepository.update(requisition);
+
+    await this.audit.record({
+      companyId: updated.companyId,
+      actorUserId: input.actor.userId,
+      action: "REQUISITION_UPDATED",
+      entityType: "REQUISITION",
+      entityId: updated.id,
+      metadata: { changedFields: Object.keys(parsed.data) },
+    });
 
     if (updated.responsibleId && updated.responsibleId !== previousResponsibleId) {
       await this.notifications

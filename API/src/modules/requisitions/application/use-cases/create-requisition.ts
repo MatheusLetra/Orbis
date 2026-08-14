@@ -1,3 +1,7 @@
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
 import {
@@ -35,6 +39,7 @@ export class CreateRequisition implements UseCase<CreateRequisitionCommand, Requ
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
     private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: CreateRequisitionCommand): Promise<RequisitionOutput> {
@@ -85,6 +90,15 @@ export class CreateRequisition implements UseCase<CreateRequisitionCommand, Requ
       number,
     });
     const created = await this.requisitionRepository.create(requisition);
+
+    await this.audit.record({
+      companyId: created.companyId,
+      actorUserId: input.actor.userId,
+      action: "REQUISITION_CREATED",
+      entityType: "REQUISITION",
+      entityId: created.id,
+      metadata: { number: created.number },
+    });
 
     if (created.responsibleId) {
       await this.notifications

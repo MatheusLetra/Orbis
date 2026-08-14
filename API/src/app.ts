@@ -12,6 +12,7 @@ import type { Database } from "./infrastructure/database/client";
 import { createAuthenticateHook } from "./infrastructure/http/authenticate";
 import { createErrorHandler } from "./infrastructure/http/error-handler";
 import { registerAttachmentRoutes } from "./modules/attachments/http/attachment.routes";
+import { registerAuditRoutes } from "./modules/audit/http/audit.routes";
 import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
 import { registerCapacityRoutes } from "./modules/capacity/http/capacity.routes";
 import { registerChatRoutes } from "./modules/chat/http/chat.routes";
@@ -165,6 +166,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
       await registerCompanyRoutes(protectedRoutes, modules);
       await registerMembershipRoutes(protectedRoutes, modules);
+      await registerAuditRoutes(protectedRoutes, {
+        ...modules.audit,
+        permissionResolver: modules.permissionResolver,
+      });
       if (modules.notifications) {
         await registerNotificationRoutes(protectedRoutes, {
           ...modules.notifications,

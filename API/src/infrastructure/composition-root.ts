@@ -9,6 +9,10 @@ import { RemoveAttachment } from "@/modules/attachments/application/use-cases/re
 import { DrizzleAttachmentBlobRepository } from "@/modules/attachments/infrastructure/repositories/drizzle-attachment-blob-repository";
 import { DrizzleAttachmentRepository } from "@/modules/attachments/infrastructure/repositories/drizzle-attachment-repository";
 import { DrizzleAttachmentUnitOfWork } from "@/modules/attachments/infrastructure/unit-of-work/drizzle-attachment-unit-of-work";
+import type { AuditRecorder } from "@/modules/audit/application/ports/audit-recorder";
+import { ListAuditLogs } from "@/modules/audit/application/use-cases/list-audit-logs";
+import { DrizzleAuditLogRepository } from "@/modules/audit/infrastructure/repositories/drizzle-audit-log-repository";
+import { DrizzleAuditRecorder } from "@/modules/audit/infrastructure/services/drizzle-audit-recorder";
 import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
@@ -109,6 +113,8 @@ import { DrizzleSystemVersionRepository } from "@/modules/versions/infrastructur
 import { parseTtlToMs } from "@/shared/utils/ttl";
 
 export interface OrbisModules {
+  audit: { list: ListAuditLogs };
+  auditRecorder: AuditRecorder;
   createUser: CreateUser;
   createCompany: CreateCompany;
   getCompany: GetCompany;
@@ -199,6 +205,8 @@ export interface OrbisModules {
 }
 
 export function buildModules(database: Database, env: AppEnv): OrbisModules {
+  const auditRepository = new DrizzleAuditLogRepository(database);
+  const auditRecorder = new DrizzleAuditRecorder(database);
   const userRepository = new DrizzleUserRepository(database);
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
@@ -264,11 +272,18 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const refreshTokenTtlMs = parseTtlToMs(env.JWT_REFRESH_TTL);
 
   return {
+    audit: { list: new ListAuditLogs(auditRepository, accessService, authorization) },
+    auditRecorder,
     createUser: new CreateUser(userRepository, scryptPasswordHasher),
     createCompany: new CreateCompany(companyRepository, membershipRepository),
     getCompany: new GetCompany(companyRepository, accessService, authorization),
     listCompanies: new ListCompanies(companyRepository),
-    updateCompany: new UpdateCompany(companyRepository, accessService, authorization),
+    updateCompany: new UpdateCompany(
+      companyRepository,
+      accessService,
+      authorization,
+      auditRecorder,
+    ),
     createMembership: new CreateMembership(
       membershipRepository,
       companyRepository,
@@ -307,6 +322,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       companyRepository,
       accessService,
       authorization,
+      auditRecorder,
     ),
     permissionResolver,
     chat: {
@@ -349,6 +365,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         accessService,
         authorization,
         notificationHandler,
+        auditRecorder,
       ),
       update: new UpdateRequisition(
         requisitionRepository,
@@ -358,6 +375,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         accessService,
         authorization,
         notificationHandler,
+        auditRecorder,
       ),
       list: new ListRequisitions(requisitionRepository, accessService, authorization),
       get: new GetRequisition(
@@ -366,7 +384,12 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         accessService,
         authorization,
       ),
-      delete: new DeleteRequisition(requisitionRepository, accessService, authorization),
+      delete: new DeleteRequisition(
+        requisitionRepository,
+        accessService,
+        authorization,
+        auditRecorder,
+      ),
       addAssignee: new AddRequisitionAssignee(
         requisitionRepository,
         requisitionAssigneeRepository,
@@ -435,6 +458,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         accessService,
         authorization,
         notificationHandler,
+        auditRecorder,
       ),
       deleteRelease: new DeleteRelease(releaseRepository, accessService, authorization),
     },
@@ -538,9 +562,14 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       ),
     },
     auth: {
-      login: new Login(userRepository, scryptPasswordHasher, tokenService, refreshTokenRepository, {
-        refreshTokenTtlMs,
-      }),
+      login: new Login(
+        userRepository,
+        scryptPasswordHasher,
+        tokenService,
+        refreshTokenRepository,
+        { refreshTokenTtlMs },
+        auditRecorder,
+      ),
       refreshToken: new RefreshToken(tokenService, refreshTokenRepository, {
         refreshTokenTtlMs,
       }),

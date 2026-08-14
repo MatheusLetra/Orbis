@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { PasswordHasher } from "@/modules/users/application/ports/password-hasher";
 import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
 import type { UseCase } from "@/shared/application/use-case";
@@ -19,6 +23,7 @@ export class Login implements UseCase<LoginInput, LoginOutput> {
     private readonly tokenService: TokenService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly config: AuthConfig,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: LoginInput): Promise<LoginOutput> {
@@ -44,6 +49,15 @@ export class Login implements UseCase<LoginInput, LoginOutput> {
     }
 
     const { accessToken, refreshToken } = await this.issueTokens(user.id);
+
+    await this.audit.record({
+      companyId: null,
+      actorUserId: user.id,
+      action: "AUTH_LOGIN_SUCCEEDED",
+      entityType: "USER",
+      entityId: user.id,
+      metadata: null,
+    });
 
     return {
       accessToken,

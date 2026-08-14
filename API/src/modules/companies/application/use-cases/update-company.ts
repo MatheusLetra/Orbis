@@ -1,4 +1,8 @@
 import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
+import {
   type CompanyOutput,
   toCompanyOutput,
   type UpdateCompanyInput,
@@ -22,6 +26,7 @@ export class UpdateCompany implements UseCase<UpdateCompanyCommand, CompanyOutpu
     private readonly companyRepository: CompanyRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: UpdateCompanyCommand): Promise<CompanyOutput> {
@@ -52,6 +57,15 @@ export class UpdateCompany implements UseCase<UpdateCompanyCommand, CompanyOutpu
     }
 
     const updated = await this.companyRepository.update(company);
+
+    await this.audit.record({
+      companyId: updated.id,
+      actorUserId: input.actor.userId,
+      action: "COMPANY_UPDATED",
+      entityType: "COMPANY",
+      entityId: updated.id,
+      metadata: { changedFields: Object.keys(parsed.data) },
+    });
 
     return toCompanyOutput(updated);
   }

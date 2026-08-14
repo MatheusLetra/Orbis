@@ -35,10 +35,10 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
              (${fixture.chatOutsiderId}, ${fixture.chatOutsiderEmail}, 'Audit Chat Outsider', ${chatOutsiderHash}, true, ${now}, ${now}),
              (${fixture.chatTenantBPeerId}, 'audit-chat-tenant-b@orbis.test', 'Audit Chat Tenant B', ${actorHash}, true, ${now}, ${now})`;
     await tx`insert into memberships (id, company_id, user_id, position, permissions, is_active, created_at, updated_at)
-      values (${fixture.actorMembershipA}, ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read", "chat.use"])}, true, ${now}, ${now}),
+           values (${fixture.actorMembershipA}, ${fixture.companyA}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.create", "tasks.update", "tasks.read", "kanban.manage", "hours.register", "capacity.read", "company.read", "users.read", "requisitions.read", "chat.use", "audit.read"])}, true, ${now}, ${now}),
              (${fixture.thirdMembershipA}, ${fixture.companyA}, ${fixture.thirdId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
              (${fixture.developerMembershipA}, ${fixture.companyA}, ${fixture.developerAId}, 'DESENVOLVEDOR', ${JSON.stringify(["tasks.read", "chat.use"])}, true, ${now}, ${now}),
-             (${fixture.actorMembershipB}, ${fixture.companyB}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.read", "requisitions.read", "company.read", "chat.use"])}, true, ${now}, ${now}),
+              (${fixture.actorMembershipB}, ${fixture.companyB}, ${fixture.actorId}, 'GESTOR', ${JSON.stringify(["tasks.read", "requisitions.read", "company.read", "chat.use", "audit.read"])}, true, ${now}, ${now}),
              (${fixture.chatOutsiderMembershipA}, ${fixture.companyA}, ${fixture.chatOutsiderId}, 'DESENVOLVEDOR', ${JSON.stringify(["chat.use"])}, true, ${now}, ${now}),
              (${fixture.chatTenantBPeerMembership}, ${fixture.companyB}, ${fixture.chatTenantBPeerId}, 'DESENVOLVEDOR', ${JSON.stringify(["chat.use"])}, true, ${now}, ${now})`;
     await tx`insert into tasks (id, company_id, title, description, priority, status, assignee_id, completed_at, created_at, updated_at)
@@ -90,7 +90,16 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
              (${fixture.preferenceBTaskStatusChanged}, ${fixture.actorId}, ${fixture.companyB}, 'TASK_STATUS_CHANGED', true, ${now}, ${now}),
              (${fixture.preferenceBRequisitionAssigned}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_ASSIGNED', true, ${now}, ${now}),
               (${fixture.preferenceBRequisitionCompleted}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_COMPLETED', false, ${now}, ${now}),
-              (${fixture.preferenceBReleasePublished}, ${fixture.actorId}, ${fixture.companyB}, 'RELEASE_PUBLISHED', true, ${now}, ${now})`;
+               (${fixture.preferenceBReleasePublished}, ${fixture.actorId}, ${fixture.companyB}, 'RELEASE_PUBLISHED', true, ${now}, ${now})`;
+    await tx`insert into audit_logs (id, company_id, actor_user_id, action, entity_type, entity_id, metadata, created_at)
+      values (${fixture.auditCompanyUpdated}, ${fixture.companyA}, ${fixture.actorId}, 'COMPANY_UPDATED', 'COMPANY', ${fixture.companyA}, ${JSON.stringify({ changedFields: ['name'] })}, ${new Date(now.getTime() + 10)}),
+             (${fixture.auditRequisitionCreated}, ${fixture.companyA}, ${fixture.actorId}, 'REQUISITION_CREATED', 'REQUISITION', ${fixture.monthlyInside}, ${JSON.stringify({ number: 201 })}, ${new Date(now.getTime() + 20)}),
+             (${fixture.auditRequisitionUpdated}, ${fixture.companyA}, ${fixture.actorId}, 'REQUISITION_UPDATED', 'REQUISITION', ${fixture.monthlyInside}, ${JSON.stringify({ changedFields: ['title'] })}, ${new Date(now.getTime() + 30)}),
+             (${fixture.auditRequisitionDeleted}, ${fixture.companyA}, ${fixture.actorId}, 'REQUISITION_DELETED', 'REQUISITION', ${fixture.monthlyUndated}, ${JSON.stringify({ number: 203 })}, ${new Date(now.getTime() + 40)}),
+             (${fixture.auditTaskStatus}, ${fixture.companyA}, ${fixture.actorId}, 'TASK_STATUS_CHANGED', 'TASK', ${fixture.taskOwn}, ${JSON.stringify({ fromStatus: 'TODO', toStatus: 'IN_PROGRESS' })}, ${new Date(now.getTime() + 50)}),
+             (${fixture.auditReleasePublished}, ${fixture.companyA}, ${fixture.actorId}, 'RELEASE_PUBLISHED', 'RELEASE', '00000000-0000-4000-8000-000000000609', ${JSON.stringify({ versionLabel: '1.0.0' })}, ${new Date(now.getTime() + 60)}),
+             (${fixture.auditConfiguration}, ${fixture.companyA}, ${fixture.actorId}, 'CONFIGURATION_UPDATED', 'COMPANY_CAPACITY', ${fixture.companyA}, ${JSON.stringify({ changedFields: ['dailyHoursPerDeveloper'] })}, ${new Date(now.getTime() + 70)}),
+             (${fixture.auditTenantB}, ${fixture.companyB}, ${fixture.actorId}, 'COMPANY_UPDATED', 'COMPANY', ${fixture.companyB}, ${JSON.stringify({ changedFields: ['timezone'] })}, ${new Date(now.getTime() + 80)})`;
     const directKeyA = [fixture.actorId, fixture.thirdId].sort().join(":");
     const directKeyB = [fixture.actorId, fixture.chatTenantBPeerId].sort().join(":");
     const chatAUpdatedAt = new Date("2026-01-02T13:00:56.000Z");

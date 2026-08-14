@@ -24,7 +24,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Concluída |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Concluída |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Concluída |
-| 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Não iniciada |
+| 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Concluída |
 | 20 | M20 — Hardening, observabilidade e deploy | [M20.md](milestones/M20.md) | Não iniciada |
 
 ## Dependências resumidas
@@ -272,3 +272,13 @@ M17 está concluída. O transporte aprovado é HTTP explícito, sem WebSocket, p
 - [x] PostgreSQL, API/app, coverage e Playwright M18/global aprovados.
 
 M18 não adicionou migration, permissão, scheduler, snapshot, dashboard, gráfico, PDF, XLSX ou integração com Capacity, Timelines, Notifications, Chat e Attachments.
+
+## Progresso M19
+
+- [x] `AuditLog` append-only usando a tabela existente `audit_logs`.
+- [x] Endpoint tenant-aware `GET /companies/:companyId/audit`, filtros strict, cursor opaco, limite 50/100 e ordenação determinística.
+- [x] Eventos aprovados integrados em login bem-sucedido, Company, Requisitions, transição de status de Task, publicação de Release e configuração de `dailyHoursPerDeveloper`.
+- [x] Autorização `audit.read`, isolamento tenant, OpenAPI/Scalar e metadata mínima sem segredos.
+- [x] Testes API/PostgreSQL/app, coverage acima dos thresholds, Playwright M19 2/2 e global 56/56.
+
+M19 não adicionou frontend, migration, permissão, Notifications, Chat, Reports, Timelines, Capacity read-only, TimeEntries, Attachments, WebSocket, Redis, retenção ou exportação. A auditoria de Tasks usa a mesma UoW da transição; Release mantém a limitação documentada entre storage externo e PostgreSQL.

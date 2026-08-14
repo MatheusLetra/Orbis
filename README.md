@@ -173,6 +173,7 @@ GET   /companies/:companyId/timeline/monthly            → timeline mensal (`pe
 GET   /companies/:companyId/timeline/yearly             → timeline anual (`year=YYYY`)
 GET   /companies/:companyId/reports/tasks               → relatório paginado de Tasks
 GET   /companies/:companyId/reports/tasks/export        → relatório completo em CSV (máx. 10.000 Tasks)
+GET   /companies/:companyId/audit                       → auditoria tenant-aware com filtros e cursor
 
 GET   /companies/:companyId/notifications               → lista notificações próprias e não lidas
 PATCH /companies/:companyId/notifications/:notificationId/read → marca notificação própria como lida
@@ -241,6 +242,7 @@ As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium em
 | `npm run audit:attachments` | Executa Attachments |
 | `npm run audit:time-entries` | Executa TimeEntry |
 | `npm run audit:capacity` | Executa Capacity |
+| `npm run audit:m19` | Executa a auditoria browser específica de M19 |
 | `npm run audit:timeline` | Executa a timeline semanal |
 | `npm run audit:notifications` | Executa a central de notificações |
 | `npm run audit:chat` | Executa o Chat |
@@ -279,5 +281,6 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M16 | Notificações persistidas in-app | ✅ Concluída |
 | M17 | Chat direto persistido e tenant-aware | ✅ Concluída |
 | M18 | Relatórios de Tasks, filtros e CSV | ✅ Concluída |
+| M19 | Auditoria append-only e consulta tenant-aware | ✅ Concluída |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M18 está concluída; a próxima milestone formal é M19 — Auditoria.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M19 está concluída; a próxima milestone formal é M20 — Hardening, observabilidade e deploy.

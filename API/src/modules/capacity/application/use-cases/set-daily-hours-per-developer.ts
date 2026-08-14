@@ -1,5 +1,8 @@
 import { z } from "zod";
-
+import {
+  type AuditRecorder,
+  NOOP_AUDIT_RECORDER,
+} from "@/modules/audit/application/ports/audit-recorder";
 import type { CompanyCapacitySettingsRepository } from "@/modules/capacity/application/ports/company-capacity-settings-repository";
 import { assertDailyHoursPerDeveloper } from "@/modules/capacity/domain/value-objects/daily-hours-per-developer";
 import type { CompanyRepository } from "@/modules/companies/domain/repositories/company-repository";
@@ -31,6 +34,7 @@ export class SetDailyHoursPerDeveloper
     private readonly companyRepository: CompanyRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly audit: AuditRecorder = NOOP_AUDIT_RECORDER,
   ) {}
 
   async execute(input: SetDailyHoursPerDeveloperCommand): Promise<number> {
@@ -55,9 +59,18 @@ export class SetDailyHoursPerDeveloper
       throw new ValidationError("Configuração de capacidade inválida", { cause: error });
     }
 
-    return this.repository.setDailyHoursPerDeveloper(
+    const updated = await this.repository.setDailyHoursPerDeveloper(
       parsed.data.companyId,
       parsed.data.dailyHoursPerDeveloper,
     );
+    await this.audit.record({
+      companyId: parsed.data.companyId,
+      actorUserId: input.actor.userId,
+      action: "CONFIGURATION_UPDATED",
+      entityType: "COMPANY_CAPACITY",
+      entityId: parsed.data.companyId,
+      metadata: { changedFields: ["dailyHoursPerDeveloper"] },
+    });
+    return updated;
   }
 }

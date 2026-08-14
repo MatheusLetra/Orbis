@@ -1,4 +1,5 @@
 import type { Database } from "@/infrastructure/database/client";
+import { DrizzleAuditRecorder } from "@/modules/audit/infrastructure/services/drizzle-audit-recorder";
 import type {
   TaskUnitOfWork,
   TaskUnitOfWorkRepositories,
@@ -18,6 +19,7 @@ export class DrizzleTaskUnitOfWork implements TaskUnitOfWork {
         taskStatusHistory: new DrizzleTaskStatusHistoryRepository(transaction),
         taskPauseIntervals: new DrizzleTaskPauseIntervalRepository(transaction),
         timeEntries: new DrizzleTimeEntryRepository(transaction),
+        audit: new DrizzleAuditRecorder(transaction),
       };
 
       return work(repositories);

@@ -1,3 +1,4 @@
+import { NOOP_AUDIT_RECORDER } from "@/modules/audit/application/ports/audit-recorder";
 import type {
   TaskUnitOfWork,
   TaskUnitOfWorkRepositories,
@@ -230,6 +231,7 @@ export class InMemoryTaskUnitOfWork implements TaskUnitOfWork {
         taskStatusHistory: this.historyRepository,
         taskPauseIntervals: this.pauseIntervalRepository,
         timeEntries: this.timeEntryRepository,
+        audit: NOOP_AUDIT_RECORDER,
       });
     } catch (error) {
       this.taskRepository.items.clear();

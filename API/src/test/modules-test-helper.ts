@@ -4,6 +4,13 @@ import { AddLinkAttachment } from "@/modules/attachments/application/use-cases/a
 import { GetFileAttachment } from "@/modules/attachments/application/use-cases/get-file-attachment";
 import { ListAttachments } from "@/modules/attachments/application/use-cases/list-attachments";
 import { RemoveAttachment } from "@/modules/attachments/application/use-cases/remove-attachment";
+import type {
+  AuditRecorder,
+  AuditRecordInput,
+} from "@/modules/audit/application/ports/audit-recorder";
+import { ListAuditLogs } from "@/modules/audit/application/use-cases/list-audit-logs";
+import { AuditLog } from "@/modules/audit/domain/entities/audit-log";
+import type { AuditLogRepository } from "@/modules/audit/domain/repositories/audit-log-repository";
 import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
@@ -162,6 +169,37 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     messages: InMemoryMessageRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
+}
+
+class InMemoryAuditRepository implements AuditLogRepository {
+  readonly items: AuditLog[] = [];
+  async create(log: AuditLog): Promise<AuditLog> {
+    this.items.push(log);
+    return log;
+  }
+  async list(companyId: string, filters: Parameters<AuditLogRepository["list"]>[1], limit: number) {
+    const items = this.items
+      .filter((item) => item.props.companyId === companyId)
+      .filter((item) => !filters.action || item.props.action === filters.action)
+      .filter((item) => !filters.entityType || item.props.entityType === filters.entityType)
+      .filter((item) => !filters.actorUserId || item.props.actorUserId === filters.actorUserId)
+      .sort(
+        (a, b) =>
+          b.props.createdAt.getTime() - a.props.createdAt.getTime() ||
+          b.props.id.localeCompare(a.props.id),
+      );
+    const page = items.slice(0, limit);
+    return { items: page, hasMore: items.length > limit, nextCursor: null };
+  }
+}
+
+class InMemoryAuditRecorder implements AuditRecorder {
+  readonly items: AuditRecordInput[] = [];
+  constructor(private readonly repository: InMemoryAuditRepository) {}
+  async record(input: AuditRecordInput): Promise<void> {
+    this.items.push(input);
+    await this.repository.create(AuditLog.create(input));
+  }
 }
 
 export class InMemoryNotificationRepository implements NotificationRepository {
@@ -339,6 +377,8 @@ export function buildTestModules(
     accessTokenTtl: "15m",
     refreshTokenTtl: "30d",
   });
+  const auditRepository = new InMemoryAuditRepository();
+  const auditRecorder = new InMemoryAuditRecorder(auditRepository);
 
   return {
     repositories: {
@@ -369,11 +409,13 @@ export function buildTestModules(
       messages,
     },
     artifactStorage,
+    audit: { list: new ListAuditLogs(auditRepository, accessService, authorization) },
+    auditRecorder,
     createUser: new CreateUser(users, fakePasswordHasher),
     createCompany: new CreateCompany(companies, memberships),
     getCompany: new GetCompany(companies, accessService, authorization),
     listCompanies: new ListCompanies(companies),
-    updateCompany: new UpdateCompany(companies, accessService, authorization),
+    updateCompany: new UpdateCompany(companies, accessService, authorization, auditRecorder),
     createMembership: new CreateMembership(
       memberships,
       companies,
@@ -412,6 +454,7 @@ export function buildTestModules(
       companies,
       accessService,
       authorization,
+      auditRecorder,
     ),
     permissionResolver,
     chat: {
@@ -448,6 +491,7 @@ export function buildTestModules(
         accessService,
         authorization,
         notificationDispatcher,
+        auditRecorder,
       ),
       update: new UpdateRequisition(
         requisitions,
@@ -457,10 +501,11 @@ export function buildTestModules(
         accessService,
         authorization,
         notificationDispatcher,
+        auditRecorder,
       ),
       list: new ListRequisitions(requisitions, accessService, authorization),
       get: new GetRequisition(requisitions, requisitionAssignees, accessService, authorization),
-      delete: new DeleteRequisition(requisitions, accessService, authorization),
+      delete: new DeleteRequisition(requisitions, accessService, authorization, auditRecorder),
       addAssignee: new AddRequisitionAssignee(
         requisitions,
         requisitionAssignees,
@@ -516,6 +561,7 @@ export function buildTestModules(
         accessService,
         authorization,
         notificationDispatcher,
+        auditRecorder,
       ),
       deleteRelease: new DeleteRelease(releases, accessService, authorization),
     },
@@ -615,9 +661,14 @@ export function buildTestModules(
       ),
     },
     auth: {
-      login: new Login(users, fakePasswordHasher, tokenService, refreshTokens, {
-        refreshTokenTtlMs: TEST_REFRESH_TTL_MS,
-      }),
+      login: new Login(
+        users,
+        fakePasswordHasher,
+        tokenService,
+        refreshTokens,
+        { refreshTokenTtlMs: TEST_REFRESH_TTL_MS },
+        auditRecorder,
+      ),
       refreshToken: new RefreshToken(tokenService, refreshTokens, {
         refreshTokenTtlMs: TEST_REFRESH_TTL_MS,
       }),

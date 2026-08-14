@@ -440,4 +440,14 @@ CSV usa os mesmos filtros, `Content-Disposition: attachment`, limite máximo de 
 
 Validação final M18: API 1.023/1.023 em execução serial com PostgreSQL real, 0 skipped; app 632/632; coverage API 97,12%/90,92%/97,53%/98,06% e app 95,72%/90,54%/96,33%/96,85% em statements/branches/functions/lines; Playwright M18 5/5 em `artifacts/browser-audit/2026-08-14T20-50-46-769Z-86143ae5-d22e-4690-bbc1-4c5d8545145e/`; global 54/54 em `artifacts/browser-audit/2026-08-14T20-56-15-327Z-053af8bb-9eb3-4ebc-a0bd-17362e56815d/`; typecheck, lint, builds, tsc raiz e diff-check aprovados. Não houve migration ou nova permissão.
 
-Próxima milestone formal: M19 — Auditoria. Não iniciar M19 nesta unidade sem decisão explícita de retomada.
+## M19 — Auditoria concluída
+
+M19 implementou o módulo `audit` sobre a tabela existente `audit_logs`, sem migration nova. O endpoint tenant-aware é `GET /companies/:companyId/audit`, protegido por `audit.read`, membership ativa e empresa ativa. A consulta usa filtros strict de ação, entidade, ator e intervalo, cursor opaco, limite default 50, máximo 100 e ordenação `createdAt DESC, id DESC`.
+
+Eventos integrados: `AUTH_LOGIN_SUCCEEDED`, `COMPANY_UPDATED`, `REQUISITION_CREATED`, `REQUISITION_UPDATED`, `REQUISITION_DELETED`, `TASK_STATUS_CHANGED`, `RELEASE_PUBLISHED` e `CONFIGURATION_UPDATED` para `dailyHoursPerDeveloper`. Login não possui tenant resolvido e grava `companyId: null`. Metadata é mínima e não contém credenciais, tokens, cookies, binários, payloads integrais, Attachments ou Chat. Não houve frontend M19, Notifications, Chat, Reports, Timelines, Capacity read-only, TimeEntries ou Attachments.
+
+Transições de Tasks gravam auditoria na mesma `TaskUnitOfWork`. As demais mutações usam o port de auditoria após persistência bem-sucedida. Release mantém a limitação entre storage externo e PostgreSQL, sem outbox, retenção ou persistência adicional.
+
+Validação final: API 1.031/1.031 com PostgreSQL real serial e 0 skipped; app 632/632; coverage API 96,96%/90,42%/97,48%/98,05% e app 95,72%/90,54%/96,33%/96,85% em statements/branches/functions/lines; Playwright M19 2/2 em `artifacts/browser-audit/2026-08-14T21-46-14-138Z-265c2927-ce47-4d93-932e-b852088a988a/`; global 56/56 em `artifacts/browser-audit/2026-08-14T21-53-06-174Z-8cac67bf-742e-4eb7-81e1-f2d17fce585b/`; typechecks, lint, builds, Scalar/OpenAPI e diff-check aprovados.
+
+Próxima milestone formal: M20 — Hardening, observabilidade e deploy.

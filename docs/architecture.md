@@ -855,6 +855,14 @@ Relatórios são leituras derivadas e não possuem tabela ou snapshot próprio. 
 
 O JSON é paginado para a UI. A exportação CSV repete os mesmos filtros e busca em lotes de até 100 registros até o total do relatório, com teto de 10.000 Tasks. Nenhuma leitura de Attachments ou `attachment_blobs` participa da consulta.
 
+### 21.2 Auditoria (M19)
+
+M19 usa a tabela existente `audit_logs` como fonte de verdade append-only. O módulo `audit` possui port de gravação, repository Drizzle, use case de listagem e a rota tenant-aware `GET /companies/:companyId/audit`. A leitura exige `audit.read`, membership ativa, empresa ativa e aplica filtros strict, cursor opaco, limite default 50, máximo 100 e ordenação `createdAt DESC, id DESC`.
+
+O login registrado é somente `AUTH_LOGIN_SUCCEEDED` e não possui tenant resolvido, portanto `companyId` é `null`. Os demais eventos aprovados são alterações de Company, criação/alteração/exclusão de Requisition, transição de status de Task, publicação de Release e alteração de `dailyHoursPerDeveloper`. Não são auditados Notifications, Chat, Reports, Timelines, Capacity read-only, TimeEntries, pausas ou Attachments.
+
+Metadata contém somente informações mínimas, como campos alterados ou status anterior/novo. Senhas, tokens, cookies, binários, payloads integrais e conteúdo de mensagens não são persistidos. A camada de Task grava o registro dentro da mesma `TaskUnitOfWork`; as demais mutações usam o port no application layer. Release mantém a fronteira entre storage externo e PostgreSQL, sem outbox, retenção ou persistência adicional.
+
 ## 22. Redis
 
 Usar somente quando houver benefício.

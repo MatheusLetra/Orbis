@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BusinessRuleError,
+  CapacityConfigurationMissingError,
+  CapacityZeroError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -15,6 +17,12 @@ const cases = [
   { ErrorClass: ValidationError, code: "VALIDATION_ERROR", status: 400 },
   { ErrorClass: ConflictError, code: "CONFLICT", status: 409 },
   { ErrorClass: BusinessRuleError, code: "BUSINESS_RULE", status: 422 },
+  {
+    ErrorClass: CapacityConfigurationMissingError,
+    code: "CAPACITY_CONFIGURATION_MISSING",
+    status: 422,
+  },
+  { ErrorClass: CapacityZeroError, code: "CAPACITY_ZERO", status: 422 },
 ] as const;
 
 describe("erros tipados", () => {

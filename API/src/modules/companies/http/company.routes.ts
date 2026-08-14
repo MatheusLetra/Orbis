@@ -52,6 +52,7 @@ const EXPOSED_CAPABILITIES = [
   "tasks.update",
   "kanban.manage",
   "hours.register",
+  "capacity.read",
   "users.read",
   "requisitions.read",
 ] as const satisfies readonly Permission[];

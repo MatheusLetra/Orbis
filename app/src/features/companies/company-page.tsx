@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
 import { AppShell } from "@/app/layouts/app-shell";
+import { CapacitySimulationPanel } from "@/features/capacity/capacity-simulation-panel";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
 
 export function CompanyPage() {
   const company = useActiveCompany();
+  const capabilities = useCompanyCapabilities(company.activeCompany?.id ?? null);
 
   if (company.status === "loading" || company.status === "idle") {
     return (
@@ -75,6 +78,12 @@ export function CompanyPage() {
         >
           Abrir board
         </Link>
+        <CapacitySimulationPanel
+          key={company.activeCompany.id}
+          companyId={company.activeCompany.id}
+          capabilities={capabilities.data}
+          onCapabilitiesForbidden={() => void capabilities.refetch()}
+        />
       </section>
     </AppShell>
   );

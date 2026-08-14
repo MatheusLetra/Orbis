@@ -67,6 +67,13 @@ Documentação detalhada:
 
 Pré-requisitos: Node.js 20+ (recomendado 22+), npm e PostgreSQL (para M1 em diante).
 
+Para auditorias browser reais, instale as dependências do orquestrador na raiz e o Chromium empacotado:
+
+```bash
+npm install
+npm run audit:install
+```
+
 ### 1. Banco de dados (PostgreSQL)
 
 Suba um PostgreSQL local (ex.: via Docker) com banco `orbis`. Há duas opções:
@@ -205,6 +212,22 @@ npm run dev            # sobe em http://localhost:5173
 | `npm test` | Testes (vitest) |
 | `npm run test:coverage` | Testes com relatório de cobertura |
 
+### Auditoria browser
+
+As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium empacotado, fixtures temporárias e PostgreSQL Docker isolado. `jsdom` e testes de API não substituem esta suíte.
+
+| Script | Descrição |
+|---|---|
+| `npm run audit:install` | Instala o Chromium usado pela auditoria |
+| `npm run audit:browser` | Executa todas as suítes serialmente |
+| `npm run audit:browser:headed` | Executa todas as suítes em browser visível |
+| `npm run audit:responsive` | Executa a suíte de responsividade |
+| `npm run audit:attachments` | Executa Attachments |
+| `npm run audit:time-entries` | Executa TimeEntry |
+| `npm run audit:capacity` | Executa Capacity |
+
+Cada execução gera relatório HTML, JSON, screenshots, vídeos/traces em `artifacts/browser-audit/`. Falhas são classificadas como ambiente, fixture, funcional, visual, acessibilidade ou console inesperado. A execução é serial quando depende de banco e o avanço do roadmap fica bloqueado enquanto qualquer auditoria obrigatória falhar ou não for executada.
+
 ## Testes e cobertura
 
 A API e o app possuem cobertura de testes obrigatória, com a meta de se aproximar de **100% do código** (unitários, integração, API e frontend).
@@ -231,6 +254,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M6 | Catálogo de software: systems / versions / releases / storage | ✅ Concluído |
 | M7 | Requisições | ⏳ Próximo |
 | M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
-| M13 | Capacidade e previsão | ⏳ Próximo |
+| M13 | Capacidade e previsão | ⚠️ Funcionalmente concluído; coverage global pendente |
+| M14 | Timeline semanal | ⏳ Próximo após coverage |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. A auditoria automatizada BUILD de 2026-08-14 passou 11/11 cenários em Chromium real, incluindo Capacity, TimeEntry, responsividade e Attachments. Os thresholds globais de coverage ainda não são atendidos e devem ser corrigidos antes de M14.

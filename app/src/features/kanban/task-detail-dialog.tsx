@@ -158,13 +158,13 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
     return abortDownloads;
   }, [abortDownloads, isOpen]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
       abortDownloads();
-    },
-    [abortDownloads],
-  );
+    };
+  }, [abortDownloads]);
 
   async function downloadFile(attachment: AttachmentOutput): Promise<void> {
     if (!taskId || pendingDownloadsRef.current.has(attachment.id)) return;
@@ -189,10 +189,12 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
       const link = document.createElement("a");
       link.href = objectUrl;
       link.download = downloaded.fileName;
+      document.body.append(link);
       try {
         link.click();
       } finally {
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
       }
     } catch (error) {
       if (

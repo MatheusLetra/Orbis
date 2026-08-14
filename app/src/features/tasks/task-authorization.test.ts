@@ -17,6 +17,7 @@ function capabilities(
       "tasks.update": false,
       "kanban.manage": false,
       "hours.register": false,
+      "capacity.read": false,
       "users.read": false,
       "requisitions.read": false,
       ...values,

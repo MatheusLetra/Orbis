@@ -18,6 +18,7 @@ describe("useCompanyCapabilities", () => {
         "tasks.update": true,
         "kanban.manage": false,
         "hours.register": true,
+        "capacity.read": true,
         "users.read": false,
         "requisitions.read": false,
       },

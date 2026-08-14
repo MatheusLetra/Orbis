@@ -79,14 +79,14 @@ describe("ApiClient", () => {
   });
 
   it("retorna Blob e headers no caminho binário e preserva erro JSON", async () => {
-    const blob = new Blob(["file"], { type: "text/plain" });
     const fetcher = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(blob, { headers: { "Content-Type": "text/plain" } }));
+      .mockResolvedValue(new Response("file", { headers: { "Content-Type": "text/plain" } }));
     const client = new ApiClient("https://api.orbis.test", fetcher);
     const controller = new AbortController();
     const result = await client.requestBlob("/file", { signal: controller.signal });
     expect(result.blob).toBeInstanceOf(Blob);
+    expect(await result.blob.text()).toBe("file");
     expect(result.headers.get("Content-Type")).toContain("text/plain");
     expect(fetcher.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
 
@@ -96,6 +96,88 @@ describe("ApiClient", () => {
       code: "FORBIDDEN",
       message: "Negado",
     });
+  });
+
+  it("envia bearer, credentials e AbortSignal no caminho binário", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(new Blob(["file"])));
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    const controller = new AbortController();
+    client.setAccessToken("binary-access-token");
+
+    await client.requestBlob("/file", { signal: controller.signal });
+
+    const [, init] = fetcher.mock.calls[0] ?? [];
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer binary-access-token");
+    expect(init?.credentials).toBe("include");
+    expect(init?.signal).toBe(controller.signal);
+  });
+
+  it("renova uma vez e repete o request binário com o novo bearer", async () => {
+    let refreshCalls = 0;
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      if (String(input).endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        expect(init?.credentials).toBe("include");
+        return json({ accessToken: "renewed" });
+      }
+      return new Headers(init?.headers).get("Authorization") === "Bearer renewed"
+        ? new Response("file")
+        : json({}, 401);
+    });
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    client.setAccessToken("expired");
+
+    const result = await client.requestBlob("/file");
+
+    expect(result.blob.size).toBe(4);
+    expect(refreshCalls).toBe(1);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("mantém refresh single-flight entre requests JSON e binários concorrentes", async () => {
+    let refreshCalls = 0;
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      if (String(input).endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        await Promise.resolve();
+        return json({ accessToken: "renewed" });
+      }
+      if (new Headers(init?.headers).get("Authorization") !== "Bearer renewed") {
+        return json({}, 401);
+      }
+      return String(input).endsWith("/file") ? new Response("file") : json({ ok: true });
+    });
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    client.setAccessToken("expired");
+
+    await Promise.all([client.requestBlob("/file"), client.request("/tasks")]);
+
+    expect(refreshCalls).toBe(1);
+  });
+
+  it("propaga ApiError e limpa a sessão quando o refresh binário falha", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) =>
+      String(input).endsWith("/auth/refresh")
+        ? json({ error: { code: "UNAUTHORIZED", message: "Refresh inválido" } }, 401)
+        : json({}, 401),
+    );
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    client.setAccessToken("expired");
+
+    const request = client.requestBlob("/file");
+    await expect(request).rejects.toMatchObject({ status: 401, code: "UNAUTHORIZED" });
+    await request.catch((error: unknown) => expect(error).toBeInstanceOf(ApiError));
+    expect(client.getAccessToken()).toBeNull();
+  });
+
+  it("propaga AbortError no caminho binário sem tentar refresh", async () => {
+    const abortError = new DOMException("Aborted", "AbortError");
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValue(abortError);
+    const client = new ApiClient("https://api.orbis.test", fetcher);
+    client.setAccessToken("access-token");
+
+    await expect(client.requestBlob("/file")).rejects.toBe(abortError);
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 
   it("faz um único refresh para 401 concorrentes e repete cada request uma vez", async () => {

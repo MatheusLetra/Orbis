@@ -13,6 +13,7 @@ import { createAuthenticateHook } from "./infrastructure/http/authenticate";
 import { createErrorHandler } from "./infrastructure/http/error-handler";
 import { registerAttachmentRoutes } from "./modules/attachments/http/attachment.routes";
 import { registerAuthRoutes } from "./modules/auth/http/auth.routes";
+import { registerCapacityRoutes } from "./modules/capacity/http/capacity.routes";
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
@@ -62,6 +63,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(cors, {
     origin: config.FRONTEND_ORIGIN,
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    exposedHeaders: ["X-Orbis-File-Name"],
   });
   await app.register(cookie);
   await app.register(multipart, {
@@ -158,6 +161,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
       await registerCompanyRoutes(protectedRoutes, modules);
       await registerMembershipRoutes(protectedRoutes, modules);
+      await registerCapacityRoutes(protectedRoutes, {
+        calculateCapacity: modules.calculateCapacity,
+        permissionResolver: modules.permissionResolver,
+      });
       if (modules.requisitions) {
         await registerRequisitionRoutes(protectedRoutes, {
           ...modules.requisitions,

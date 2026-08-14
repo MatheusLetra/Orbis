@@ -31,3 +31,7 @@ coverage/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Auditoria browser
+/artifacts/
+/.audit-runtime/

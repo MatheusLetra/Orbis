@@ -8,9 +8,12 @@ import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
 import { JoseTokenService } from "@/modules/auth/infrastructure/security/jose-token-service";
+import { CalculateCapacity } from "@/modules/capacity/application/use-cases/calculate-capacity";
 import { GetAvailableDevelopers } from "@/modules/capacity/application/use-cases/get-available-developers";
 import { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/get-daily-hours-per-developer";
 import { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
+import { BusinessCalendar } from "@/modules/capacity/domain/services/business-calendar";
+import { CapacityCalculator } from "@/modules/capacity/domain/services/capacity-calculator";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -235,6 +238,14 @@ export function buildTestModules(): TestModules {
       companies,
       accessService,
       authorization,
+    ),
+    calculateCapacity: new CalculateCapacity(
+      developerAvailabilityRepository,
+      companyCapacitySettingsRepository,
+      companies,
+      accessService,
+      authorization,
+      new CapacityCalculator(new BusinessCalendar()),
     ),
     getDailyHoursPerDeveloper: new GetDailyHoursPerDeveloper(
       companyCapacitySettingsRepository,

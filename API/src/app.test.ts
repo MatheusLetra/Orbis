@@ -35,11 +35,12 @@ describe("buildApp", () => {
       url: "/health",
       headers: {
         origin: "http://localhost:5173",
-        "access-control-request-method": "GET",
+        "access-control-request-method": "DELETE",
       },
     });
     expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
     expect(allowed.headers["access-control-allow-credentials"]).toBe("true");
+    expect(allowed.headers["access-control-allow-methods"]).toContain("DELETE");
 
     const denied = await app.inject({
       method: "OPTIONS",

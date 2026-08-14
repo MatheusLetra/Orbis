@@ -96,13 +96,28 @@ export const attachmentsClient = {
       response.headers.get("Content-Type") || attachment.mimeType || "application/octet-stream";
     return {
       blob: new Blob([response.blob], { type: mimeType }),
-      fileName: fileNameFromHeaders(response.headers.get("Content-Disposition"), attachment),
+      fileName: fileNameFromHeaders(
+        response.headers.get("Content-Disposition"),
+        attachment,
+        response.headers.get("X-Orbis-File-Name"),
+      ),
       mimeType,
     };
   },
 };
 
-function fileNameFromHeaders(value: string | null, attachment: AttachmentOutput): string {
+function fileNameFromHeaders(
+  value: string | null,
+  attachment: AttachmentOutput,
+  encodedFileName: string | null,
+): string {
+  if (encodedFileName) {
+    try {
+      return safeFileName(decodeURIComponent(encodedFileName));
+    } catch {
+      // Fall through to Content-Disposition and attachment metadata.
+    }
+  }
   const encoded = value?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
   if (encoded) {
     try {

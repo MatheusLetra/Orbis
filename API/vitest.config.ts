@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

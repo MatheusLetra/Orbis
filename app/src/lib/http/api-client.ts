@@ -138,7 +138,11 @@ export class ApiClient {
     if (!response.ok) {
       await this.parse<unknown>(response);
     }
-    return { blob: await response.blob(), headers: response.headers };
+    const bytes = await response.arrayBuffer();
+    return {
+      blob: new Blob([bytes], { type: response.headers.get("Content-Type") ?? "" }),
+      headers: response.headers,
+    };
   }
 }
 

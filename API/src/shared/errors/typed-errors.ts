@@ -29,3 +29,13 @@ export class BusinessRuleError extends AppError {
   readonly code = "BUSINESS_RULE";
   readonly statusCode = 422;
 }
+
+export class CapacityConfigurationMissingError extends AppError {
+  readonly code = "CAPACITY_CONFIGURATION_MISSING";
+  readonly statusCode = 422;
+}
+
+export class CapacityZeroError extends AppError {
+  readonly code = "CAPACITY_ZERO";
+  readonly statusCode = 422;
+}

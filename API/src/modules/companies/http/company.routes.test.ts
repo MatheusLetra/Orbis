@@ -183,6 +183,7 @@ describe("GET /companies/:companyId/capabilities", () => {
         "tasks.update": true,
         "kanban.manage": true,
         "hours.register": true,
+        "capacity.read": true,
         "users.read": true,
         "requisitions.read": true,
       },
@@ -210,6 +211,7 @@ describe("GET /companies/:companyId/capabilities", () => {
     membershipB.changePermissions([
       "tasks.update",
       "hours.register",
+      "capacity.read",
       "users.read",
       "requisitions.read",
     ]);
@@ -239,6 +241,7 @@ describe("GET /companies/:companyId/capabilities", () => {
       "tasks.update": true,
       "kanban.manage": false,
       "hours.register": true,
+      "capacity.read": true,
       "users.read": true,
       "requisitions.read": true,
     });
@@ -260,6 +263,7 @@ describe("GET /companies/:companyId/capabilities", () => {
 
     expect(response.statusCode).toBe(200);
     expect(Object.values(response.json().capabilities)).toEqual([
+      false,
       false,
       false,
       false,

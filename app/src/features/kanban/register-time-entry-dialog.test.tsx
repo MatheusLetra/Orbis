@@ -54,6 +54,7 @@ const capabilities: CompanyCapabilities = {
     "tasks.update": false,
     "kanban.manage": false,
     "hours.register": true,
+    "capacity.read": false,
     "users.read": false,
     "requisitions.read": false,
   },

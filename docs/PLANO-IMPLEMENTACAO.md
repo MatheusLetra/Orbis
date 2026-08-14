@@ -167,7 +167,11 @@ R4 foi implementada com a primitive local `ResponsiveDialog` para QuickTask e Ed
 - [x] M13.2 — `CapacityCalculator` puro, fórmula de capacidade e previsão com arredondamento somente no avanço do calendário.
 - [x] M13.3A — leitura tenant-aware de desenvolvedores elegíveis.
 - [x] M13.3B — configuração persistida tenant-aware de `dailyHoursPerDeveloper`.
-- [ ] M13.4 — integração da capacidade e previsão.
+- [x] M13.4A — integração read-only da capacidade e previsão (`CalculateCapacity`); PostgreSQL real pendente por ambiente indisponível.
+- [x] M13.4B — endpoint `GET /companies/:companyId/capacity` e OpenAPI.
+- [x] M13.4C1 — transporte, contratos, query keys e hook frontend.
+- [x] M13.4C2 — painel de simulação na CompanyPage.
+- [x] M13.4C3 — hardening automatizado da simulação; auditoria manual Chrome pendente.
 
 M13.1 usa `Date` válido e componentes UTC, retorna nova data, não altera a entrada nem a coleção de feriados e rejeita quantidade fracionária ou negativa. Feriados não possuem persistência ou escopo definido; capacidade zero, fórmula, arredondamento, inclusão do dia inicial para previsão e timezone operacional da empresa continuam abertos para unidades posteriores. M11, M12 e Attachments foram preservados; a auditoria manual de Attachments continua pendente.
 
@@ -184,3 +188,33 @@ Validação inicial M13.3A: testes focados 8 passed e 3 skipped condicionais; AP
 M13.3B adicionou `companies.daily_hours_per_developer` como `NUMERIC(4,2) NULL`, sem default. A configuração é tenant-aware: leitura exige `capacity.read`, alteração exige `company.update`, ambas exigem membership ativa e empresa ativa. `NULL` permanece como não configurado; valores aceitos vão de `0.01` a `24.00`, com duas casas decimais. Não há endpoint, histórico, vigência, frontend, timezone operacional ou integração com `CapacityCalculator`.
 
 Validação M13.3B: testes focados 25 passed, 0 failed, 0 skipped contra PostgreSQL real; API completa 757 passed e 81 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. A migration 0004 foi aplicada e a coluna foi confirmada como nullable e sem default. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente. Próxima unidade: M13.4 — integração da capacidade e previsão.
+
+M13.4A implementou `CalculateCapacity` como use case read-only. `estimatedHours` é recebido no comando, pois Task não possui estimativa; o use case não lê Task/Requisition, TimeEntries ou pausas. A ordem é validação, contexto/autorização, empresa ativa, disponibilidade, configuração, erros de configuração/capacidade zero e delegação ao `CapacityCalculator`. Foram adicionados `CAPACITY_CONFIGURATION_MISSING` e `CAPACITY_ZERO`, ambos conceitualmente 422. Feriados são entrada opcional e não persistida; não houve endpoint, frontend, migration ou UoW.
+
+Validação unitária focada: 11 passed, 0 failed, 0 skipped; erros tipados/error handler: 23 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. A integração PostgreSQL focada foi criada para execução serial em `localhost:5433/orbis_test`, mas não foi aprovada porque o container/servidor não estava disponível; skips condicionais permanecem pendentes. M11, M12, Attachments e `commands/` foram preservados; a auditoria manual de Attachments continua pendente. Próxima unidade: M13.4B — endpoint `GET /companies/:companyId/capacity`.
+
+M13.4B adicionou `GET /companies/:companyId/capacity` com query obrigatória `startDate`/`estimatedHours`, validação strict, normalização UTC e delegação ao `CalculateCapacity`. O contrato OpenAPI/Scalar documenta a rota, params, query, resposta 200 e erros 400/401/403/404/422. `capacity.read` permanece autorização de backend; não foi adicionada capability frontend nesta unidade. Não houve migration ou alterações em M11, M12, Attachments ou `commands/`.
+
+Validação HTTP/OpenAPI focada: 13 passed, 0 failed, 0 skipped. Execução combinada serial com rota HTTP, CalculateCapacity e repositories PostgreSQL: 24 passed, 0 failed, 0 skipped, usando `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/orbis_test`. Suíte completa: 785 passed, 86 skipped, 0 failed; typecheck, lint, build e `git diff --check` aprovados. Próxima unidade: M13.4C — frontend opcional; M13 permanece incompleta.
+
+M13.4C1 implementou somente o transporte frontend da simulação: `capacity.read` foi exposta no contrato de capabilities, o parser runtime valida o contrato completo, `capacityClient.getCapacity` usa o endpoint tenant-aware, `capacityKeys` diferencia tenant e parâmetros, e `useCapacity` exige tenant/capability/input válidos. AbortSignal, retry/staleTime globais, ApiError e proteção de tenant/respostas stale são preservados. Não há UI ou persistência.
+
+Testes focados C1 do app: 31 passed, 0 failed, 0 skipped; suíte completa do app: 299 passed, 0 failed, 0 skipped; typecheck, lint e build passaram. Próxima unidade: M13.4C2 — painel de simulação na CompanyPage. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente.
+
+M13.4C2 adicionou o painel independente de simulação à CompanyPage. A UI só é renderizada com `capacity.read` carregada e tenant correspondente; exige `startDate`/`estimatedHours`, aceita zero, envia os parâmetros ao backend via `useCapacity` e não persiste nem calcula localmente. Resultado, loading, vazio, erros, retry, foco, teclado e responsividade mobile-first foram cobertos.
+
+Testes focados do painel: 7 passed, 0 failed, 0 skipped; suíte completa do app: 306 passed, 0 failed, 0 skipped; typecheck, lint e build aprovados. Chrome visível confirmou resultado real e ausência de overflow nos quatro viewports: 320x844, 360x800, 390x844 e 1280x900. Interação manual de erro/retry por teclado permanece como complemento; próxima unidade: M13.4C3 — hardening/auditoria visual complementar.
+
+M13.4C3 corrigiu uma falha concreta de apresentação para `422` sem código conhecido: o painel deixou de exibir somente a mensagem técnica do servidor e passou a apresentar orientação acessível, mantendo os mapeamentos de configuração ausente e capacidade zero. Foram adicionados testes de erros HTTP/rede, preservação e retry, callback de capabilities em 403, foco/submit por teclado e abort no desmontagem.
+
+Validação C3: 314 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. A auditoria manual obrigatória em Chrome visível não foi executada nesta sessão e permanece pendente para os quatro viewports, erro/retry físico por teclado, Tab/Shift+Tab, troca durante consulta e overflow. M13.4C permanece aberta até essa execução.
+
+## Auditoria automatizada em browser — BUILD 2026-08-14
+
+Foi adicionada infraestrutura isolada de `@playwright/test` com Chromium empacotado, PostgreSQL temporário via Docker, migrations existentes, seed determinístico, API/Vite temporários, autenticação pela UI, cleanup em `finally`, execução serial e artifacts em `artifacts/browser-audit/`. Scripts: `npm run audit:install`, `audit:browser`, `audit:browser:headed`, `audit:responsive`, `audit:attachments`, `audit:time-entries` e `audit:capacity`.
+
+Execução real do browser: Capacity 2 passed; TimeEntry 2 passed; responsividade 4 passed em `320x844`, `360x800`, `390x844` e `1440x900`; Attachments 1 passed e 1 failed. Suíte completa: 9 passed, 1 failed. A falha reproduzida é o download FILE: o clique deixa a UI em `Baixando...`, não produz evento de download Playwright dentro do timeout e os logs registram uma primeira resposta 200 seguida de requisição FILE 401. O fluxo não foi mascarado nem aprovado.
+
+Artifacts da execução completa foram gerados com relatório HTML, JSON, screenshots, vídeo, trace e logs de API/frontend em `artifacts/browser-audit/2026-08-14T14-09-22-465Z-52c60b84-3702-4587-97e3-6a911a40dec6/`. Uma tentativa anterior de migration foi classificada como falha de ambiente e repetida; a execução funcional posterior reproduziu somente a falha de download. O avanço do roadmap permanece bloqueado até Attachments passar.
+
+Correção pós-auditoria concluída: o download autenticado passou a materializar o corpo antes do Blob, a rota FILE entrega o Buffer por stream e usa `X-Orbis-File-Name`, e o lifecycle do `TaskDetailDialog` restaura `mountedRef` no setup sob StrictMode antes de criar o anchor temporário. O CORS declara os métodos reais da API, incluindo `DELETE`. Attachments passou 3/3 e a suíte browser completa passou 11/11; artifact: `artifacts/browser-audit/2026-08-14T14-45-24-175Z-1f9401f9-7db9-44d8-9fa5-0c58ec5bb066/`. App 320/320 e API 872/872; lints, builds, typechecks e diff-check aprovados. O bloqueio funcional foi removido, mas os comandos de coverage ainda falham nos thresholds globais (app: 88,15% statements/89,72% lines; API: 94,57%/94,75%); essa dívida deve ser resolvida sem reduzir thresholds antes de M14.

@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import { getCurrentUserId } from "@/infrastructure/http/current-user";
@@ -285,16 +286,12 @@ function routeSet(
         result.attachment.sizeBytes !== result.data.length
       )
         throw new BusinessRuleError("Integridade do anexo inválida");
-      const fallback = result.attachment.fileName.replace(/["\\\r\n]/g, "_");
       const encoded = encodeURIComponent(result.attachment.fileName);
       reply
         .header("Content-Type", result.attachment.mimeType)
         .header("Content-Length", String(result.data.length))
-        .header(
-          "Content-Disposition",
-          `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
-        );
-      return reply.send(result.data);
+        .header("X-Orbis-File-Name", encoded);
+      return reply.send(Readable.from([result.data]));
     },
   );
   app.delete(

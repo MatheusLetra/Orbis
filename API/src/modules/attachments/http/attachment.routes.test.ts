@@ -132,7 +132,33 @@ describe("Attachment HTTP integration", () => {
     expect(download.rawPayload).toEqual(Buffer.from("%PDF-http"));
     expect(download.headers["content-type"]).toBe("application/pdf");
     expect(download.headers["content-length"]).toBe(String(Buffer.byteLength("%PDF-http")));
-    expect(download.headers["content-disposition"]).toContain('filename="manual.pdf"');
+    expect(download.headers["x-orbis-file-name"]).toBe("manual.pdf");
+    expect(download.headers["content-disposition"]).toBeUndefined();
+  });
+
+  it("entrega os bytes FILE completos por HTTP real", async () => {
+    const { app, modules } = await build();
+    const body = multipart("network.pdf", Buffer.from("%PDF-network"));
+    const upload = await app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY}/tasks/${TASK}/attachments/files`,
+      headers: {
+        ...(await headers(modules)),
+        "content-type": `multipart/form-data; boundary=${body.boundary}`,
+      },
+      payload: body.payload,
+    });
+    const address = await app.listen({ host: "127.0.0.1", port: 0 });
+    try {
+      const response = await fetch(
+        `${address}/companies/${COMPANY}/tasks/${TASK}/attachments/${upload.json().id}/file`,
+        { headers: await headers(modules) },
+      );
+      expect(response.status).toBe(200);
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from("%PDF-network"));
+    } finally {
+      await app.close();
+    }
   });
 
   it("faz upload LINK, lista e remove", async () => {

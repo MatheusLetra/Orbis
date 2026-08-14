@@ -14,9 +14,12 @@ import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
 import { DrizzleRefreshTokenRepository } from "@/modules/auth/infrastructure/repositories/drizzle-refresh-token-repository";
 import { JoseTokenService } from "@/modules/auth/infrastructure/security/jose-token-service";
+import { CalculateCapacity } from "@/modules/capacity/application/use-cases/calculate-capacity";
 import { GetAvailableDevelopers } from "@/modules/capacity/application/use-cases/get-available-developers";
 import { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/get-daily-hours-per-developer";
 import { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
+import { BusinessCalendar } from "@/modules/capacity/domain/services/business-calendar";
+import { CapacityCalculator } from "@/modules/capacity/domain/services/capacity-calculator";
 import { DrizzleCompanyCapacitySettingsRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-company-capacity-settings-repository";
 import { DrizzleDeveloperAvailabilityRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-developer-availability-repository";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
@@ -88,6 +91,7 @@ export interface OrbisModules {
   listMemberships: ListMemberships;
   listCompanyMembers: ListCompanyMembers;
   getAvailableDevelopers: GetAvailableDevelopers;
+  calculateCapacity: CalculateCapacity;
   getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
   setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
@@ -153,6 +157,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const companyMemberLookupRepository = new DrizzleCompanyMemberLookupRepository(database);
   const developerAvailabilityRepository = new DrizzleDeveloperAvailabilityRepository(database);
   const companyCapacitySettingsRepository = new DrizzleCompanyCapacitySettingsRepository(database);
+  const capacityCalculator = new CapacityCalculator(new BusinessCalendar());
   const refreshTokenRepository = new DrizzleRefreshTokenRepository(database);
   const systemRepository = new DrizzleSystemRepository(database);
   const systemVersionRepository = new DrizzleSystemVersionRepository(database);
@@ -204,6 +209,14 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       companyRepository,
       accessService,
       authorization,
+    ),
+    calculateCapacity: new CalculateCapacity(
+      developerAvailabilityRepository,
+      companyCapacitySettingsRepository,
+      companyRepository,
+      accessService,
+      authorization,
+      capacityCalculator,
     ),
     getDailyHoursPerDeveloper: new GetDailyHoursPerDeveloper(
       companyCapacitySettingsRepository,

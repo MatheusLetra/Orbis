@@ -290,3 +290,67 @@ Foi adicionada a migration `0004_clever_skin.sql`, persistindo `companies.daily_
 Validação M13.3B: testes focados 25 passed, 0 failed, 0 skipped contra PostgreSQL real; API completa 757 passed, 0 failed, 81 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. PostgreSQL confirmou a coluna `numeric(4,2)`, nullable, sem default, e 5 migrations aplicadas. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente.
 
 Próxima unidade formal: M13.4 — integração da capacidade e previsão.
+
+## M13.4A — CalculateCapacity implementado
+
+`CalculateCapacity` é um use case read-only com entrada `{ actor, companyId, startDate, estimatedHours, holidays? }`. `estimatedHours` vem explicitamente do comando: Task não possui esse campo e a unidade não introduz semântica de estimativa por Requisition. O use case exige contexto tenant-aware, membership ativa, empresa ativa e `capacity.read`, consulta disponibilidade/configuração pelos ports existentes e delega toda a fórmula ao `CapacityCalculator`.
+
+O retorno inclui `companyId`, `startDate`, `estimatedHours`, `availableDevelopers`, `dailyHoursPerDeveloper`, `dailyCapacity`, `requiredDays` e `plannedDeliveryDate`. `CAPACITY_CONFIGURATION_MISSING` (422) é lançado quando a configuração é nula; `CAPACITY_ZERO` (422) quando não há desenvolvedores elegíveis. Feriados são entrada opcional, não persistida. Não há endpoint, OpenAPI, frontend, migration, UoW, Task, Requisition, TimeEntry, pausa, carga comprometida ou timezone operacional nesta unidade.
+
+Validação unitária focada e testes de erros: 34 passed, 0 failed, 0 skipped; typecheck, lint e build passaram. A suíte PostgreSQL focada foi criada para `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/orbis_test` com execução serial, mas ficou skipped porque não havia servidor/container disponível; isso não é aprovação PostgreSQL. M11, M12, Attachments e `commands/` foram preservados. Auditoria manual de Attachments continua pendente.
+
+Próxima unidade formal: M13.4B — endpoint `GET /companies/:companyId/capacity`; M13.4C/frontend permanece posterior e M13 não está completa.
+
+## M13.4B — endpoint HTTP concluído
+
+`GET /companies/:companyId/capacity` é uma rota protegida, tenant-aware e documentada via OpenAPI/Scalar. Aceita somente `startDate` ISO-8601/date-time e `estimatedHours` numérico maior ou igual a zero. A data é convertida para `Date` UTC na borda; a rota não reproduz fórmula nem consulta Tasks, Requisitions, TimeEntries ou pausas, delegando ao `CalculateCapacity`.
+
+A resposta 200 retorna todos os campos do cálculo. Erros documentados: 400 `VALIDATION_ERROR`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 422 `CAPACITY_CONFIGURATION_MISSING`, `CAPACITY_ZERO` ou `BUSINESS_RULE`. `capacity.read` é exigida no backend; não foi adicionada ao endpoint de capabilities porque não há frontend nesta unidade e o parser atual é estrito.
+
+Testes HTTP/OpenAPI focados: 13 passed, 0 failed, 0 skipped. Execução combinada serial com CalculateCapacity e repositories PostgreSQL: 24 passed, 0 failed, 0 skipped em `localhost:5433/orbis_test`. Suíte completa: 785 passed, 86 skipped, 0 failed; typecheck, lint, build e `git diff --check` aprovados. Não houve migration, nova permissão, alteração em M11/M12/Attachments/`commands/` ou integração frontend. A auditoria manual de Attachments continua pendente.
+
+Próxima unidade opcional: M13.4C — client/query e apresentação frontend. M13 não está completa.
+
+## M13.4C1 — transporte frontend concluído
+
+`capacity.read` agora faz parte do allowlist de capabilities do backend e do parser estrito do app. A feature `app/src/features/capacity/` possui parser runtime, `capacityClient.getCapacity`, `capacityKeys` e `useCapacity`.
+
+O contrato exige `companyId` tenant-aware, `startDate` ISO-8601 e `estimatedHours` finito não negativo. A saída valida todos os campos da resposta, datas, UUID e limites numéricos. O hook só habilita a query quando companyId, capability correspondente e parâmetros válidos estão presentes; inclui todos os parâmetros na key, repassa AbortSignal, preserva ApiError e oferece callback de refetch de capabilities em 403. Não calcula localmente nem persiste resultados.
+
+Testes C1: 31 passed, 0 failed, 0 skipped; suíte completa do app: 299 passed, 0 failed, 0 skipped; typecheck, lint e build passaram. Não houve UI, alterações em Tasks, Requisitions, TimeEntries, Attachments, M11, M12 ou `commands/`. Próxima unidade: M13.4C2 — painel independente de simulação na CompanyPage. A auditoria manual de Attachments continua pendente.
+
+## M13.4C2 — painel CompanyPage concluído
+
+`CompanyPage` agora contém o painel independente `Simulação de capacidade`, renderizado somente com `capacity.read` carregada e pertencente ao tenant ativo. O formulário usa data inicial e horas estimadas explícitas, aceita zero, valida campos, mantém valores em erro, bloqueia submissão durante fetch e não persiste parâmetros. O resultado é claramente marcado como `Não persistida`.
+
+O painel usa exclusivamente `useCapacity`; não consulta Tasks, Requisitions, TimeEntries ou pausas e não reproduz a fórmula. Exibe todos os indicadores do endpoint, trata estado inicial/loading/erro/retry/configuração ausente/capacidade zero, mantém foco acessível e usa layout mobile-first sem overflow.
+
+Testes focados do painel: 7 passed, 0 failed, 0 skipped; suíte completa do app: 306 passed, 0 failed, 0 skipped; typecheck, lint e build passaram. Chrome visível confirmou CompanyPage autenticada, simulação real e scrollWidth sem overflow nos viewports 320x844, 360x800, 390x844 e 1280x900. Interação manual de erro/retry por teclado não foi concluída; permanece como hardening C3. Auditoria manual de Attachments continua pendente.
+
+Próxima unidade formal: M13.4C3 — hardening/auditoria visual complementar. M13 permanece incompleta.
+
+## M13.4C3 — hardening automatizado (2026-08-14)
+
+Foi reproduzida e corrigida uma falha concreta no `CapacitySimulationPanel`: `ApiError` 422 sem código conhecido exibia diretamente a mensagem técnica do servidor. O painel agora mostra orientação acessível para 422 genérico e preserva os tratamentos específicos de `CAPACITY_CONFIGURATION_MISSING` e `CAPACITY_ZERO`.
+
+Os testes do app foram ampliados para erro 400/403/404/422/rede/5xx, preservação do formulário, retry, refetch de capabilities em 403, submit/foco por teclado e abort de requisição na desmontagem. A query continua tenant-aware, sem cache cross-tenant, desabilitada sem `capacity.read`/parâmetros válidos e protegida por `AbortSignal`/query keys.
+
+Validação: suíte completa do app 314 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. Uma execução intermediária teve worker Vitest encerrado inesperadamente; a repetição do comando obrigatório passou integralmente.
+
+A auditoria manual obrigatória em Chrome visível não foi executada nesta sessão. Os viewports `320x844`, `360x800`, `390x844` e desktop, erro/retry por teclado físico, Tab/Shift+Tab, troca de empresa durante consulta e ausência de overflow ficam explicitamente não aprovados. M13.4C não deve ser encerrada até essa auditoria manual.
+
+## Auditoria automatizada browser — BUILD 2026-08-14
+
+O projeto agora possui `@playwright/test` com Chromium empacotado, runner serial, PostgreSQL Docker temporário, migrations, fixtures determinísticas, seed real, autenticação pela UI, API/Vite temporários, cleanup e artifacts. Nenhuma auditoria manual foi convertida automaticamente em aprovação.
+
+Resultado executado: suíte completa com 10 testes, 9 passed e 1 failed. Capacity passou 2/2; TimeEntry passou 2/2; responsividade passou 4/4 nos quatro viewports; Attachments passou listagem sob demanda, mas falhou no download FILE. O botão permaneceu em `Baixando...`, não houve evento `download` do Playwright e os logs registraram resposta FILE 200 seguida de nova requisição FILE 401. O artifact contém HTML, JSON, screenshot, vídeo, trace e logs em `artifacts/browser-audit/2026-08-14T14-09-22-465Z-52c60b84-3702-4587-97e3-6a911a40dec6/`.
+
+A falha é funcional e bloqueante. Não houve alteração em regras, endpoints, migrations, permissões, JWT, Attachments, M11, M12, M13 ou `commands/`. O roadmap permanece bloqueado até a correção e nova execução completa de Attachments e da suíte global.
+
+## Correção e aprovação da auditoria browser — 2026-08-14
+
+A falha de download foi corrigida sem expor tokens ou remover autenticação. `requestBlob` materializa os bytes autenticados antes de construir o `Blob`; a API entrega o Buffer por stream e expõe somente `X-Orbis-File-Name`; o `TaskDetailDialog` restaura corretamente `mountedRef` no setup do efeito sob React StrictMode, cria o anchor no documento e revoga a object URL após o início do download. O CORS passou a declarar os métodos usados pela API, corrigindo também o `DELETE` real de Attachments.
+
+Validação final: Attachments 3/3 e suíte browser global 11/11 em Chromium real, incluindo dois FILEs com bearer, bytes, checksum e filenames, LINK, remoção e isolamento tenant-aware. Artifact aprovado: `artifacts/browser-audit/2026-08-14T14-45-24-175Z-1f9401f9-7db9-44d8-9fa5-0c58ec5bb066/`. App: 320/320; API: 872/872; typechecks, lints, builds e `git diff --check` aprovados. A API executa arquivos Vitest serialmente porque os testes PostgreSQL compartilham schema e usam `TRUNCATE`.
+
+O bloqueio funcional de Attachments foi removido. As execuções de coverage também passaram todos os testes, mas não atingiram os thresholds globais: app com 88,15% de statements, 80,64% de branches, 90,84% de functions e 89,72% de lines; API com 94,57%, 92,26%, 93,98% e 94,75%, respectivamente. Os thresholds não foram reduzidos nem arquivos foram excluídos para mascarar a dívida. M13.4C está funcionalmente aprovada, mas a Definition of Done global exige elevar a cobertura antes de iniciar M14 — Timeline semanal.

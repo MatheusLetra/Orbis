@@ -122,6 +122,20 @@ describe("attachments client", () => {
     ).toBe("Título");
   });
 
+  it("usa o filename exposto no transporte binário autenticado", async () => {
+    vi.spyOn(apiClient, "requestBlob").mockResolvedValue({
+      blob: new Blob(["abc"]),
+      headers: new Headers({
+        "Content-Length": "3",
+        "X-Orbis-File-Name": "manual%20seguro.pdf",
+      }),
+    });
+
+    const result = await attachmentsClient.downloadTaskFile("company-a", "task-a", fileAttachment);
+
+    expect(result.fileName).toBe("manual seguro.pdf");
+  });
+
   it("não chama endpoint binário para LINK", async () => {
     const requestBlob = vi.spyOn(apiClient, "requestBlob");
     await expect(

@@ -83,6 +83,7 @@ const capabilitiesState = {
       "tasks.update": true,
       "kanban.manage": true,
       "hours.register": true,
+      "capacity.read": true,
       "users.read": true,
       "requisitions.read": true,
     },
@@ -132,7 +133,10 @@ vi.mock("@/features/attachments/attachment-mutations", () => ({
   }),
 }));
 
-function renderDialog(props: Partial<React.ComponentProps<typeof TaskDetailDialog>> = {}) {
+function renderDialog(
+  props: Partial<React.ComponentProps<typeof TaskDetailDialog>> = {},
+  reactStrictMode = false,
+) {
   return render(
     <QueryClientProvider client={createQueryClient()}>
       <TaskDetailDialog
@@ -144,6 +148,7 @@ function renderDialog(props: Partial<React.ComponentProps<typeof TaskDetailDialo
       />
       ,
     </QueryClientProvider>,
+    { reactStrictMode },
   );
 }
 
@@ -666,7 +671,7 @@ describe("TaskDetailDialog", () => {
       .mockImplementation(() => new Promise((resolve) => (resolveDownload = resolve)));
     const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    renderDialog();
+    renderDialog({}, true);
     expect(download).not.toHaveBeenCalled();
     const button = screen.getByRole("button", { name: "Baixar arquivo" });
     const user = userEvent.setup();
@@ -677,6 +682,7 @@ describe("TaskDetailDialog", () => {
     resolveDownload(downloaded);
     await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith("blob:test"));
     expect(createObjectURL).toHaveBeenCalledWith(downloaded.blob);
+    expect(document.querySelector('a[download="manual.pdf"]')).not.toBeInTheDocument();
     expect(file[0]?.kind).toBe("FILE");
   });
 

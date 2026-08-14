@@ -7,6 +7,8 @@ import { buildApp } from "@/app";
 import type { AppEnv } from "@/config/env";
 import {
   BusinessRuleError,
+  CapacityConfigurationMissingError,
+  CapacityZeroError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -36,6 +38,13 @@ const typedErrorCases = [
   { ErrorClass: ValidationError, path: "/e/validation", status: 400, code: "VALIDATION_ERROR" },
   { ErrorClass: ConflictError, path: "/e/conflict", status: 409, code: "CONFLICT" },
   { ErrorClass: BusinessRuleError, path: "/e/business", status: 422, code: "BUSINESS_RULE" },
+  {
+    ErrorClass: CapacityConfigurationMissingError,
+    path: "/e/capacity-configuration",
+    status: 422,
+    code: "CAPACITY_CONFIGURATION_MISSING",
+  },
+  { ErrorClass: CapacityZeroError, path: "/e/capacity-zero", status: 422, code: "CAPACITY_ZERO" },
 ] as const;
 
 describe("tratamento global de erros", () => {

@@ -1071,3 +1071,11 @@ Se houver conflito entre:
 priorizar nessa ordem.
 
 Quando houver dúvida de negócio não resolvida, não inventar comportamento silenciosamente. Registrar a dúvida em `docs/ai_handoff.md` ou solicitar decisão antes de consolidar uma regra estrutural.
+
+## 37. Auditoria automatizada em browser
+
+Todo fluxo funcional ou visual relevante deve possuir auditoria automatizada em browser real antes do encerramento da unidade. Auditoria manual humana é complementar e não constitui requisito obrigatório para aprovação quando a suíte automatizada equivalente estiver disponível. O agente deve executar todas as auditorias pendentes antes de iniciar a próxima unidade funcional. Auditorias não executadas permanecem pendentes e bloqueiam o avanço.
+
+O Orbis adota `@playwright/test` com Chromium empacotado pelo Playwright para auditorias end-to-end. Testes Vitest com `jsdom` não substituem browser real, e testes de API não substituem validação de UI, foco, teclado, viewport, lifecycle ou downloads.
+
+As suítes de browser devem executar serialmente quando dependerem de PostgreSQL, usar fixtures temporárias e determinísticas, gerar artifacts e separar falhas de ambiente de falhas funcionais. Nenhuma credencial de auditoria deve ser persistida em documentação pública, código de produção ou no Git.

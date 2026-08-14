@@ -3,6 +3,7 @@ export const COMPANY_CAPABILITY_NAMES = [
   "tasks.update",
   "kanban.manage",
   "hours.register",
+  "capacity.read",
   "users.read",
   "requisitions.read",
 ] as const;

@@ -83,6 +83,7 @@
 }
 
 .app-shell-actions > button {
+  position: relative;
   min-height: 44px;
 }
 

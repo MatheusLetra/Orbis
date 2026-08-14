@@ -1,5 +1,9 @@
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import {
   type RequisitionOutput,
@@ -28,6 +32,7 @@ export class UpdateRequisition implements UseCase<UpdateRequisitionCommand, Requ
     private readonly systemVersionRepository: SystemVersionRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: UpdateRequisitionCommand): Promise<RequisitionOutput> {
@@ -46,6 +51,8 @@ export class UpdateRequisition implements UseCase<UpdateRequisitionCommand, Requ
     if (!requisition || requisition.companyId !== input.actor.companyId) {
       throw new NotFoundError("Requisição não encontrada");
     }
+    const previousResponsibleId = requisition.responsibleId;
+    const previousDeliveredAt = requisition.deliveredAt;
 
     const responsibleId =
       parsed.data.responsibleId !== undefined
@@ -122,6 +129,33 @@ export class UpdateRequisition implements UseCase<UpdateRequisitionCommand, Requ
     }
 
     const updated = await this.requisitionRepository.update(requisition);
+
+    if (updated.responsibleId && updated.responsibleId !== previousResponsibleId) {
+      await this.notifications
+        .handle({
+          eventType: "REQUISITION_ASSIGNED",
+          companyId: updated.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [updated.responsibleId],
+          title: "Requisição atribuída",
+          body: updated.title,
+          data: { requisitionId: updated.id },
+        })
+        .catch(() => undefined);
+    }
+    if (previousDeliveredAt === null && updated.deliveredAt !== null && updated.responsibleId) {
+      await this.notifications
+        .handle({
+          eventType: "REQUISITION_COMPLETED",
+          companyId: updated.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [updated.responsibleId],
+          title: "Requisição concluída",
+          body: updated.title,
+          data: { requisitionId: updated.id },
+        })
+        .catch(() => undefined);
+    }
 
     return toRequisitionOutput(updated);
   }

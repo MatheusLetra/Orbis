@@ -16,7 +16,7 @@ Principais características:
 - **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
 - **Sistemas → Versões → Releases** com armazenamento de artefatos abstraído (`ArtifactStorage`); em desenvolvimento os executáveis são gravados no filesystem local (`ARTIFACT_STORAGE_PATH`, default `./storage/releases`), fora do PostgreSQL.
 - **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
-- **Notificações configuráveis**, **chat interno**, **relatórios** e **auditoria**.
+- **Notificações configuráveis in-app**, persistidas e isoladas por tenant; chat, relatórios e auditoria evoluem em milestones posteriores.
 - **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
 
 > **Regra de domínio:** o termo oficial é **Requisição**. O conceito de "ordem" do sistema original não deve ser utilizado.
@@ -170,6 +170,12 @@ POST  /companies/:companyId/tasks/:taskId/time-entries → registra horas por du
 GET   /companies/:companyId/tasks/:taskId/time-entries → lista horas e total da tarefa
 GET   /companies/:companyId/timeline/weekly             → timeline semanal (`weekStart` na segunda-feira)
 GET   /companies/:companyId/timeline/monthly            → timeline mensal (`period=YYYY-MM`)
+GET   /companies/:companyId/timeline/yearly             → timeline anual (`year=YYYY`)
+
+GET   /companies/:companyId/notifications               → lista notificações próprias e não lidas
+PATCH /companies/:companyId/notifications/:notificationId/read → marca notificação própria como lida
+GET   /companies/:companyId/notification-preferences    → lista preferências próprias
+PATCH /companies/:companyId/notification-preferences    → atualiza preferência in-app própria
 ```
 
 As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
@@ -228,6 +234,7 @@ As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium em
 | `npm run audit:time-entries` | Executa TimeEntry |
 | `npm run audit:capacity` | Executa Capacity |
 | `npm run audit:timeline` | Executa a timeline semanal |
+| `npm run audit:notifications` | Executa a central de notificações |
 
 Cada execução gera relatório HTML, JSON, screenshots, vídeos/traces em `artifacts/browser-audit/`. Falhas são classificadas como ambiente, fixture, funcional, visual, acessibilidade ou console inesperado. A execução é serial quando depende de banco e o avanço do roadmap fica bloqueado enquanto qualquer auditoria obrigatória falhar ou não for executada.
 
@@ -260,5 +267,6 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M13 | Capacidade e previsão | ✅ Concluído |
 | M14 | Timeline semanal | ✅ Concluído; M14.1 cobre todos os itens |
 | M15 | Timeline mensal/anual | ✅ Concluída; M15.1 e M15.2 concluídas |
+| M16 | Notificações persistidas in-app | ✅ Concluída |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M14 está concluída, com M14.1 cobrindo todos os itens. M15 está em andamento, com M15.1 concluída; M15.2 ainda não está definida.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M16 está concluída sem WebSocket ou polling; a próxima milestone formal é M17 — Chat.

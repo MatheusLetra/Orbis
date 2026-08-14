@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import {
   type PublishReleaseInput,
@@ -25,6 +29,7 @@ export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOut
     private readonly storage: ArtifactStorage,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: PublishReleaseCommand): Promise<ReleaseOutput> {
@@ -61,6 +66,17 @@ export class PublishRelease implements UseCase<PublishReleaseCommand, ReleaseOut
       sizeBytes: content.byteLength,
     });
     const updated = await this.releaseRepository.update(release);
+
+    await this.notifications
+      .handle({
+        eventType: "RELEASE_PUBLISHED",
+        companyId: updated.companyId,
+        actorId: input.actor.userId,
+        title: "Release publicada",
+        body: updated.versionLabel,
+        data: { releaseId: updated.id },
+      })
+      .catch(() => undefined);
 
     return toReleaseOutput(updated);
   }

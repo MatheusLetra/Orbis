@@ -21,7 +21,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Em andamento |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Concluída — M14.1 cobre todos os itens |
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Concluída — M15.1 e M15.2 concluídas |
-| 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Não iniciada |
+| 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Concluída |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Não iniciada |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Não iniciada |
 | 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Não iniciada |
@@ -239,4 +239,15 @@ M15.1 implementou somente leitura `GET /companies/:companyId/timeline/monthly?pe
 
 O frontend expõe `/timeline/monthly`, com cache tenant/period/filters e suporte mobile. A unidade é somente leitura e não inclui migration, snapshot, persistência, TimeEntries, pausas, Capacity ou timeline anual. App 490 passed; API 959 passed; PostgreSQL real serial com `TEST_DATABASE_URL` na porta 5433 e monthly repository sem skip. Coverage: app 95,52% statements, 90,31% branches, 96,53% functions, 96,72% lines; API 98,08%, 93,70%, 98,67%, 98,61%. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Playwright mensal 4/4 em `artifacts/browser-audit/2026-08-14T17-26-57-266Z-8557c5a9-a193-4a45-ad2b-fe4239159aef/`; global 23/23, 0 failed, 0 skipped em `artifacts/browser-audit/2026-08-14T17-30-26-603Z-88ace51c-b643-421c-83bc-5411faea2fe9/`, viewports `320x844`, `360x800`, `390x844`, `1440x900`. Sem nova migration/dependência.
 
-M15 está em andamento. M15.2 não está definida; não inventar escopo anual.
+M15 está concluída com M15.1 e M15.2.
+
+## Progresso M16
+
+- [x] Domínio, catálogo dos cinco eventos, preferências tenant-scoped e persistência in-app.
+- [x] Migration `0005_loose_lady_ursula.sql` com `company_id` obrigatório, remoção de e-mail e índices de listagem/não lidas/eventId.
+- [x] Publicação pós-commit best-effort em Tasks, Requisitions e Releases.
+- [x] Endpoints próprios de listagem, leitura e preferências, documentados no OpenAPI.
+- [x] Central responsiva no AppShell, sem WebSocket, polling ou refresh automático.
+- [x] PostgreSQL 991/991, app 532/532, coverage acima dos thresholds e Playwright global 39/39.
+
+M16 está concluída. Eventos de vencimento, TimeEntries, pausas, Capacity, Timelines, menções e chat permanecem fora do escopo. A próxima milestone formal é M17 — Chat.

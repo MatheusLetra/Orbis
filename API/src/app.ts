@@ -17,6 +17,7 @@ import { registerCapacityRoutes } from "./modules/capacity/http/capacity.routes"
 import { registerCompanyRoutes } from "./modules/companies/http/company.routes";
 import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
+import { registerNotificationRoutes } from "./modules/notifications/http/notification.routes";
 import { registerReleaseRoutes } from "./modules/releases/http/release.routes";
 import { registerRequisitionRoutes } from "./modules/requisitions/http/requisition.routes";
 import { registerSystemRoutes } from "./modules/systems/http/system.routes";
@@ -162,6 +163,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
       protectedRoutes.addHook("preHandler", createAuthenticateHook(modules.tokenService));
       await registerCompanyRoutes(protectedRoutes, modules);
       await registerMembershipRoutes(protectedRoutes, modules);
+      if (modules.notifications) {
+        await registerNotificationRoutes(protectedRoutes, {
+          ...modules.notifications,
+          permissionResolver: modules.permissionResolver,
+        });
+      }
       await registerCapacityRoutes(protectedRoutes, {
         calculateCapacity: modules.calculateCapacity,
         permissionResolver: modules.permissionResolver,

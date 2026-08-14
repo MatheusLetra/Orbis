@@ -755,10 +755,11 @@ Modelo:
 ```text
 NotificationPreference
 ├── userId
+├── companyId
 ├── eventType
 ├── inAppEnabled
-├── emailEnabled
-└── ...
+├── createdAt
+└── updatedAt
 ```
 
 ```text
@@ -766,6 +767,7 @@ Notification
 ├── id
 ├── companyId
 ├── userId
+├── eventId?
 ├── type
 ├── title
 ├── body
@@ -791,6 +793,12 @@ Delivery
 ```
 
 Isso evita acoplar notificações às regras centrais.
+
+**Implementação M16:** preferências são exclusivamente tenant-scoped e ausência de registro significa in-app habilitado. O canal único é a central persistida; não há WebSocket, polling, refresh automático, EventSource, e-mail ou push. A publicação ocorre depois da persistência/commit do use case de origem, em modo best-effort, sem alterar seu resultado.
+
+Eventos implementados: `TASK_ASSIGNED`, `TASK_STATUS_CHANGED`, `REQUISITION_ASSIGNED`, `REQUISITION_COMPLETED` e `RELEASE_PUBLISHED`. O destinatário nunca é escolhido pelo frontend; o handler exclui o ator, valida usuário/membership ativos e aplica preferências. Releases usam membros ativos com `releases.read`.
+
+Endpoints próprios usam `companyId` da rota resolvido pela membership e sempre operam sobre o `userId` autenticado. A listagem ordena por `createdAt DESC, id DESC`; leitura é idempotente e `readAt` é controlado pelo backend. A migration `0005` mantém índices para listagem, não lidas e `eventId` opcional. Não existe retenção ou limpeza automática.
 
 ## 21. Chat
 

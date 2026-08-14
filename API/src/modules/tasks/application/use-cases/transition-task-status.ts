@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { type TaskOutput, toTaskOutput } from "@/modules/tasks/application/dto/task-dtos";
 import type { TaskUnitOfWork } from "@/modules/tasks/application/ports/task-unit-of-work";
@@ -25,6 +29,7 @@ export class TransitionTaskStatus implements UseCase<TransitionTaskStatusCommand
     private readonly taskUnitOfWork: TaskUnitOfWork,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: TransitionTaskStatusCommand): Promise<TaskOutput> {
@@ -39,53 +44,73 @@ export class TransitionTaskStatus implements UseCase<TransitionTaskStatusCommand
       });
     }
 
-    return this.taskUnitOfWork.execute(async ({ tasks, taskStatusHistory, taskPauseIntervals }) => {
-      const task = await tasks.findByIdForUpdate(input.actor.companyId, input.taskId);
-      if (!task) {
-        throw new NotFoundError("Tarefa não encontrada");
-      }
+    const result = await this.taskUnitOfWork.execute(
+      async ({ tasks, taskStatusHistory, taskPauseIntervals }) => {
+        const task = await tasks.findByIdForUpdate(input.actor.companyId, input.taskId);
+        if (!task) {
+          throw new NotFoundError("Tarefa não encontrada");
+        }
 
-      if (task.assigneeId !== input.actor.userId) {
-        this.authorization.assertPermission(input.actor, "kanban.manage");
-      }
+        if (task.assigneeId !== input.actor.userId) {
+          this.authorization.assertPermission(input.actor, "kanban.manage");
+        }
 
-      const fromStatus = task.status;
-      const transitionAt = input.occurredAt ?? new Date();
-      const openPause = await taskPauseIntervals.findOpenByTaskForUpdate(task.id);
+        const fromStatus = task.status;
+        const transitionAt = input.occurredAt ?? new Date();
+        const openPause = await taskPauseIntervals.findOpenByTaskForUpdate(task.id);
 
-      if (parsed.data.status === "PAUSED" && openPause) {
-        throw new BusinessRuleError("Task já possui um intervalo de pausa aberto");
-      }
-      if (fromStatus !== "PAUSED" && openPause) {
-        throw new BusinessRuleError("Task fora de pausa possui um intervalo de pausa aberto");
-      }
-      if (fromStatus === "PAUSED" && !openPause) {
-        throw new BusinessRuleError("Task pausada não possui intervalo de pausa aberto");
-      }
+        if (parsed.data.status === "PAUSED" && openPause) {
+          throw new BusinessRuleError("Task já possui um intervalo de pausa aberto");
+        }
+        if (fromStatus !== "PAUSED" && openPause) {
+          throw new BusinessRuleError("Task fora de pausa possui um intervalo de pausa aberto");
+        }
+        if (fromStatus === "PAUSED" && !openPause) {
+          throw new BusinessRuleError("Task pausada não possui intervalo de pausa aberto");
+        }
 
-      task.transitionTo(parsed.data.status, transitionAt);
+        task.transitionTo(parsed.data.status, transitionAt);
 
-      const history = TaskStatusHistory.createTransition({
-        taskId: task.id,
-        fromStatus,
-        toStatus: parsed.data.status,
-        changedBy: input.actor.userId,
-        changedAt: transitionAt,
-        metadata: null,
-      });
+        const history = TaskStatusHistory.createTransition({
+          taskId: task.id,
+          fromStatus,
+          toStatus: parsed.data.status,
+          changedBy: input.actor.userId,
+          changedAt: transitionAt,
+          metadata: null,
+        });
 
-      const updatedTask = await tasks.update(task);
-      if (parsed.data.status === "PAUSED") {
-        await taskPauseIntervals.create(
-          TaskPauseInterval.createOpen({ taskId: task.id, startedAt: transitionAt }),
-        );
-      } else if (fromStatus === "PAUSED" && openPause) {
-        openPause.close(transitionAt);
-        await taskPauseIntervals.close(openPause);
-      }
-      await taskStatusHistory.create(history);
+        const updatedTask = await tasks.update(task);
+        if (parsed.data.status === "PAUSED") {
+          await taskPauseIntervals.create(
+            TaskPauseInterval.createOpen({ taskId: task.id, startedAt: transitionAt }),
+          );
+        } else if (fromStatus === "PAUSED" && openPause) {
+          openPause.close(transitionAt);
+          await taskPauseIntervals.close(openPause);
+        }
+        await taskStatusHistory.create(history);
 
-      return toTaskOutput(updatedTask);
-    });
+        return {
+          output: toTaskOutput(updatedTask),
+          fromStatus,
+          assigneeId: updatedTask.assigneeId,
+        };
+      },
+    );
+    if (result.assigneeId && result.fromStatus !== result.output.status) {
+      await this.notifications
+        .handle({
+          eventType: "TASK_STATUS_CHANGED",
+          companyId: input.actor.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [result.assigneeId],
+          title: "Status da tarefa alterado",
+          body: result.output.title,
+          data: { taskId: result.output.id, status: result.output.status },
+        })
+        .catch(() => undefined);
+    }
+    return result.output;
   }
 }

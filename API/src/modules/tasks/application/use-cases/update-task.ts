@@ -1,5 +1,9 @@
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import type { RequisitionRepository } from "@/modules/requisitions/domain/repositories/requisition-repository";
 import {
@@ -26,6 +30,7 @@ export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
     private readonly requisitionRepository: RequisitionRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: UpdateTaskCommand): Promise<TaskOutput> {
@@ -40,12 +45,13 @@ export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
       });
     }
 
-    const updated = await this.taskUnitOfWork.execute(async ({ tasks }) => {
+    const { updated, previousAssigneeId } = await this.taskUnitOfWork.execute(async ({ tasks }) => {
       const task = await tasks.findByIdForUpdate(input.actor.companyId, input.taskId);
       if (!task) {
         throw new NotFoundError("Tarefa não encontrada");
       }
 
+      const previousAssigneeId = task.assigneeId;
       const canManageCompanyTasks = input.actor.permissions.includes("kanban.manage");
       const requestedAssigneeId = parsed.data.assigneeId;
       const isSelfClaim = task.assigneeId === null && requestedAssigneeId === input.actor.userId;
@@ -101,8 +107,22 @@ export class UpdateTask implements UseCase<UpdateTaskCommand, TaskOutput> {
         task.changePlannedEndDate(parsed.data.plannedEndDate);
       }
 
-      return tasks.update(task);
+      return { updated: await tasks.update(task), previousAssigneeId };
     });
+
+    if (updated.assigneeId && updated.assigneeId !== previousAssigneeId) {
+      await this.notifications
+        .handle({
+          eventType: "TASK_ASSIGNED",
+          companyId: updated.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [updated.assigneeId],
+          title: "Tarefa atribuída",
+          body: updated.title,
+          data: { taskId: updated.id },
+        })
+        .catch(() => undefined);
+    }
 
     return toTaskOutput(updated);
   }

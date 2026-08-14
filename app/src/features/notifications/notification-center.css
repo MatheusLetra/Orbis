@@ -1,0 +1,126 @@
+.notification-center-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 1rem;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--destructive);
+  color: white;
+  font-size: 0.625rem;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.notification-center-title,
+.notification-center-section-title,
+.notification-center-item-title,
+.notification-center-subtitle,
+.notification-center-body,
+.notification-center-more {
+  margin: 0;
+}
+
+.notification-center-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.notification-center-subtitle,
+.notification-center-body,
+.notification-center-time,
+.notification-center-more {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.notification-center-main {
+  display: grid;
+  gap: 24px;
+}
+
+.notification-center-section-title {
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.notification-center-list,
+.notification-center-preference-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notification-center-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.notification-center-item[data-unread="true"] {
+  border-left: 3px solid var(--primary);
+  background: var(--muted);
+}
+
+.notification-center-item-heading,
+.notification-center-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-center-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.notification-center-unread {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.notification-center-item .inline-flex {
+  justify-self: start;
+}
+
+.notification-center-more {
+  margin-top: 12px;
+}
+
+.notification-center-preferences {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.notification-center-preferences > .notification-center-subtitle {
+  margin: -8px 0 12px;
+}
+
+.notification-center-preference {
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.notification-center-preference input {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: 0 0 auto;
+}
+
+.notification-center-error {
+  margin: 12px 0 0;
+  color: var(--destructive);
+  font-size: 0.8125rem;
+}

@@ -20,6 +20,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "systems.manage",
     "versions.manage",
     "releases.manage",
+    "releases.read",
     "requisitions.read",
     "requisitions.create",
     "requisitions.update",
@@ -40,6 +41,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "company.read",
     "users.read",
     "systems.read",
+    "releases.read",
     "requisitions.read",
     "tasks.read",
     "chat.use",
@@ -48,6 +50,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   TESTADOR: [
     "company.read",
     "systems.read",
+    "releases.read",
     "requisitions.read",
     "tasks.read",
     "tasks.update",
@@ -57,6 +60,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   DESENVOLVEDOR: [
     "company.read",
     "systems.read",
+    "releases.read",
     "requisitions.read",
     "requisitions.create",
     "requisitions.update",

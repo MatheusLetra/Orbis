@@ -3,6 +3,7 @@ export const fixture = {
   actorPassword: "AuditPassword-2026!",
   actorName: "Audit Actor",
   thirdEmail: "audit-third@orbis.test",
+  thirdPassword: "AuditThird-2026!",
   companyA: "00000000-0000-4000-8000-000000000001",
   companyB: "00000000-0000-4000-8000-000000000002",
   actorId: "00000000-0000-4000-8000-000000000011",
@@ -33,6 +34,20 @@ export const fixture = {
   secondFileAttachment: "00000000-0000-4000-8000-000000000203",
   timeEntryOne: "00000000-0000-4000-8000-000000000301",
   timeEntryTwo: "00000000-0000-4000-8000-000000000302",
+  notificationAUnread: "00000000-0000-4000-8000-000000000401",
+  notificationALong: "00000000-0000-4000-8000-000000000402",
+  notificationARead: "00000000-0000-4000-8000-000000000403",
+  notificationBUnread: "00000000-0000-4000-8000-000000000404",
+  preferenceATaskAssigned: "00000000-0000-4000-8000-000000000411",
+  preferenceATaskStatusChanged: "00000000-0000-4000-8000-000000000412",
+  preferenceARequisitionAssigned: "00000000-0000-4000-8000-000000000413",
+  preferenceARequisitionCompleted: "00000000-0000-4000-8000-000000000414",
+  preferenceAReleasePublished: "00000000-0000-4000-8000-000000000415",
+  preferenceBTaskAssigned: "00000000-0000-4000-8000-000000000416",
+  preferenceBTaskStatusChanged: "00000000-0000-4000-8000-000000000417",
+  preferenceBRequisitionAssigned: "00000000-0000-4000-8000-000000000418",
+  preferenceBRequisitionCompleted: "00000000-0000-4000-8000-000000000419",
+  preferenceBReleasePublished: "00000000-0000-4000-8000-000000000420",
 } as const;
 
 export const fixtureFile = Buffer.from("orbis-browser-audit-file-v1", "utf8");

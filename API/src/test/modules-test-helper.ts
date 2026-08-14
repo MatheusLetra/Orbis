@@ -25,6 +25,22 @@ import { ListMemberships } from "@/modules/memberships/application/use-cases/lis
 import type { Membership } from "@/modules/memberships/domain/entities/membership";
 import type { CompanyMemberLookupRepository } from "@/modules/memberships/domain/repositories/company-member-lookup-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
+import { GetNotificationPreferences } from "@/modules/notifications/application/use-cases/get-notification-preferences";
+import { ListNotifications } from "@/modules/notifications/application/use-cases/list-notifications";
+import { MarkNotificationRead } from "@/modules/notifications/application/use-cases/mark-notification-read";
+import { UpdateNotificationPreference } from "@/modules/notifications/application/use-cases/update-notification-preference";
+import type { Notification } from "@/modules/notifications/domain/entities/notification";
+import type { NotificationPreference } from "@/modules/notifications/domain/entities/notification-preference";
+import type { NotificationEventType } from "@/modules/notifications/domain/notification-event";
+import type { NotificationPreferenceRepository } from "@/modules/notifications/domain/repositories/notification-preference-repository";
+import type {
+  NotificationPage,
+  NotificationRepository,
+} from "@/modules/notifications/domain/repositories/notification-repository";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
 import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-release";
@@ -127,8 +143,83 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     weeklyTimeline: InMemoryWeeklyTimelineReadRepository;
     monthlyTimeline: InMemoryMonthlyRequisitionTimelineReadRepository;
     yearlyTimeline: InMemoryYearlyRequisitionTimelineReadRepository;
+    notifications: InMemoryNotificationRepository;
+    notificationPreferences: InMemoryNotificationPreferenceRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
+}
+
+export class InMemoryNotificationRepository implements NotificationRepository {
+  readonly items: Notification[] = [];
+
+  async create(notification: Notification): Promise<Notification> {
+    const duplicate = this.items.find(
+      (item) =>
+        notification.eventId !== null &&
+        item.companyId === notification.companyId &&
+        item.userId === notification.userId &&
+        item.eventId === notification.eventId,
+    );
+    if (!duplicate) this.items.push(notification);
+    return duplicate ?? notification;
+  }
+
+  async list(companyId: string, userId: string, limit: number): Promise<NotificationPage> {
+    const matching = this.items
+      .filter((item) => item.companyId === companyId && item.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id));
+    return {
+      items: matching.slice(0, limit),
+      unreadCount: matching.filter((item) => item.readAt === null).length,
+      hasMore: matching.length > limit,
+    };
+  }
+
+  async findById(companyId: string, userId: string, id: string): Promise<Notification | null> {
+    return (
+      this.items.find(
+        (item) => item.id === id && item.companyId === companyId && item.userId === userId,
+      ) ?? null
+    );
+  }
+
+  async update(notification: Notification): Promise<Notification> {
+    return notification;
+  }
+}
+
+export class InMemoryNotificationPreferenceRepository implements NotificationPreferenceRepository {
+  items: NotificationPreference[] = [];
+
+  async list(userId: string, companyId: string): Promise<NotificationPreference[]> {
+    return this.items.filter((item) => item.userId === userId && item.companyId === companyId);
+  }
+
+  async find(
+    userId: string,
+    companyId: string,
+    eventType: NotificationEventType,
+  ): Promise<NotificationPreference | null> {
+    return (
+      this.items.find(
+        (item) =>
+          item.userId === userId && item.companyId === companyId && item.eventType === eventType,
+      ) ?? null
+    );
+  }
+
+  async upsert(preference: NotificationPreference): Promise<NotificationPreference> {
+    this.items = this.items.filter(
+      (item) =>
+        !(
+          item.userId === preference.userId &&
+          item.companyId === preference.companyId &&
+          item.eventType === preference.eventType
+        ),
+    );
+    this.items.push(preference);
+    return preference;
+  }
 }
 
 class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupRepository {
@@ -161,7 +252,9 @@ class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupReposi
   }
 }
 
-export function buildTestModules(): TestModules {
+export function buildTestModules(
+  notificationDispatcher: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
+): TestModules {
   const users = new InMemoryUserRepository();
   const companies = new InMemoryCompanyRepository();
   const memberships = new InMemoryMembershipRepository();
@@ -202,6 +295,8 @@ export function buildTestModules(): TestModules {
   const yearlyTimelineReadRepository = new InMemoryYearlyRequisitionTimelineReadRepository(
     requisitions,
   );
+  const notifications = new InMemoryNotificationRepository();
+  const notificationPreferences = new InMemoryNotificationPreferenceRepository();
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
     attachmentRepository,
     attachmentBlobRepository,
@@ -238,6 +333,8 @@ export function buildTestModules(): TestModules {
       weeklyTimeline: weeklyTimelineReadRepository,
       monthlyTimeline: monthlyTimelineReadRepository,
       yearlyTimeline: yearlyTimelineReadRepository,
+      notifications,
+      notificationPreferences,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -285,6 +382,12 @@ export function buildTestModules(): TestModules {
       authorization,
     ),
     permissionResolver,
+    notifications: {
+      list: new ListNotifications(notifications, accessService),
+      markRead: new MarkNotificationRead(notifications, accessService),
+      getPreferences: new GetNotificationPreferences(notificationPreferences, accessService),
+      updatePreference: new UpdateNotificationPreference(notificationPreferences, accessService),
+    },
     tokenService,
     requisitions: {
       create: new CreateRequisition(
@@ -295,6 +398,7 @@ export function buildTestModules(): TestModules {
         systemVersions,
         accessService,
         authorization,
+        notificationDispatcher,
       ),
       update: new UpdateRequisition(
         requisitions,
@@ -303,6 +407,7 @@ export function buildTestModules(): TestModules {
         systemVersions,
         accessService,
         authorization,
+        notificationDispatcher,
       ),
       list: new ListRequisitions(requisitions, accessService, authorization),
       get: new GetRequisition(requisitions, requisitionAssignees, accessService, authorization),
@@ -313,6 +418,7 @@ export function buildTestModules(): TestModules {
         memberships,
         accessService,
         authorization,
+        notificationDispatcher,
       ),
       removeAssignee: new RemoveRequisitionAssignee(
         requisitions,
@@ -355,7 +461,13 @@ export function buildTestModules(): TestModules {
       createRelease: new CreateRelease(releases, systemVersions, accessService, authorization),
       listReleases: new ListReleases(releases, accessService, authorization),
       getRelease: new GetRelease(releases, accessService, authorization),
-      publishRelease: new PublishRelease(releases, artifactStorage, accessService, authorization),
+      publishRelease: new PublishRelease(
+        releases,
+        artifactStorage,
+        accessService,
+        authorization,
+        notificationDispatcher,
+      ),
       deleteRelease: new DeleteRelease(releases, accessService, authorization),
     },
     tasks: {
@@ -365,6 +477,7 @@ export function buildTestModules(): TestModules {
         requisitions,
         accessService,
         new AuthorizationService(),
+        notificationDispatcher,
       ),
       update: new UpdateTask(
         taskUnitOfWork,
@@ -372,11 +485,13 @@ export function buildTestModules(): TestModules {
         requisitions,
         accessService,
         new AuthorizationService(),
+        notificationDispatcher,
       ),
       transition: new TransitionTaskStatus(
         taskUnitOfWork,
         accessService,
         new AuthorizationService(),
+        notificationDispatcher,
       ),
       list: new ListTasks(tasks, accessService, new AuthorizationService()),
       get: new GetTask(tasks, taskStatusHistory, accessService, new AuthorizationService()),

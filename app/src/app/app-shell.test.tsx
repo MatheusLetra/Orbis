@@ -92,6 +92,16 @@ describe("AppShell", () => {
     expect(authState.logout).toHaveBeenCalledOnce();
   });
 
+  it("integra o botão de notificações com o tenant ativo", () => {
+    companyState.activeCompany = { id: "company-a", name: "Empresa A" };
+    renderShell();
+
+    const notifications = screen.getByRole("button", { name: "Notificações" });
+    expect(notifications).toBeEnabled();
+    expect(notifications).toHaveAttribute("aria-haspopup", "dialog");
+    expect(notifications).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("mantém uma sequência de foco previsível com Tab e Shift+Tab", async () => {
     const user = userEvent.setup();
     renderShell();

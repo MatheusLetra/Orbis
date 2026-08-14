@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import { NotificationCenter } from "@/features/notifications/notification-center";
 import "./app-shell.css";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -42,6 +43,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             )}
             <div className="app-shell-actions">
+              <NotificationCenter
+                key={company.activeCompany?.id ?? "no-company"}
+                companyId={company.activeCompany?.id ?? null}
+              />
               <ThemeToggle />
               <Button variant="ghost" size="sm" onClick={() => void auth.logout()}>
                 Sair

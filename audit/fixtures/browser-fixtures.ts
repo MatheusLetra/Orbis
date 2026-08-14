@@ -15,12 +15,13 @@ async function passwordHash(password: string): Promise<string> {
 export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
   const sql = postgres(databaseUrl, { max: 1, prepare: false });
   const actorHash = await passwordHash(fixture.actorPassword);
-  const thirdHash = await passwordHash("AuditThird-2026!");
+  const thirdHash = await passwordHash(fixture.thirdPassword);
   const checksum = createHash("sha256").update(fixtureFile).digest("hex");
   const secondChecksum = createHash("sha256").update(secondFixtureFile).digest("hex");
   const now = new Date("2026-01-02T12:00:00.000Z");
   const longTaskDescription = "Conteúdo longo para auditoria browser ".repeat(12);
   const longTimeEntryDescription = "Descrição longa ".repeat(20);
+  const longNotificationBody = "Conteúdo longo de notificação sem quebra artificial ".repeat(24);
 
   await sql.begin(async (tx) => {
     await tx`insert into companies (id, name, timezone, daily_hours_per_developer, is_active, created_at, updated_at)
@@ -69,6 +70,22 @@ export async function seedBrowserFixtures(databaseUrl: string): Promise<void> {
     await tx`insert into time_entries (id, company_id, task_id, user_id, duration_minutes, description, created_at)
       values (${fixture.timeEntryOne}, ${fixture.companyA}, ${fixture.taskOwn}, ${fixture.actorId}, 30, 'Primeiro apontamento', ${now}),
              (${fixture.timeEntryTwo}, ${fixture.companyA}, ${fixture.taskOwn}, ${fixture.actorId}, 45, ${longTimeEntryDescription}, ${new Date(now.getTime() + 1000)})`;
+    await tx`insert into notifications (id, company_id, user_id, type, title, body, read_at, data, created_at)
+      values (${fixture.notificationAUnread}, ${fixture.companyA}, ${fixture.actorId}, 'TASK_ASSIGNED', 'Audit unread A', 'Notificação não lida do tenant A', null, ${JSON.stringify({ taskId: fixture.taskOwn })}, ${new Date(now.getTime() + 3000)}),
+             (${fixture.notificationALong}, ${fixture.companyA}, ${fixture.actorId}, 'TASK_STATUS_CHANGED', 'Audit conteúdo longo A', ${longNotificationBody}, null, ${JSON.stringify({ taskId: fixture.taskOwn, status: "IN_PROGRESS" })}, ${new Date(now.getTime() + 2000)}),
+             (${fixture.notificationARead}, ${fixture.companyA}, ${fixture.actorId}, 'REQUISITION_COMPLETED', 'Audit read A', 'Notificação já lida do tenant A', ${new Date(now.getTime() + 1500)}, ${JSON.stringify({ requisitionId: fixture.monthlyOnTime })}, ${new Date(now.getTime() + 1000)}),
+             (${fixture.notificationBUnread}, ${fixture.companyB}, ${fixture.actorId}, 'RELEASE_PUBLISHED', 'Audit exclusivo tenant B', 'Não deve aparecer no tenant A', null, ${JSON.stringify({ releaseId: "00000000-0000-4000-8000-000000000499" })}, ${new Date(now.getTime() + 4000)})`;
+    await tx`insert into notification_preferences (id, user_id, company_id, event_type, in_app_enabled, created_at, updated_at)
+      values (${fixture.preferenceATaskAssigned}, ${fixture.actorId}, ${fixture.companyA}, 'TASK_ASSIGNED', true, ${now}, ${now}),
+             (${fixture.preferenceATaskStatusChanged}, ${fixture.actorId}, ${fixture.companyA}, 'TASK_STATUS_CHANGED', true, ${now}, ${now}),
+             (${fixture.preferenceARequisitionAssigned}, ${fixture.actorId}, ${fixture.companyA}, 'REQUISITION_ASSIGNED', false, ${now}, ${now}),
+             (${fixture.preferenceARequisitionCompleted}, ${fixture.actorId}, ${fixture.companyA}, 'REQUISITION_COMPLETED', true, ${now}, ${now}),
+             (${fixture.preferenceAReleasePublished}, ${fixture.actorId}, ${fixture.companyA}, 'RELEASE_PUBLISHED', false, ${now}, ${now}),
+             (${fixture.preferenceBTaskAssigned}, ${fixture.actorId}, ${fixture.companyB}, 'TASK_ASSIGNED', false, ${now}, ${now}),
+             (${fixture.preferenceBTaskStatusChanged}, ${fixture.actorId}, ${fixture.companyB}, 'TASK_STATUS_CHANGED', true, ${now}, ${now}),
+             (${fixture.preferenceBRequisitionAssigned}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_ASSIGNED', true, ${now}, ${now}),
+             (${fixture.preferenceBRequisitionCompleted}, ${fixture.actorId}, ${fixture.companyB}, 'REQUISITION_COMPLETED', false, ${now}, ${now}),
+             (${fixture.preferenceBReleasePublished}, ${fixture.actorId}, ${fixture.companyB}, 'RELEASE_PUBLISHED', true, ${now}, ${now})`;
   });
   await sql.end();
 }

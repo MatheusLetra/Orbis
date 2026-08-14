@@ -1,5 +1,9 @@
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import {
   type RequisitionAssigneeOutput,
@@ -26,6 +30,7 @@ export class AddRequisitionAssignee
     private readonly membershipRepository: MembershipRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: AddRequisitionAssigneeCommand): Promise<RequisitionAssigneeOutput> {
@@ -58,6 +63,20 @@ export class AddRequisitionAssignee
         input.requisitionId,
         input.userId,
       ));
+
+    if (!existing && requisition.responsibleId) {
+      await this.notifications
+        .handle({
+          eventType: "REQUISITION_ASSIGNED",
+          companyId: requisition.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [requisition.responsibleId],
+          title: "Requisição atribuída",
+          body: requisition.title,
+          data: { requisitionId: requisition.id },
+        })
+        .catch(() => undefined);
+    }
 
     return toRequisitionAssigneeOutput(assignee);
   }

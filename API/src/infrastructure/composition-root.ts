@@ -34,6 +34,15 @@ import { ListMemberships } from "@/modules/memberships/application/use-cases/lis
 import { DrizzleCompanyMemberLookupRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-company-member-lookup-repository";
 import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
+import { NotificationHandler } from "@/modules/notifications/application/services/notification-handler";
+import { PreferenceResolver } from "@/modules/notifications/application/services/preference-resolver";
+import { GetNotificationPreferences } from "@/modules/notifications/application/use-cases/get-notification-preferences";
+import { ListNotifications } from "@/modules/notifications/application/use-cases/list-notifications";
+import { MarkNotificationRead } from "@/modules/notifications/application/use-cases/mark-notification-read";
+import { UpdateNotificationPreference } from "@/modules/notifications/application/use-cases/update-notification-preference";
+import { DrizzleNotificationPreferenceRepository } from "@/modules/notifications/infrastructure/repositories/drizzle-notification-preference-repository";
+import { DrizzleNotificationRepository } from "@/modules/notifications/infrastructure/repositories/drizzle-notification-repository";
+import { MembershipReleaseRecipientResolver } from "@/modules/notifications/infrastructure/resolvers/membership-release-recipient-resolver";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 import { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import { CreateRelease } from "@/modules/releases/application/use-cases/create-release";
@@ -101,6 +110,12 @@ export interface OrbisModules {
   getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
   setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
+  notifications?: {
+    list: ListNotifications;
+    markRead: MarkNotificationRead;
+    getPreferences: GetNotificationPreferences;
+    updatePreference: UpdateNotificationPreference;
+  };
   tokenService: JoseTokenService;
   requisitions: {
     create: CreateRequisition;
@@ -188,10 +203,24 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const attachmentRepository = new DrizzleAttachmentRepository(database);
   const attachmentBlobRepository = new DrizzleAttachmentBlobRepository(database);
   const attachmentUnitOfWork = new DrizzleAttachmentUnitOfWork(database);
+  const notificationRepository = new DrizzleNotificationRepository(database);
+  const notificationPreferenceRepository = new DrizzleNotificationPreferenceRepository(database);
 
   const accessService = new MembershipAccessService(membershipRepository);
   const authorization = new AuthorizationService();
   const permissionResolver = new MembershipPermissionResolver(membershipRepository);
+  const preferenceResolver = new PreferenceResolver(notificationPreferenceRepository);
+  const releaseRecipientResolver = new MembershipReleaseRecipientResolver(
+    membershipRepository,
+    userRepository,
+  );
+  const notificationHandler = new NotificationHandler(
+    notificationRepository,
+    membershipRepository,
+    userRepository,
+    preferenceResolver,
+    releaseRecipientResolver,
+  );
   const artifactStorage = new LocalArtifactStorage(env.ARTIFACT_STORAGE_PATH);
   const tokenService = new JoseTokenService({
     accessSecret: env.JWT_ACCESS_SECRET,
@@ -247,6 +276,18 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       authorization,
     ),
     permissionResolver,
+    notifications: {
+      list: new ListNotifications(notificationRepository, accessService),
+      markRead: new MarkNotificationRead(notificationRepository, accessService),
+      getPreferences: new GetNotificationPreferences(
+        notificationPreferenceRepository,
+        accessService,
+      ),
+      updatePreference: new UpdateNotificationPreference(
+        notificationPreferenceRepository,
+        accessService,
+      ),
+    },
     tokenService,
     requisitions: {
       create: new CreateRequisition(
@@ -257,6 +298,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         systemVersionRepository,
         accessService,
         authorization,
+        notificationHandler,
       ),
       update: new UpdateRequisition(
         requisitionRepository,
@@ -265,6 +307,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         systemVersionRepository,
         accessService,
         authorization,
+        notificationHandler,
       ),
       list: new ListRequisitions(requisitionRepository, accessService, authorization),
       get: new GetRequisition(
@@ -280,6 +323,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         membershipRepository,
         accessService,
         authorization,
+        notificationHandler,
       ),
       removeAssignee: new RemoveRequisitionAssignee(
         requisitionRepository,
@@ -340,6 +384,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         artifactStorage,
         accessService,
         authorization,
+        notificationHandler,
       ),
       deleteRelease: new DeleteRelease(releaseRepository, accessService, authorization),
     },
@@ -350,6 +395,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         requisitionRepository,
         accessService,
         authorization,
+        notificationHandler,
       ),
       update: new UpdateTask(
         taskUnitOfWork,
@@ -357,8 +403,14 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         requisitionRepository,
         accessService,
         authorization,
+        notificationHandler,
       ),
-      transition: new TransitionTaskStatus(taskUnitOfWork, accessService, authorization),
+      transition: new TransitionTaskStatus(
+        taskUnitOfWork,
+        accessService,
+        authorization,
+        notificationHandler,
+      ),
       list: new ListTasks(taskRepository, accessService, authorization),
       get: new GetTask(taskRepository, taskStatusHistoryRepository, accessService, authorization),
       registerTimeEntry: new RegisterTimeEntry(taskUnitOfWork, accessService, authorization),

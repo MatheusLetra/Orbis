@@ -25,6 +25,7 @@ describe("Permission", () => {
       "systems.manage",
       "versions.manage",
       "releases.manage",
+      "releases.read",
       "requisitions.read",
       "requisitions.create",
       "requisitions.update",

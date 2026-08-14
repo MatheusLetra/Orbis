@@ -352,10 +352,11 @@ export const notificationPreferences = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
     eventType: text("event_type").notNull(),
     inAppEnabled: boolean("in_app_enabled").notNull().default(true),
-    emailEnabled: boolean("email_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -378,6 +379,7 @@ export const notifications = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id"),
     type: text("type").notNull(),
     title: text("title").notNull(),
     body: text("body"),
@@ -385,7 +387,20 @@ export const notifications = pgTable(
     data: jsonb("data").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("notifications_company_user_idx").on(table.companyId, table.userId)],
+  (table) => [
+    index("notifications_company_user_created_id_idx").on(
+      table.companyId,
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
+    index("notifications_company_user_unread_idx")
+      .on(table.companyId, table.userId)
+      .where(sql`${table.readAt} IS NULL`),
+    uniqueIndex("notifications_company_user_event_unique")
+      .on(table.companyId, table.userId, table.eventId)
+      .where(sql`${table.eventId} IS NOT NULL`),
+  ],
 );
 
 export const conversations = pgTable(

@@ -31,7 +31,8 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M12.4C — formulário e integração de TimeEntry no detalhe concluída.
 - M13 — Capacidade e previsão: concluída.
 - M14 — Timeline semanal: concluída; M14.1 cobre todos os itens.
-- M15 — Timeline mensal/anual: em andamento; M15.1 concluída; M15.2 não definida.
+- M15 — Timeline mensal/anual: concluída; M15.1 e M15.2 concluídas.
+- M16 — Notificações: concluída.
 
 ## Contratos preservados
 
@@ -401,3 +402,15 @@ O app expõe `/timeline/yearly`, com cache por tenant/ano/filtros, navegação a
 Validação final M15.2: API 964 testes, app 500 testes, PostgreSQL real serial no foco anual sem skips indevidos, coverage API 97,91% statements / 92,64% branches / 98,59% functions / 98,61% lines e coverage app 95,66% statements / 90,19% branches / 96,83% functions / 96,81% lines. Playwright anual 3/3 no artifact `artifacts/browser-audit/2026-08-14T18-14-37-615Z-738ed47a-f0f7-467f-8d7f-0716b71b5612/`; auditoria global 26/26 no artifact `artifacts/browser-audit/2026-08-14T18-15-00-425Z-17abfb51-4ba7-4a83-90e4-c3e51188d1a9/`, 0 failed e 0 skipped, nos viewports `320x844`, `360x800`, `390x844` e `1440x900`. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Não houve migration ou nova dependência.
 
 M15 está concluída. A próxima milestone formal é M16 — Notificações; não iniciar M16 nesta unidade.
+
+## M16 — notificações concluída
+
+M16 implementou somente notificações persistidas in-app, tenant-aware e próprias. Os eventos são `TASK_ASSIGNED`, `TASK_STATUS_CHANGED`, `REQUISITION_ASSIGNED`, `REQUISITION_COMPLETED` e `RELEASE_PUBLISHED`; o ator é excluído, e destinatários exigem usuário e membership ativos no tenant. `RELEASE_PUBLISHED` usa a permissão aditiva `releases.read`; `notifications.manage` legado não é usado nem exposto.
+
+As preferências são sempre por usuário/empresa, aceitam somente `eventType` e `inAppEnabled`, e ausência significa habilitado. A migration `0005_loose_lady_ursula.sql` tornou `company_id` obrigatório, removeu `email_enabled`, adicionou `event_id` nullable e índices de listagem, não lidas e deduplicação opcional. Não há retenção, scheduler ou deduplicação sem identificador estável da origem.
+
+Os endpoints são `GET /companies/:companyId/notifications`, `PATCH /companies/:companyId/notifications/:notificationId/read`, `GET /companies/:companyId/notification-preferences` e `PATCH /companies/:companyId/notification-preferences`. A central fica no AppShell e carrega somente ao abrir, sem WebSocket de aplicação, polling, refresh automático, EventSource, e-mail ou push.
+
+Validação final: API 991/991 com PostgreSQL real serial; app 532/532. Coverage API 97,66% statements, 92,40% branches, 97,85% functions e 98,37% lines; app 95,71%, 90,03%, 96,91% e 96,94%. Playwright M16 13/13 em `artifacts/browser-audit/2026-08-14T19-15-09-164Z-8a914e38-babb-418a-a9ad-7a0e118fe0be/`; global 39/39 em `artifacts/browser-audit/2026-08-14T19-16-02-233Z-b9fe2673-1af8-4668-9204-f316d4d40dd1/`. Typecheck, lint, build, `tsc` raiz e diff-check aprovados. M11–M15, Attachments, Capacity, Timelines e `commands/` foram preservados.
+
+Próxima milestone formal: M17 — Chat. Não assumir que M16 fornece WebSocket; M17 deve definir seu próprio transporte em tempo real.

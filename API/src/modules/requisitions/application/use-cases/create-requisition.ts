@@ -1,5 +1,9 @@
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import {
   type CreateRequisitionInput,
@@ -30,6 +34,7 @@ export class CreateRequisition implements UseCase<CreateRequisitionCommand, Requ
     private readonly systemVersionRepository: SystemVersionRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: CreateRequisitionCommand): Promise<RequisitionOutput> {
@@ -80,6 +85,20 @@ export class CreateRequisition implements UseCase<CreateRequisitionCommand, Requ
       number,
     });
     const created = await this.requisitionRepository.create(requisition);
+
+    if (created.responsibleId) {
+      await this.notifications
+        .handle({
+          eventType: "REQUISITION_ASSIGNED",
+          companyId: created.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [created.responsibleId],
+          title: "Requisição atribuída",
+          body: created.title,
+          data: { requisitionId: created.id },
+        })
+        .catch(() => undefined);
+    }
 
     return toRequisitionOutput(created);
   }

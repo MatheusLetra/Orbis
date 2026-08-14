@@ -1,5 +1,9 @@
 import type { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
 import type { MembershipRepository } from "@/modules/memberships/domain/repositories/membership-repository";
+import {
+  NOOP_NOTIFICATION_DISPATCHER,
+  type NotificationDispatcher,
+} from "@/modules/notifications/application/ports/notification-dispatcher";
 import type { AuthorizationService } from "@/modules/permissions/application/services/authorization-service";
 import type { RequisitionRepository } from "@/modules/requisitions/domain/repositories/requisition-repository";
 import {
@@ -27,6 +31,7 @@ export class CreateTask implements UseCase<CreateTaskCommand, TaskOutput> {
     private readonly requisitionRepository: RequisitionRepository,
     private readonly accessService: MembershipAccessService,
     private readonly authorization: AuthorizationService,
+    private readonly notifications: NotificationDispatcher = NOOP_NOTIFICATION_DISPATCHER,
   ) {}
 
   async execute(input: CreateTaskCommand): Promise<TaskOutput> {
@@ -78,6 +83,20 @@ export class CreateTask implements UseCase<CreateTaskCommand, TaskOutput> {
       await taskStatusHistory.create(initialHistory);
       return persistedTask;
     });
+
+    if (created.assigneeId && created.assigneeId !== input.actor.userId) {
+      await this.notifications
+        .handle({
+          eventType: "TASK_ASSIGNED",
+          companyId: created.companyId,
+          actorId: input.actor.userId,
+          recipientIds: [created.assigneeId],
+          title: "Tarefa atribuída",
+          body: created.title,
+          data: { taskId: created.id },
+        })
+        .catch(() => undefined);
+    }
 
     return toTaskOutput(created);
   }

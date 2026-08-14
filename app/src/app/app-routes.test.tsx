@@ -29,6 +29,12 @@ vi.mock("@/features/companies/company-page", () => ({
 vi.mock("@/features/kanban/kanban-page", () => ({
   KanbanPage: () => <p>Página do kanban</p>,
 }));
+vi.mock("@/features/timeline/timeline-page", () => ({
+  TimelinePage: () => <p>Página da timeline</p>,
+}));
+vi.mock("@/features/timeline-monthly/monthly-page", () => ({
+  MonthlyTimelinePage: () => <p>Página da timeline mensal</p>,
+}));
 
 function renderRoute(entry: string, status: typeof authState.status) {
   routeState.entry = entry;
@@ -83,5 +89,23 @@ describe("App routes", () => {
   it("renderiza o kanban para usuário autenticado", () => {
     renderRoute("/kanban", "authenticated");
     expect(screen.getByText("Página do kanban")).toBeInTheDocument();
+  });
+
+  it("renderiza e protege a timeline", async () => {
+    const authenticated = renderRoute("/timeline", "authenticated");
+    expect(screen.getByText("Página da timeline")).toBeInTheDocument();
+    authenticated.unmount();
+    renderRoute("/timeline", "unauthenticated");
+    expect(await screen.findByText("Página de login; origem: /timeline")).toBeInTheDocument();
+  });
+
+  it("renderiza e protege a rota mensal sem alterar a semanal", async () => {
+    const authenticated = renderRoute("/timeline/monthly", "authenticated");
+    expect(screen.getByText("Página da timeline mensal")).toBeInTheDocument();
+    authenticated.unmount();
+    renderRoute("/timeline/monthly", "unauthenticated");
+    expect(
+      await screen.findByText("Página de login; origem: /timeline/monthly"),
+    ).toBeInTheDocument();
   });
 });

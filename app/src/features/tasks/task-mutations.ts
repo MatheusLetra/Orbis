@@ -1,5 +1,6 @@
 import { type QueryKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { timelineKeys } from "@/features/timeline/timeline-keys";
 import { ApiError } from "@/lib/http/api-error";
 import { tasksClient } from "./task-client";
 import type { TaskCard, TaskOutput, TaskStatus } from "./task-contracts";
@@ -123,6 +124,11 @@ export function useTaskTransition() {
         });
       }
       setError(messageForTransitionError(cause));
+      if (cause instanceof ApiError && cause.status === 403) {
+        void queryClient.invalidateQueries({
+          queryKey: ["company-capabilities", variables.companyId],
+        });
+      }
     },
     onSettled: (_data, _cause, variables) => {
       if (activeOperations.current.get(variables.taskId) === variables.operationId) {
@@ -134,6 +140,9 @@ export function useTaskTransition() {
         });
       }
       void queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) });
+      void queryClient.invalidateQueries({
+        queryKey: timelineKeys.weeklyLists(variables.companyId),
+      });
       void queryClient.invalidateQueries({
         queryKey: taskKeys.detail(variables.companyId, variables.taskId),
       });
@@ -178,6 +187,7 @@ export function useUpdateTask() {
     onSuccess: async (_output, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+        queryClient.invalidateQueries({ queryKey: timelineKeys.weeklyLists(variables.companyId) }),
         queryClient.invalidateQueries({
           queryKey: taskKeys.detail(variables.companyId, variables.taskId),
         }),
@@ -191,6 +201,9 @@ export function useUpdateTask() {
             queryKey: ["company-capabilities", variables.companyId],
           }),
           queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+          queryClient.invalidateQueries({
+            queryKey: timelineKeys.weeklyLists(variables.companyId),
+          }),
           queryClient.invalidateQueries({
             queryKey: taskKeys.detail(variables.companyId, variables.taskId),
           }),
@@ -231,7 +244,10 @@ export function useCreateTask() {
     mutationFn: ({ companyId, title, priority }) =>
       tasksClient.create(companyId, { title, priority }),
     onSuccess: async (_output, variables) => {
-      await queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+        queryClient.invalidateQueries({ queryKey: timelineKeys.weeklyLists(variables.companyId) }),
+      ]);
     },
     onError: async (cause, variables) => {
       setError(messageForCreateError(cause));
@@ -241,6 +257,9 @@ export function useCreateTask() {
             queryKey: ["company-capabilities", variables.companyId],
           }),
           queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
+          queryClient.invalidateQueries({
+            queryKey: timelineKeys.weeklyLists(variables.companyId),
+          }),
         ]);
       }
     },

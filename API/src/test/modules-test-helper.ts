@@ -51,6 +51,8 @@ import { ListTimeEntries } from "@/modules/tasks/application/use-cases/list-time
 import { RegisterTimeEntry } from "@/modules/tasks/application/use-cases/register-time-entry";
 import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/transition-task-status";
 import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
+import { GetMonthlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-monthly-requisition-timeline";
+import { GetWeeklyTimeline } from "@/modules/timeline/application/use-cases/get-weekly-timeline";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
 import { DeleteSystemVersion } from "@/modules/versions/application/use-cases/delete-system-version";
@@ -91,6 +93,10 @@ import {
   InMemoryTaskUnitOfWork,
   InMemoryTimeEntryRepository,
 } from "./fakes/task-fakes";
+import {
+  InMemoryMonthlyRequisitionTimelineReadRepository,
+  InMemoryWeeklyTimelineReadRepository,
+} from "./fakes/timeline-fakes";
 
 const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000";
 const TEST_REFRESH_SECRET = "test-refresh-secret-com-pelo-menos-32-caracteres-000";
@@ -116,6 +122,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     attachmentBlobs: InMemoryAttachmentBlobRepository;
     developerAvailability: InMemoryDeveloperAvailabilityRepository;
     companyCapacitySettings: InMemoryCompanyCapacitySettingsRepository;
+    weeklyTimeline: InMemoryWeeklyTimelineReadRepository;
+    monthlyTimeline: InMemoryMonthlyRequisitionTimelineReadRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -180,6 +188,14 @@ export function buildTestModules(): TestModules {
     users,
   );
   const companyCapacitySettingsRepository = new InMemoryCompanyCapacitySettingsRepository();
+  const weeklyTimelineReadRepository = new InMemoryWeeklyTimelineReadRepository(
+    tasks,
+    memberships,
+    users,
+  );
+  const monthlyTimelineReadRepository = new InMemoryMonthlyRequisitionTimelineReadRepository(
+    requisitions,
+  );
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
     attachmentRepository,
     attachmentBlobRepository,
@@ -213,6 +229,8 @@ export function buildTestModules(): TestModules {
       attachmentBlobs: attachmentBlobRepository,
       developerAvailability: developerAvailabilityRepository,
       companyCapacitySettings: companyCapacitySettingsRepository,
+      weeklyTimeline: weeklyTimelineReadRepository,
+      monthlyTimeline: monthlyTimelineReadRepository,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -365,6 +383,20 @@ export function buildTestModules(): TestModules {
         timeEntries,
         accessService,
         new AuthorizationService(),
+      ),
+    },
+    timeline: {
+      getWeekly: new GetWeeklyTimeline(
+        weeklyTimelineReadRepository,
+        companies,
+        accessService,
+        authorization,
+      ),
+      getMonthly: new GetMonthlyRequisitionTimeline(
+        monthlyTimelineReadRepository,
+        companies,
+        accessService,
+        authorization,
       ),
     },
     attachments: {

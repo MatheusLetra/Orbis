@@ -168,6 +168,8 @@ PATCH /companies/:companyId/tasks/:taskId            → atualiza uma tarefa
 PATCH /companies/:companyId/tasks/:taskId/status     → inicia, pausa, retoma ou conclui uma tarefa
 POST  /companies/:companyId/tasks/:taskId/time-entries → registra horas por duração
 GET   /companies/:companyId/tasks/:taskId/time-entries → lista horas e total da tarefa
+GET   /companies/:companyId/timeline/weekly             → timeline semanal (`weekStart` na segunda-feira)
+GET   /companies/:companyId/timeline/monthly            → timeline mensal (`period=YYYY-MM`)
 ```
 
 As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
@@ -225,6 +227,7 @@ As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium em
 | `npm run audit:attachments` | Executa Attachments |
 | `npm run audit:time-entries` | Executa TimeEntry |
 | `npm run audit:capacity` | Executa Capacity |
+| `npm run audit:timeline` | Executa a timeline semanal |
 
 Cada execução gera relatório HTML, JSON, screenshots, vídeos/traces em `artifacts/browser-audit/`. Falhas são classificadas como ambiente, fixture, funcional, visual, acessibilidade ou console inesperado. A execução é serial quando depende de banco e o avanço do roadmap fica bloqueado enquanto qualquer auditoria obrigatória falhar ou não for executada.
 
@@ -255,6 +258,7 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M7 | Requisições | ⏳ Próximo |
 | M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
 | M13 | Capacidade e previsão | ✅ Concluído |
-| M14 | Timeline semanal | ⏳ Próximo |
+| M14 | Timeline semanal | ✅ Concluído; M14.1 cobre todos os itens |
+| M15 | Timeline mensal/anual | 🚧 Em andamento; M15.1 concluída |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. A auditoria automatizada passou 11/11 cenários em Chromium real. Coverage global aprovado: app com 95,78% statements, 91,61% branches, 98,31% functions e 96,83% lines; API com 98,30%, 94,63%, 98,61% e 98,57%. M14 está desbloqueada.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M14 está concluída, com M14.1 cobrindo todos os itens. M15 está em andamento, com M15.1 concluída; M15.2 ainda não está definida.

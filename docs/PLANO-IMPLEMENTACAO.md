@@ -19,8 +19,8 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Em andamento |
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Concluída |
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Em andamento |
-| 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Não iniciada |
-| 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Não iniciada |
+| 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Concluída — M14.1 cobre todos os itens |
+| 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Em andamento — M15.1 concluída |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Não iniciada |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Não iniciada |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Não iniciada |
@@ -220,3 +220,23 @@ Artifacts da execução completa foram gerados com relatório HTML, JSON, screen
 Correção pós-auditoria concluída: o download autenticado passou a materializar o corpo antes do Blob, a rota FILE entrega o Buffer por stream e usa `X-Orbis-File-Name`, e o lifecycle do `TaskDetailDialog` restaura `mountedRef` no setup sob StrictMode antes de criar o anchor temporário. O CORS declara os métodos reais da API, incluindo `DELETE`. Attachments passou 3/3 e a suíte browser completa passou 11/11; artifact: `artifacts/browser-audit/2026-08-14T14-45-24-175Z-1f9401f9-7db9-44d8-9fa5-0c58ec5bb066/`. App 320/320 e API 872/872; lints, builds, typechecks e diff-check aprovados. O bloqueio funcional foi removido, mas os comandos de coverage ainda falham nos thresholds globais (app: 88,15% statements/89,72% lines; API: 94,57%/94,75%); essa dívida deve ser resolvida sem reduzir thresholds antes de M14.
 
 Recuperação de coverage concluída sem alterar produção, regras, endpoints, migrations, permissões, JWT, thresholds, exclusões ou `commands/`. O app passou para 445 testes e 95,78% statements, 91,61% branches, 98,31% functions e 96,83% lines. A API passou para 945 testes e 98,30%, 94,63%, 98,61% e 98,57%, com repositories/mappers reais exercitados em PostgreSQL serial e zero skips. App/API completos, typechecks, lints, builds, typecheck raiz e diff-check passaram. Playwright repetiu 11/11 em `artifacts/browser-audit/2026-08-14T15-24-12-795Z-f21d6cc8-c405-42f6-bd33-4772683eb72f/`. A dívida está encerrada e M14 está desbloqueada.
+
+## Progresso M14
+
+- [x] M14.1 — timeline semanal tenant-aware, frontend e integração com Tasks.
+
+M14.1 concluiu `GET /companies/:companyId/timeline/weekly` e `/timeline`. O contrato recebe `weekStart` `YYYY-MM-DD` obrigatoriamente na segunda-feira, cobre segunda a domingo e retorna `days` de segunda a sexta. Datas são de calendário, sem novo timezone operacional; data única ocupa um ponto; datas ambas nulas ou invertidas vão para `undatedTasks`; tarefas não `DONE` anteriores a `weekStart` vão para `overdueTasks`; interseções somente no sábado/domingo vão para `weekendTasks`. Há filtros `assigneeId`, `status` e `priority`; ordenação por início e fim ascendentes com nulos ao final, prioridade `HIGH > MEDIUM > LOW`, título e `id`; a faceta `assignees` usa responsáveis ativos de Tasks tenant-owned, ordenados por nome e `id`. A autorização exige `tasks.read`, membership ativa e empresa ativa.
+
+O frontend possui navegação semanal, filtros, cache/query keys e invalidação tenant-aware após Create/Update/Transition, com `AbortSignal` e proteção stale. Não houve migration, persistência ou dependência nova, nem integração com Capacity, Requisitions, TimeEntries ou pausas detalhadas. Auditoria Timeline 8/8: `artifacts/browser-audit/2026-08-14T16-36-38-140Z-1ed3d816-23fc-48df-bd28-c6f149e38262/`; global 19/19, 0 failed/skipped: `artifacts/browser-audit/2026-08-14T16-40-36-127Z-1739673e-1985-435e-b1ad-42f6a7dcdf0c/`, em `320x844`, `360x800`, `390x844` e `1440x900`.
+
+Validação: app 474 testes e coverage 95,98% statements, 91,59% branches, 98,08% functions, 97,08% lines; API 952 testes e 98,28%, 94,19%, 98,65%, 98,62%; PostgreSQL real focado 2/2 sem skips na porta 5433. Typecheck, lint, build, `tsc` raiz e diff-check passaram. M14 concluída; M14.1 cobre todos os itens e a interpretação de datas/previsões é refletida pelo posicionamento e por `plannedEndDate` no contrato, sem Capacity.
+
+## Progresso M15
+
+### M15.1 — timeline mensal concluída
+
+M15.1 implementou somente leitura `GET /companies/:companyId/timeline/monthly?period=YYYY-MM&priority?&assigneeId?&status?`, com autorização `requisitions.read`, membership ativa e empresa ativa. A consulta usa interseção inclusive, trata data única como ponto e envia itens sem datas ou com datas invertidas para `undatedItems`. O contrato aprova `requisitionId`, `number`, `title`, `priority`, `assigneeId`, `startDate`, `plannedDeliveryDate`, `deliveredAt`, `estimatedHours`, `isOverdue` e `deliveredOnTime`; `estimatedHours` nulo torna-se `0`. `indicators` é aninhado e contém `totalRequisitions`, `estimatedHours`, `deliveredOnTime` e `overdue`. Atrasados são itens não entregues com `plannedDeliveryDate` anterior ao primeiro dia do período; entregues no prazo têm data de `deliveredAt` menor ou igual a `plannedDeliveryDate`.
+
+O frontend expõe `/timeline/monthly`, com cache tenant/period/filters e suporte mobile. A unidade é somente leitura e não inclui migration, snapshot, persistência, TimeEntries, pausas, Capacity ou timeline anual. App 490 passed; API 959 passed; PostgreSQL real serial com `TEST_DATABASE_URL` na porta 5433 e monthly repository sem skip. Coverage: app 95,52% statements, 90,31% branches, 96,53% functions, 96,72% lines; API 98,08%, 93,70%, 98,67%, 98,61%. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Playwright mensal 4/4 em `artifacts/browser-audit/2026-08-14T17-26-57-266Z-8557c5a9-a193-4a45-ad2b-fe4239159aef/`; global 23/23, 0 failed, 0 skipped em `artifacts/browser-audit/2026-08-14T17-30-26-603Z-88ace51c-b643-421c-83bc-5411faea2fe9/`, viewports `320x844`, `360x800`, `390x844`, `1440x900`. Sem nova migration/dependência.
+
+M15 está em andamento. M15.2 não está definida; não inventar escopo anual.

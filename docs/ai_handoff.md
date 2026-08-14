@@ -2,7 +2,7 @@
 
 ## Retomada
 
-Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este handoff descreve o estado pós-M11.6A. Não reauditar M09, M10, hardening ou M11.2A–M11.6A sem regressão concreta.
+Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este handoff preserva o histórico e descreve ao final o estado pós-M14.1. Não reauditar unidades concluídas sem regressão concreta.
 
 `commands/code_assist_agent.md` e `commands/code_assist_agent.skill` possuem estado preexistente fora da M11.6A.
 
@@ -29,6 +29,9 @@ Leia o Prompt Mestre, `docs/AGENTS.md` e este arquivo antes de trabalhar. Este h
 - M12.4A — capability `hours.register` exposta tenant-aware concluída.
 - M12.4B — client e mutation de TimeEntry concluída.
 - M12.4C — formulário e integração de TimeEntry no detalhe concluída.
+- M13 — Capacidade e previsão: concluída.
+- M14 — Timeline semanal: concluída; M14.1 cobre todos os itens.
+- M15 — Timeline mensal/anual: em andamento; M15.1 concluída; M15.2 não definida.
 
 ## Contratos preservados
 
@@ -362,3 +365,31 @@ A dívida foi eliminada exclusivamente com testes. O app passou de 320 para 445 
 A API passou de 872 para 945 testes e atingiu 98,30% de statements, 94,63% de branches, 98,61% de functions e 98,57% de lines. A execução PostgreSQL real e serial cobriu wiring, segurança, Systems, Versions, Releases, Attachments, Memberships, Tasks, histórico, TimeEntries e Requisition assignees, sem skips. Uma execução intermediária de coverage perdeu um worker; os testes PostgreSQL suspeitos passaram focados 32/32 e o gate serial posterior concluiu 945/945 sem unhandled errors.
 
 Thresholds, listas de exclusão e código de produção não foram alterados; nenhum `istanbul ignore` foi introduzido. Typechecks do app, API e raiz, lints, builds e `git diff --check` passaram. A auditoria browser repetiu 11/11 no artifact `artifacts/browser-audit/2026-08-14T15-24-12-795Z-f21d6cc8-c405-42f6-bd33-4772683eb72f/`. Não restaram processos temporários; os containers `orbis-postgres-audit` e `orbis-postgres-test` eram preexistentes e foram preservados. M14 — Timeline semanal está desbloqueada e é a próxima unidade formal.
+
+## M14.1 — timeline semanal concluída
+
+`GET /companies/:companyId/timeline/weekly` exige `weekStart` em `YYYY-MM-DD` e segunda-feira, usa semana de segunda a domingo e retorna cinco `days`, de segunda a sexta. Datas são calendário sem novo timezone operacional. Data única posiciona a Task nesse ponto; ambas nulas ou intervalo invertido produzem `undatedTasks`; `overdueTasks` recebe término anterior a `weekStart` quando o status não é `DONE`; `weekendTasks` recebe somente tarefas cuja interseção na semana fica no fim de semana. Filtros: `assigneeId`, `status`, `priority`.
+
+A ordenação final é início ascendente com nulos ao final, fim ascendente com nulos ao final, prioridade `HIGH > MEDIUM > LOW`, título e `id`. A rota exige `tasks.read`, membership ativa e empresa ativa. A faceta `assignees`, ordenada por nome e `id`, contém apenas responsáveis com usuário e membership ativos encontrados em Tasks tenant-owned. Não houve `timeline.manage`, migration, persistência, nova dependência ou acoplamento a Capacity, Requisitions, TimeEntries e pausas detalhadas.
+
+O app expõe `/timeline`, com navegação semanal, filtros e UI responsiva. Query keys, cache e invalidações após Create/Update/Transition são tenant-aware; requests usam `AbortSignal` e respostas stale são isoladas. Auditoria específica 8/8: `artifacts/browser-audit/2026-08-14T16-36-38-140Z-1ed3d816-23fc-48df-bd28-c6f149e38262/`. Auditoria global 19/19, 0 failed/skipped: `artifacts/browser-audit/2026-08-14T16-40-36-127Z-1739673e-1985-435e-b1ad-42f6a7dcdf0c/`. Viewports aprovados: `320x844`, `360x800`, `390x844`, `1440x900`.
+
+Validação final: app 474 testes, coverage 95,98% statements, 91,59% branches, 98,08% functions e 97,08% lines; API 952 testes, coverage 98,28%, 94,19%, 98,65% e 98,62%; PostgreSQL real focado 2/2 sem skips na porta 5433. Typecheck, lint e build de app/API, `tsc` raiz e diff-check passaram. Sem dependency ou migration nova.
+
+## Próximo passo pós-M14.1
+
+M14 está concluída: M14.1 cobre todos os itens, com a interpretação de datas/previsões refletida pelo posicionamento e por `plannedEndDate` no contrato, sem Capacity.
+
+## M15.1 — timeline mensal concluída
+
+O contrato somente leitura é `GET /companies/:companyId/timeline/monthly?period=YYYY-MM&priority?&assigneeId?&status?`. A rota exige `requisitions.read`, membership ativa e empresa ativa. A seleção usa interseção inclusive; uma única data é um ponto; itens sem datas ou com datas invertidas vão para `undatedItems`.
+
+Os campos aprovados são `requisitionId`, `number`, `title`, `priority`, `assigneeId`, `startDate`, `plannedDeliveryDate`, `deliveredAt`, `estimatedHours`, `isOverdue` e `deliveredOnTime`; `estimatedHours: null` retorna `0`. Os indicadores são aninhados em `indicators`: `totalRequisitions`, `estimatedHours`, `deliveredOnTime` e `overdue`. `overdue` significa não entregue com `plannedDeliveryDate` anterior ao primeiro dia do período; `deliveredOnTime` significa entregue em data menor ou igual a `plannedDeliveryDate`.
+
+O app expõe `/timeline/monthly`, com cache por tenant/período/filtros e suporte mobile. Não há migration, snapshot, persistência, TimeEntries, pausas, Capacity ou escopo anual nesta unidade.
+
+Validação: app 490 passed; API 959 passed; PostgreSQL real serial com `TEST_DATABASE_URL` na porta 5433, monthly repository sem skip; coverage app 95,52% statements, 90,31% branches, 96,53% functions, 96,72% lines; API 98,08%, 93,70%, 98,67%, 98,61%. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Playwright mensal 4/4: `artifacts/browser-audit/2026-08-14T17-26-57-266Z-8557c5a9-a193-4a45-ad2b-fe4239159aef/`; global 23/23, 0 failed, 0 skipped: `artifacts/browser-audit/2026-08-14T17-30-26-603Z-88ace51c-b643-421c-83bc-5411faea2fe9/`. Viewports: `320x844`, `360x800`, `390x844`, `1440x900`. Sem nova migration/dependência.
+
+## Próximo passo pós-M15.1
+
+M15 permanece em andamento. M15.2 não está definida; não inferir nem inventar escopo anual.

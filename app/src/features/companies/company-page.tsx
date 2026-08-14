@@ -72,12 +72,20 @@ export function CompanyPage() {
         <p className="mt-4 max-w-2xl text-sm text-muted-foreground">
           Acompanhe o trabalho da empresa por status no board de tarefas.
         </p>
-        <Link
-          className="mt-6 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          to="/kanban"
-        >
-          Abrir board
-        </Link>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            to="/kanban"
+          >
+            Abrir board
+          </Link>
+          <Link
+            className="inline-flex min-h-11 items-center rounded-md border bg-background px-4 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            to="/timeline"
+          >
+            Abrir timeline
+          </Link>
+        </div>
         <CapacitySimulationPanel
           key={company.activeCompany.id}
           companyId={company.activeCompany.id}

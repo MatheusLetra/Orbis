@@ -1007,6 +1007,10 @@ A especificação exige que o usuário consiga mover cards e iniciar/pausar com 
 
 ### Semanal
 
+O contrato implementado é `GET /companies/:companyId/timeline/weekly`, autenticado e tenant-aware, com `tasks.read`, membership ativa e empresa ativa. `weekStart` é uma segunda-feira em `YYYY-MM-DD`; a janela é segunda a domingo e `days` contém segunda a sexta. As datas são valores de calendário, sem introduzir timezone operacional. Uma única data representa um ponto; ambas nulas ou intervalo invertido pertencem a `undatedTasks`; término anterior a `weekStart` em Task não `DONE` pertence a `overdueTasks`; `weekendTasks` contém somente interseções restritas ao fim de semana.
+
+Os filtros são `assigneeId`, `status` e `priority`. A ordenação é `startDate ASC NULLS LAST`, `plannedEndDate ASC NULLS LAST`, prioridade `HIGH > MEDIUM > LOW`, título e `id`. A faceta `assignees`, ordenada por nome e `id`, deriva apenas de responsáveis com usuário e membership ativos em Tasks tenant-owned. O read model não cria persistência nem acoplamento com Capacity, Requisitions, TimeEntries ou pausas detalhadas.
+
 Grid:
 
 ```text
@@ -1018,13 +1022,19 @@ Tarefa C                    ███
 
 ### Mensal
 
-Eixo diário.
+O contrato somente leitura é `GET /companies/:companyId/timeline/monthly?period=YYYY-MM&priority?&assigneeId?&status?`. A leitura exige autenticação, `requisitions.read`, membership ativa e empresa ativa. O período é um mês de calendário; a seleção usa interseção inclusive e uma única data representa um ponto. Itens sem datas ou com datas invertidas pertencem a `undatedItems`.
+
+Os campos aprovados do item são `requisitionId`, `number`, `title`, `priority`, `assigneeId`, `startDate`, `plannedDeliveryDate`, `deliveredAt`, `estimatedHours`, `isOverdue` e `deliveredOnTime`; `estimatedHours: null` é normalizado para `0`. Os indicadores são aninhados em `indicators` e contêm `totalRequisitions`, `estimatedHours`, `deliveredOnTime` e `overdue`. `overdue` considera item não entregue com `plannedDeliveryDate` anterior ao primeiro dia do período; `deliveredOnTime` considera item entregue em data menor ou igual a `plannedDeliveryDate`.
+
+O frontend expõe `/timeline/monthly`, com cache isolado por tenant, período e filtros, e apresentação responsiva mobile. É uma leitura sem migration, snapshot, persistência ou dependência nova; não usa TimeEntries, pausas ou Capacity, e não define o escopo anual.
 
 ### Anual
 
 Eixo mensal.
 
 A camada visual recebe dados já normalizados para apresentação.
+
+O frontend usa `/timeline`, query keys e invalidações de Create/Update/Transition isoladas por tenant, além de `AbortSignal` e proteção contra respostas stale.
 
 ## 29. API e contratos
 

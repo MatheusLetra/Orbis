@@ -1,11 +1,19 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
 
 export function observePage(page: Page, testInfo: TestInfo, expectedHttpStatuses: number[] = [401]) {
-  const requests: string[] = [];
+  const requests: Array<{ method: string; url: string; resourceType: string; status?: number }> = [];
+  const requestIndexes = new WeakMap<object, number>();
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   page.on("request", (request) => {
-    if (["xhr", "fetch"].includes(request.resourceType())) requests.push(`${request.method()} ${request.url()}`);
+    if (["xhr", "fetch"].includes(request.resourceType())) {
+      requestIndexes.set(request, requests.length);
+      requests.push({ method: request.method(), url: request.url(), resourceType: request.resourceType() });
+    }
+  });
+  page.on("response", (response) => {
+    const index = requestIndexes.get(response.request());
+    if (index !== undefined && requests[index]) requests[index].status = response.status();
   });
   page.on("console", (message) => {
     if (
@@ -16,7 +24,32 @@ export function observePage(page: Page, testInfo: TestInfo, expectedHttpStatuses
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
   return async () => {
-    await testInfo.attach("requests", { body: requests.join("\n"), contentType: "text/plain" });
+    const metrics = await page.evaluate(() => ({
+      viewport: { width: innerWidth, height: innerHeight },
+      document: {
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+        scrollHeight: document.documentElement.scrollHeight,
+        clientHeight: document.documentElement.clientHeight,
+      },
+      body: { scrollWidth: document.body.scrollWidth, clientWidth: document.body.clientWidth },
+      navigation: performance.getEntriesByType("navigation").map((entry) => ({
+        duration: Math.round(entry.duration),
+        transferSize: "transferSize" in entry ? entry.transferSize : undefined,
+      })),
+    }));
+    await testInfo.attach("request-manifest", {
+      body: JSON.stringify(requests, null, 2),
+      contentType: "application/json",
+    });
+    await testInfo.attach("metrics", {
+      body: JSON.stringify(metrics, null, 2),
+      contentType: "application/json",
+    });
+    await testInfo.attach("requests", {
+      body: requests.map((request) => `${request.method} ${request.url} ${request.status ?? "pending"}`).join("\n"),
+      contentType: "text/plain",
+    });
     await testInfo.attach("console-errors", { body: consoleErrors.join("\n") || "none", contentType: "text/plain" });
     await testInfo.attach("page-errors", { body: pageErrors.join("\n") || "none", contentType: "text/plain" });
     expect(consoleErrors, "console errors inesperados").toEqual([]);

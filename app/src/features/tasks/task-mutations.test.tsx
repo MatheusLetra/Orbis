@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { timelineKeys } from "@/features/timeline/timeline-keys";
 import { ApiError } from "@/lib/http/api-error";
 import { createQueryClient } from "@/lib/query/query-client";
 import { tasksClient } from "./task-client";
@@ -94,6 +95,7 @@ describe("useTaskTransition", () => {
       assignee: original.assignee,
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: timelineKeys.weeklyLists("company-a") });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.detail("company-a", "task-a") });
   });
 
@@ -355,7 +357,9 @@ describe("useCreateTask", () => {
     request.resolve({ ...output(task("created")), title: "Nova" });
     await waitFor(() => expect(result.current.isPending).toBe(false));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: timelineKeys.weeklyLists("company-a") });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-b") });
+    expect(client.getQueryData(timelineKeys.weekly("company-a", "2026-08-17"))).toBeUndefined();
   });
 
   it.each([
@@ -399,6 +403,7 @@ describe("useCreateTask", () => {
       queryKey: ["company-capabilities", "company-a"],
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: timelineKeys.weeklyLists("company-a") });
   });
 
   it("trata falha de rede sem apagar o formulário", () => {
@@ -438,6 +443,7 @@ describe("useUpdateTask", () => {
     request.resolve(output(task("task-a")));
     await waitFor(() => expect(result.current.isPending).toBe(false));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-a") });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: timelineKeys.weeklyLists("company-a") });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: taskKeys.detail("company-a", "task-a") });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-b") });
   });

@@ -117,6 +117,10 @@ describe("CompanyPage", () => {
     expect(screen.getByRole("heading", { name: "Empresa Alpha" })).toBeInTheDocument();
     expect(screen.getByText("Contexto ativo")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir board" })).toHaveAttribute("href", "/kanban");
+    expect(screen.getByRole("link", { name: "Abrir timeline" })).toHaveAttribute(
+      "href",
+      "/timeline",
+    );
   });
 
   it("consulta e repassa capabilities da empresa ativa ao painel", async () => {

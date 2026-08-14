@@ -1,6 +1,7 @@
 export const REQUISITION_STATUSES = ["OPEN", "IN_PROGRESS", "PAUSED", "DONE", "CANCELLED"] as const;
 export type RequisitionStatus = (typeof REQUISITION_STATUSES)[number];
-export type RequisitionPriority = "LOW" | "MEDIUM" | "HIGH";
+export const REQUISITION_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
+export type RequisitionPriority = (typeof REQUISITION_PRIORITIES)[number];
 
 export interface Requisition {
   id: string;

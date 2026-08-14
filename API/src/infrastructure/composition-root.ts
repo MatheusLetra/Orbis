@@ -71,6 +71,10 @@ import { DrizzleTaskRepository } from "@/modules/tasks/infrastructure/repositori
 import { DrizzleTaskStatusHistoryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-task-status-history-repository";
 import { DrizzleTimeEntryRepository } from "@/modules/tasks/infrastructure/repositories/drizzle-time-entry-repository";
 import { DrizzleTaskUnitOfWork } from "@/modules/tasks/infrastructure/unit-of-work/drizzle-task-unit-of-work";
+import { GetMonthlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-monthly-requisition-timeline";
+import { GetWeeklyTimeline } from "@/modules/timeline/application/use-cases/get-weekly-timeline";
+import { DrizzleMonthlyRequisitionTimelineReadRepository } from "@/modules/timeline/infrastructure/repositories/drizzle-monthly-requisition-timeline-read-repository";
+import { DrizzleWeeklyTimelineReadRepository } from "@/modules/timeline/infrastructure/repositories/drizzle-weekly-timeline-read-repository";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { DrizzleUserRepository } from "@/modules/users/infrastructure/repositories/drizzle-user-repository";
 import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
@@ -136,6 +140,10 @@ export interface OrbisModules {
     registerTimeEntry: RegisterTimeEntry;
     listTimeEntries: ListTimeEntries;
   };
+  timeline: {
+    getWeekly: GetWeeklyTimeline;
+    getMonthly: GetMonthlyRequisitionTimeline;
+  };
   attachments: {
     addFile: AddFileAttachment;
     addLink: AddLinkAttachment;
@@ -169,6 +177,9 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const taskStatusHistoryRepository = new DrizzleTaskStatusHistoryRepository(database);
   const timeEntryRepository = new DrizzleTimeEntryRepository(database);
   const taskUnitOfWork = new DrizzleTaskUnitOfWork(database);
+  const weeklyTimelineReadRepository = new DrizzleWeeklyTimelineReadRepository(database);
+  const monthlyRequisitionTimelineReadRepository =
+    new DrizzleMonthlyRequisitionTimelineReadRepository(database);
   const attachmentRepository = new DrizzleAttachmentRepository(database);
   const attachmentBlobRepository = new DrizzleAttachmentBlobRepository(database);
   const attachmentUnitOfWork = new DrizzleAttachmentUnitOfWork(database);
@@ -349,6 +360,20 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       listTimeEntries: new ListTimeEntries(
         taskRepository,
         timeEntryRepository,
+        accessService,
+        authorization,
+      ),
+    },
+    timeline: {
+      getWeekly: new GetWeeklyTimeline(
+        weeklyTimelineReadRepository,
+        companyRepository,
+        accessService,
+        authorization,
+      ),
+      getMonthly: new GetMonthlyRequisitionTimeline(
+        monthlyRequisitionTimelineReadRepository,
+        companyRepository,
         accessService,
         authorization,
       ),

@@ -53,6 +53,7 @@ import { TransitionTaskStatus } from "@/modules/tasks/application/use-cases/tran
 import { UpdateTask } from "@/modules/tasks/application/use-cases/update-task";
 import { GetMonthlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-monthly-requisition-timeline";
 import { GetWeeklyTimeline } from "@/modules/timeline/application/use-cases/get-weekly-timeline";
+import { GetYearlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-yearly-requisition-timeline";
 import { CreateUser } from "@/modules/users/application/use-cases/create-user";
 import { CreateSystemVersion } from "@/modules/versions/application/use-cases/create-system-version";
 import { DeleteSystemVersion } from "@/modules/versions/application/use-cases/delete-system-version";
@@ -96,6 +97,7 @@ import {
 import {
   InMemoryMonthlyRequisitionTimelineReadRepository,
   InMemoryWeeklyTimelineReadRepository,
+  InMemoryYearlyRequisitionTimelineReadRepository,
 } from "./fakes/timeline-fakes";
 
 const TEST_ACCESS_SECRET = "test-access-secret-com-pelo-menos-32-caracteres-000";
@@ -124,6 +126,7 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     companyCapacitySettings: InMemoryCompanyCapacitySettingsRepository;
     weeklyTimeline: InMemoryWeeklyTimelineReadRepository;
     monthlyTimeline: InMemoryMonthlyRequisitionTimelineReadRepository;
+    yearlyTimeline: InMemoryYearlyRequisitionTimelineReadRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -196,6 +199,9 @@ export function buildTestModules(): TestModules {
   const monthlyTimelineReadRepository = new InMemoryMonthlyRequisitionTimelineReadRepository(
     requisitions,
   );
+  const yearlyTimelineReadRepository = new InMemoryYearlyRequisitionTimelineReadRepository(
+    requisitions,
+  );
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
     attachmentRepository,
     attachmentBlobRepository,
@@ -231,6 +237,7 @@ export function buildTestModules(): TestModules {
       companyCapacitySettings: companyCapacitySettingsRepository,
       weeklyTimeline: weeklyTimelineReadRepository,
       monthlyTimeline: monthlyTimelineReadRepository,
+      yearlyTimeline: yearlyTimelineReadRepository,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -394,6 +401,12 @@ export function buildTestModules(): TestModules {
       ),
       getMonthly: new GetMonthlyRequisitionTimeline(
         monthlyTimelineReadRepository,
+        companies,
+        accessService,
+        authorization,
+      ),
+      getYearly: new GetYearlyRequisitionTimeline(
+        yearlyTimelineReadRepository,
         companies,
         accessService,
         authorization,

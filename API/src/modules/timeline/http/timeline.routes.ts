@@ -4,11 +4,13 @@ import { getCurrentUserId } from "@/infrastructure/http/current-user";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 import type { GetMonthlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-monthly-requisition-timeline";
 import type { GetWeeklyTimeline } from "@/modules/timeline/application/use-cases/get-weekly-timeline";
+import type { GetYearlyRequisitionTimeline } from "@/modules/timeline/application/use-cases/get-yearly-requisition-timeline";
 import { ValidationError } from "@/shared/errors/typed-errors";
 
 export interface TimelineRouteOptions {
   getWeekly: GetWeeklyTimeline;
   getMonthly: GetMonthlyRequisitionTimeline;
+  getYearly: GetYearlyRequisitionTimeline;
   permissionResolver: PermissionResolver;
 }
 
@@ -101,6 +103,74 @@ const monthlyResponse = {
     },
   },
   required: ["companyId", "period", "items", "undatedItems", "indicators"],
+  additionalProperties: false,
+} as const;
+
+const yearlyQuery = {
+  type: "object",
+  properties: {
+    year: { type: "string", pattern: "^\\d{4}$" },
+    priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+    assigneeId: { type: "string", format: "uuid" },
+    status: { type: "string", enum: ["OPEN", "IN_PROGRESS", "PAUSED", "DONE", "CANCELLED"] },
+  },
+  required: ["year"],
+  additionalProperties: false,
+} as const;
+
+const yearlyMonth = {
+  type: "object",
+  properties: {
+    period: { type: "string", pattern: "^\\d{4}-(0[1-9]|1[0-2])$" },
+    requisitionCount: { type: "integer" },
+    countsByPriority: {
+      type: "object",
+      properties: {
+        LOW: { type: "integer" },
+        MEDIUM: { type: "integer" },
+        HIGH: { type: "integer" },
+      },
+      required: ["LOW", "MEDIUM", "HIGH"],
+      additionalProperties: false,
+    },
+    estimatedHours: { type: "number" },
+    deliveredOnTime: { type: "integer" },
+    overdue: { type: "integer" },
+    items: { type: "array", items: monthlyItem },
+    undatedItems: { type: "array", items: monthlyItem },
+  },
+  required: [
+    "period",
+    "requisitionCount",
+    "countsByPriority",
+    "estimatedHours",
+    "deliveredOnTime",
+    "overdue",
+    "items",
+    "undatedItems",
+  ],
+  additionalProperties: false,
+} as const;
+
+const yearlyResponse = {
+  type: "object",
+  properties: {
+    companyId: { type: "string", format: "uuid" },
+    year: { type: "string", pattern: "^\\d{4}$" },
+    months: { type: "array", minItems: 12, maxItems: 12, items: yearlyMonth },
+    indicators: {
+      type: "object",
+      properties: {
+        totalRequisitions: { type: "integer" },
+        estimatedHours: { type: "number" },
+        deliveredOnTime: { type: "integer" },
+        overdue: { type: "integer" },
+      },
+      required: ["totalRequisitions", "estimatedHours", "deliveredOnTime", "overdue"],
+      additionalProperties: false,
+    },
+  },
+  required: ["companyId", "year", "months", "indicators"],
   additionalProperties: false,
 } as const;
 
@@ -224,6 +294,15 @@ function assertAllowedMonthlyQuery(request: FastifyRequest): void {
   }
 }
 
+function assertAllowedYearlyQuery(request: FastifyRequest): void {
+  const query = request.url.split("?", 2)[1];
+  if (!query) return;
+  const keys = query.split("&").map((part) => decodeURIComponent(part.split("=", 1)[0] ?? ""));
+  if (keys.some((key) => !["year", "assigneeId", "status", "priority"].includes(key))) {
+    throw new ValidationError("Entrada inválida");
+  }
+}
+
 export async function registerTimelineRoutes(
   app: FastifyInstance,
   options: TimelineRouteOptions,
@@ -260,6 +339,47 @@ export async function registerTimelineRoutes(
         actor,
         companyId,
         period: query.period,
+        filters: {
+          priority: query.priority,
+          assigneeId: query.assigneeId,
+          status: query.status,
+        },
+      });
+    },
+  );
+
+  app.get(
+    "/companies/:companyId/timeline/yearly",
+    {
+      schema: {
+        tags: ["Timeline"],
+        description: "Obtém a timeline anual de requisições da empresa.",
+        headers: userHeader,
+        params: companyParams,
+        querystring: yearlyQuery,
+        response: {
+          200: yearlyResponse,
+          400: { description: "Entrada inválida.", ...errorResponse },
+          401: { description: "Usuário não autenticado.", ...errorResponse },
+          403: { description: "Acesso ou permissão insuficiente.", ...errorResponse },
+          404: { description: "Empresa não encontrada.", ...errorResponse },
+        },
+      },
+    },
+    async (request) => {
+      assertAllowedYearlyQuery(request);
+      const { companyId } = request.params as { companyId: string };
+      const query = request.query as {
+        year: string;
+        priority?: "LOW" | "MEDIUM" | "HIGH";
+        assigneeId?: string;
+        status?: "OPEN" | "IN_PROGRESS" | "PAUSED" | "DONE" | "CANCELLED";
+      };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.getYearly.execute({
+        actor,
+        companyId,
+        year: query.year,
         filters: {
           priority: query.priority,
           assigneeId: query.assigneeId,

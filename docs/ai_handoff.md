@@ -390,6 +390,14 @@ O app expõe `/timeline/monthly`, com cache por tenant/período/filtros e suport
 
 Validação: app 490 passed; API 959 passed; PostgreSQL real serial com `TEST_DATABASE_URL` na porta 5433, monthly repository sem skip; coverage app 95,52% statements, 90,31% branches, 96,53% functions, 96,72% lines; API 98,08%, 93,70%, 98,67%, 98,61%. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Playwright mensal 4/4: `artifacts/browser-audit/2026-08-14T17-26-57-266Z-8557c5a9-a193-4a45-ad2b-fe4239159aef/`; global 23/23, 0 failed, 0 skipped: `artifacts/browser-audit/2026-08-14T17-30-26-603Z-88ace51c-b643-421c-83bc-5411faea2fe9/`. Viewports: `320x844`, `360x800`, `390x844`, `1440x900`. Sem nova migration/dependência.
 
-## Próximo passo pós-M15.1
+## M15.2 — timeline anual concluída
 
-M15 permanece em andamento. M15.2 não está definida; não inferir nem inventar escopo anual.
+`GET /companies/:companyId/timeline/yearly?year=YYYY&priority?&assigneeId?&status?` implementa a Timeline anual somente leitura de Requisitions. O eixo é fixo de janeiro a dezembro; a seleção usa interseção inclusiva; Requisitions que atravessam meses aparecem em cada mês; datas ausentes ou invertidas vão para `undatedItems`. A contagem mensal é distinta por Requisition e a ordenação é data de previsão, prioridade, título e número.
+
+O contrato retorna os campos aprovados dos itens, agrupamento por prioridade e indicadores mensais/anuais `totalRequisitions`, `estimatedHours`, `deliveredOnTime` e `overdue`. Capacidade usada, Tasks, TimeEntries, pausas, Capacity, Attachments, persistência e migrations permanecem fora do escopo. A autorização é `requisitions.read`, membership ativa, empresa ativa e isolamento tenant.
+
+O app expõe `/timeline/yearly`, com cache por tenant/ano/filtros, navegação anual, filtros, lista/accordion mensal, expansão acessível, loading/error/empty/retry, AbortSignal e stale protection. M14, M15.1, M11, M12, M13, Attachments, Capacity e `commands/` foram preservados.
+
+Validação final M15.2: API 964 testes, app 500 testes, PostgreSQL real serial no foco anual sem skips indevidos, coverage API 97,91% statements / 92,64% branches / 98,59% functions / 98,61% lines e coverage app 95,66% statements / 90,19% branches / 96,83% functions / 96,81% lines. Playwright anual 3/3 no artifact `artifacts/browser-audit/2026-08-14T18-14-37-615Z-738ed47a-f0f7-467f-8d7f-0716b71b5612/`; auditoria global 26/26 no artifact `artifacts/browser-audit/2026-08-14T18-15-00-425Z-17abfb51-4ba7-4a83-90e4-c3e51188d1a9/`, 0 failed e 0 skipped, nos viewports `320x844`, `360x800`, `390x844` e `1440x900`. Typecheck, lint, build, `tsc` raiz e diff-check passaram. Não houve migration ou nova dependência.
+
+M15 está concluída. A próxima milestone formal é M16 — Notificações; não iniciar M16 nesta unidade.

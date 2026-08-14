@@ -10,6 +10,10 @@ import type {
   WeeklyTimelineQueryResult,
   WeeklyTimelineReadRepository,
 } from "@/modules/timeline/application/ports/weekly-timeline-read-repository";
+import type {
+  YearlyRequisitionTimelineQuery,
+  YearlyRequisitionTimelineReadRepository,
+} from "@/modules/timeline/application/ports/yearly-requisition-timeline-read-repository";
 import type { UserRepository } from "@/modules/users/domain/repositories/user-repository";
 
 export class InMemoryWeeklyTimelineReadRepository implements WeeklyTimelineReadRepository {
@@ -109,6 +113,46 @@ export class InMemoryMonthlyRequisitionTimelineReadRepository
             start <= query.periodEnd &&
             (end === null || end >= query.periodStart)) ||
           (end !== null && end >= query.periodStart && (start === null || start <= query.periodEnd))
+        );
+      })
+      .map((requisition) => ({
+        requisitionId: requisition.id,
+        number: requisition.number,
+        title: requisition.title,
+        priority: requisition.priority,
+        assigneeId: requisition.responsibleId,
+        startDate: requisition.startDate?.toISOString().slice(0, 10) ?? null,
+        plannedDeliveryDate: requisition.plannedDeliveryDate?.toISOString().slice(0, 10) ?? null,
+        deliveredAt: requisition.deliveredAt,
+        estimatedHours: requisition.estimatedHours,
+      }));
+  }
+}
+
+export class InMemoryYearlyRequisitionTimelineReadRepository
+  implements YearlyRequisitionTimelineReadRepository
+{
+  calls: YearlyRequisitionTimelineQuery[] = [];
+
+  constructor(private readonly requisitions: RequisitionRepository) {}
+
+  async findYearly(query: YearlyRequisitionTimelineQuery) {
+    this.calls.push(query);
+    const rows = await this.requisitions.listByCompany(query.companyId, {
+      priority: query.priority,
+      responsibleId: query.assigneeId,
+      status: query.status,
+    });
+    return rows
+      .filter(({ startDate, plannedDeliveryDate }) => {
+        const start = startDate?.toISOString().slice(0, 10) ?? null;
+        const end = plannedDeliveryDate?.toISOString().slice(0, 10) ?? null;
+        return (
+          (start === null && end === null) ||
+          (start !== null && end !== null && start > end) ||
+          ((start === null || start <= query.yearEnd) &&
+            (end === null || end >= query.yearStart) &&
+            (start === null || end === null || start <= end))
         );
       })
       .map((requisition) => ({

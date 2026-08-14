@@ -20,7 +20,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Concluída |
 | 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Em andamento |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Concluída — M14.1 cobre todos os itens |
-| 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Em andamento — M15.1 concluída |
+| 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Concluída — M15.1 e M15.2 concluídas |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Não iniciada |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Não iniciada |
 | 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Não iniciada |

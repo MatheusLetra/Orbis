@@ -259,6 +259,6 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
 | M13 | Capacidade e previsão | ✅ Concluído |
 | M14 | Timeline semanal | ✅ Concluído; M14.1 cobre todos os itens |
-| M15 | Timeline mensal/anual | 🚧 Em andamento; M15.1 concluída |
+| M15 | Timeline mensal/anual | ✅ Concluída; M15.1 e M15.2 concluídas |
 
 O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M14 está concluída, com M14.1 cobrindo todos os itens. M15 está em andamento, com M15.1 concluída; M15.2 ainda não está definida.

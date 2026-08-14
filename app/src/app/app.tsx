@@ -6,6 +6,7 @@ import { CompanyPage } from "@/features/companies/company-page";
 import { KanbanPage } from "@/features/kanban/kanban-page";
 import { TimelinePage } from "@/features/timeline/timeline-page";
 import { MonthlyTimelinePage } from "@/features/timeline-monthly/monthly-page";
+import { YearlyTimelinePage } from "@/features/timeline-yearly/yearly-page";
 
 function AppRoutes() {
   const auth = useAuth();
@@ -40,6 +41,16 @@ function AppRoutes() {
         element={
           auth.status === "authenticated" ? (
             <MonthlyTimelinePage />
+          ) : (
+            <Navigate to="/login" replace state={{ from: location }} />
+          )
+        }
+      />
+      <Route
+        path="/timeline/yearly"
+        element={
+          auth.status === "authenticated" ? (
+            <YearlyTimelinePage />
           ) : (
             <Navigate to="/login" replace state={{ from: location }} />
           )

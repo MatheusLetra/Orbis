@@ -1030,7 +1030,11 @@ O frontend expõe `/timeline/monthly`, com cache isolado por tenant, período e 
 
 ### Anual
 
-Eixo mensal.
+O contrato somente leitura é `GET /companies/:companyId/timeline/yearly?year=YYYY&priority?&assigneeId?&status?`. A leitura exige autenticação, `requisitions.read`, membership ativa e empresa ativa. O eixo possui sempre os doze meses do ano; a seleção usa interseção inclusiva entre `startDate` e `plannedDeliveryDate`. Requisições que atravessam meses aparecem em cada mês intersectado. Datas ausentes ou invertidas pertencem a `undatedItems` de cada mês.
+
+Cada mês possui `period`, `requisitionCount`, `countsByPriority`, `estimatedHours`, `deliveredOnTime`, `overdue`, `items` e `undatedItems`. A contagem mensal é distinta por Requisition. A ordenação é `plannedDeliveryDate`, prioridade `HIGH > MEDIUM > LOW`, título e número. Os indicadores mensais e anuais são `totalRequisitions`, `estimatedHours`, `deliveredOnTime` e `overdue`; não há capacidade usada no contrato.
+
+A camada visual recebe dados já normalizados para apresentação. O frontend usa lista/accordion mensal responsivo, com expansão acessível por mês, cache isolado por tenant/ano/filtros, `AbortSignal` e proteção contra respostas stale. A leitura anual não consulta Tasks, TimeEntries, pausas, Capacity ou Attachments e não cria persistência.
 
 A camada visual recebe dados já normalizados para apresentação.
 

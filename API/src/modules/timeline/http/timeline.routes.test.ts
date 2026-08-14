@@ -26,6 +26,69 @@ async function setup() {
 }
 
 describe("Timeline HTTP", () => {
+  it("expõe a timeline anual com doze meses e contrato OpenAPI", async () => {
+    const { app, modules, authorization } = await setup();
+    await modules.repositories.requisitions.create(
+      Requisition.restore({
+        id: "33333333-3333-4333-8333-333333333333",
+        companyId: COMPANY_ID,
+        number: 10,
+        title: "Anual",
+        description: null,
+        priority: "HIGH",
+        status: "OPEN",
+        requesterId: USER_ID,
+        responsibleId: USER_ID,
+        systemId: null,
+        systemVersionId: null,
+        estimatedHours: 5,
+        startDate: new Date("2026-02-10T00:00:00Z"),
+        plannedDeliveryDate: new Date("2026-03-12T00:00:00Z"),
+        deliveredAt: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      }),
+    );
+    await app.ready();
+    const operation = app.swagger().paths["/companies/{companyId}/timeline/yearly"]?.get;
+    expect(
+      operation?.parameters
+        ?.filter((parameter) => parameter.in === "query")
+        .map((parameter) => parameter.name),
+    ).toEqual(["year", "priority", "assigneeId", "status"]);
+    expect(operation?.parameters?.find((parameter) => parameter.name === "year")?.required).toBe(
+      true,
+    );
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/timeline/yearly?year=2026`,
+      headers: { authorization },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      year: "2026",
+      months: expect.arrayContaining([
+        expect.objectContaining({ period: "2026-02", requisitionCount: 1 }),
+        expect.objectContaining({ period: "2026-03", requisitionCount: 1 }),
+      ]),
+    });
+    expect(response.json().months).toHaveLength(12);
+    await app.close();
+  });
+
+  it("rejeita ano inválido e query anual desconhecida", async () => {
+    const { app, authorization } = await setup();
+    for (const url of [
+      `/companies/${COMPANY_ID}/timeline/yearly`,
+      `/companies/${COMPANY_ID}/timeline/yearly?year=20x6`,
+      `/companies/${COMPANY_ID}/timeline/yearly?year=2026&unknown=1`,
+    ]) {
+      const response = await app.inject({ method: "GET", url, headers: { authorization } });
+      expect(response.statusCode).toBe(400);
+    }
+    await app.close();
+  });
+
   it("expõe e retorna a timeline mensal de requisições", async () => {
     const { app, modules, authorization } = await setup();
     await modules.repositories.requisitions.create(

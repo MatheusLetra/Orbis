@@ -13,7 +13,8 @@
     "audit:notifications": "tsx audit/scripts/run-browser-audit.ts notifications",
     "audit:chat": "tsx audit/scripts/run-browser-audit.ts chat",
     "audit:timeline": "tsx audit/scripts/run-browser-audit.ts timeline",
-    "audit:timeline-monthly": "tsx audit/scripts/run-browser-audit.ts timeline-monthly"
+    "audit:timeline-monthly": "tsx audit/scripts/run-browser-audit.ts timeline-monthly",
+    "audit:reports": "tsx audit/scripts/run-browser-audit.ts reports"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

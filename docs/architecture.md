@@ -217,6 +217,7 @@ modules/
 ├── capacity/
 ├── notifications/
 ├── chat/
+├── reports/
 └── audit/
 ```
 
@@ -847,6 +848,12 @@ PostgreSQL
 ```
 
 M17 não implementa WebSocket, polling, EventSource, Redis, presença ou refresh automático. PostgreSQL é a fonte de verdade. WebSocket e Redis pub/sub podem ser avaliados futuramente para entrega em tempo real ou múltiplas instâncias, sem substituir persistência e somente após necessidade operacional concreta.
+
+### 21.1 Relatórios de Tasks (M18)
+
+Relatórios são leituras derivadas e não possuem tabela ou snapshot próprio. `TaskReportReadRepository` executa uma consulta agregada tenant-aware sobre `tasks`, com joins opcionais de `requisitions`, `memberships/users` e `time_entries`; a soma de minutos é convertida para `workedHours` e permanece separada de `estimatedHours`.
+
+O JSON é paginado para a UI. A exportação CSV repete os mesmos filtros e busca em lotes de até 100 registros até o total do relatório, com teto de 10.000 Tasks. Nenhuma leitura de Attachments ou `attachment_blobs` participa da consulta.
 
 ## 22. Redis
 

@@ -23,7 +23,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Concluída — M15.1 e M15.2 concluídas |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Concluída |
 | 17 | M17 — Chat | [M17.md](milestones/M17.md) | Concluída |
-| 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Não iniciada |
+| 18 | M18 — Relatórios | [M18.md](milestones/M18.md) | Concluída |
 | 19 | M19 — Auditoria | [M19.md](milestones/M19.md) | Não iniciada |
 | 20 | M20 — Hardening, observabilidade e deploy | [M20.md](milestones/M20.md) | Não iniciada |
 
@@ -262,3 +262,13 @@ M16 está concluída. Eventos de vencimento, TimeEntries, pausas, Capacity, Time
 - [x] PostgreSQL 1010/1010, app 620/620, coverage acima dos thresholds e Playwright global 49/49.
 
 M17 está concluída. O transporte aprovado é HTTP explícito, sem WebSocket, polling, EventSource, Redis ou presença. Chat não publica `CHAT_MESSAGE` e não altera Notifications M16. A próxima milestone formal é M18 — Relatórios.
+
+## Progresso M18
+
+- [x] Read model tenant-aware de Tasks com Requisition opcional e agregação de TimeEntries por `createdAt`.
+- [x] Contratos runtime, validação de período/calendário, filtros status/priority/Requisition/employee e paginação.
+- [x] Endpoints JSON e CSV documentados via OpenAPI/Scalar; exportação máxima de 10.000 Tasks sem paginação parcial.
+- [x] Frontend `/reports`, filtros controlados, tabela desktop, cards mobile, exportação, lifecycle e cache tenant-aware.
+- [x] PostgreSQL, API/app, coverage e Playwright M18/global aprovados.
+
+M18 não adicionou migration, permissão, scheduler, snapshot, dashboard, gráfico, PDF, XLSX ou integração com Capacity, Timelines, Notifications, Chat e Attachments.

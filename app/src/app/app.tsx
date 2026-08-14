@@ -5,6 +5,7 @@ import { LoginPage } from "@/features/auth/login-page";
 import { ChatPage } from "@/features/chat/chat-page";
 import { CompanyPage } from "@/features/companies/company-page";
 import { KanbanPage } from "@/features/kanban/kanban-page";
+import { ReportsPage } from "@/features/reports/reports-page";
 import { TimelinePage } from "@/features/timeline/timeline-page";
 import { MonthlyTimelinePage } from "@/features/timeline-monthly/monthly-page";
 import { YearlyTimelinePage } from "@/features/timeline-yearly/yearly-page";
@@ -42,6 +43,16 @@ function AppRoutes() {
         element={
           auth.status === "authenticated" ? (
             <KanbanPage />
+          ) : (
+            <Navigate to="/login" replace state={{ from: location }} />
+          )
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          auth.status === "authenticated" ? (
+            <ReportsPage />
           ) : (
             <Navigate to="/login" replace state={{ from: location }} />
           )

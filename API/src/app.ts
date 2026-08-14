@@ -20,6 +20,7 @@ import { registerHealthRoute } from "./modules/health/health.routes";
 import { registerMembershipRoutes } from "./modules/memberships/http/membership.routes";
 import { registerNotificationRoutes } from "./modules/notifications/http/notification.routes";
 import { registerReleaseRoutes } from "./modules/releases/http/release.routes";
+import { registerReportRoutes } from "./modules/reports/http/report.routes";
 import { registerRequisitionRoutes } from "./modules/requisitions/http/requisition.routes";
 import { registerSystemRoutes } from "./modules/systems/http/system.routes";
 import { registerTaskRoutes } from "./modules/tasks/http/task.routes";
@@ -206,6 +207,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
         ...modules.timeline,
         permissionResolver: modules.permissionResolver,
       });
+      if (modules.reports) {
+        await registerReportRoutes(protectedRoutes, {
+          getTaskReport: modules.reports.getTaskReport,
+          permissionResolver: modules.permissionResolver,
+        });
+      }
       await registerAttachmentRoutes(protectedRoutes, {
         ...modules.attachments,
         permissionResolver: modules.permissionResolver,

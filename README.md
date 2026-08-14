@@ -171,6 +171,8 @@ GET   /companies/:companyId/tasks/:taskId/time-entries → lista horas e total d
 GET   /companies/:companyId/timeline/weekly             → timeline semanal (`weekStart` na segunda-feira)
 GET   /companies/:companyId/timeline/monthly            → timeline mensal (`period=YYYY-MM`)
 GET   /companies/:companyId/timeline/yearly             → timeline anual (`year=YYYY`)
+GET   /companies/:companyId/reports/tasks               → relatório paginado de Tasks
+GET   /companies/:companyId/reports/tasks/export        → relatório completo em CSV (máx. 10.000 Tasks)
 
 GET   /companies/:companyId/notifications               → lista notificações próprias e não lidas
 PATCH /companies/:companyId/notifications/:notificationId/read → marca notificação própria como lida
@@ -276,5 +278,6 @@ O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENT
 | M15 | Timeline mensal/anual | ✅ Concluída; M15.1 e M15.2 concluídas |
 | M16 | Notificações persistidas in-app | ✅ Concluída |
 | M17 | Chat direto persistido e tenant-aware | ✅ Concluída |
+| M18 | Relatórios de Tasks, filtros e CSV | ✅ Concluída |
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M17 está concluída com transporte HTTP explícito, sem WebSocket ou polling; a próxima milestone formal é M18 — Relatórios.
+O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M18 está concluída; a próxima milestone formal é M19 — Auditoria.

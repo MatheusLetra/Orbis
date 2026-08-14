@@ -62,6 +62,8 @@ import { ListReleases } from "@/modules/releases/application/use-cases/list-rele
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
 import { DrizzleReleaseRepository } from "@/modules/releases/infrastructure/repositories/drizzle-release-repository";
 import { LocalArtifactStorage } from "@/modules/releases/infrastructure/storage/local-artifact-storage";
+import { GetTaskReport } from "@/modules/reports/application/use-cases/get-task-report";
+import { DrizzleTaskReportReadRepository } from "@/modules/reports/infrastructure/repositories/drizzle-task-report-read-repository";
 import { AddRequisitionAssignee } from "@/modules/requisitions/application/use-cases/add-requisition-assignee";
 import { CreateRequisition } from "@/modules/requisitions/application/use-cases/create-requisition";
 import { DeleteRequisition } from "@/modules/requisitions/application/use-cases/delete-requisition";
@@ -179,6 +181,9 @@ export interface OrbisModules {
     getMonthly: GetMonthlyRequisitionTimeline;
     getYearly: GetYearlyRequisitionTimeline;
   };
+  reports?: {
+    getTaskReport: GetTaskReport;
+  };
   attachments: {
     addFile: AddFileAttachment;
     addLink: AddLinkAttachment;
@@ -217,6 +222,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     new DrizzleMonthlyRequisitionTimelineReadRepository(database);
   const yearlyRequisitionTimelineReadRepository =
     new DrizzleYearlyRequisitionTimelineReadRepository(database);
+  const taskReportReadRepository = new DrizzleTaskReportReadRepository(database);
   const attachmentRepository = new DrizzleAttachmentRepository(database);
   const attachmentBlobRepository = new DrizzleAttachmentBlobRepository(database);
   const attachmentUnitOfWork = new DrizzleAttachmentUnitOfWork(database);
@@ -480,6 +486,14 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       ),
       getYearly: new GetYearlyRequisitionTimeline(
         yearlyRequisitionTimelineReadRepository,
+        companyRepository,
+        accessService,
+        authorization,
+      ),
+    },
+    reports: {
+      getTaskReport: new GetTaskReport(
+        taskReportReadRepository,
         companyRepository,
         accessService,
         authorization,

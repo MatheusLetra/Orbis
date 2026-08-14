@@ -429,3 +429,15 @@ Transporte M17: somente HTTP explícito, sem WebSocket, polling, EventSource, Re
 Validação final: API 1010/1010 com PostgreSQL real; app 620/620 serial. Coverage API 97,30% statements, 91,81% branches, 97,48% functions e 98,14% lines; app 96,02%, 90,68%, 97,25% e 97,15%. Playwright Chat 10/10 em `artifacts/browser-audit/2026-08-14T20-01-14-853Z-99afb962-395f-46b6-b729-5a7887625faf/`; global 49/49 em `artifacts/browser-audit/2026-08-14T20-11-59-505Z-e14a31c2-7932-4c54-807c-7466ebc72b77/`. Typecheck, lint, builds, `tsc` raiz e diff-check passaram.
 
 Próxima milestone formal: M18 — Relatórios.
+
+## M18 — Relatórios concluída
+
+M18 implementou `GET /companies/:companyId/reports/tasks` e `GET /companies/:companyId/reports/tasks/export`. O relatório é read-only, usa `tasks.read`, membership ativa, empresa ativa e companyId validado pelo contexto autenticado. O read model agrega Tasks, Requisitions opcionalmente e TimeEntries sem N+1, sem carregar Attachments/BYTEA.
+
+O período aceita `periodStart`/`periodEnd` como datas de calendário em intervalo inclusivo e considera a interseção entre `createdAt`, `plannedEndDate` e `completedAt` quando houver. `issuedAt` é `tasks.createdAt`; `workedHours` soma `TimeEntry.durationMinutes` filtradas por `createdAt` no período; pausas e estimativa de Requisition não são somadas por Task. Ordenação é `createdAt ASC, id ASC`; JSON usa `page`, `limit`, `total` e `hasMore`.
+
+CSV usa os mesmos filtros, `Content-Disposition: attachment`, limite máximo de 10.000 Tasks e leitura completa em lotes de 100, sem Blob em React Query. O app expõe `/reports` com filtros controlados, tabela desktop, cards mobile, loading/error/empty/retry, AbortSignal, keys tenant-aware e exportação.
+
+Validação final M18: API 1.023/1.023 em execução serial com PostgreSQL real, 0 skipped; app 632/632; coverage API 97,12%/90,92%/97,53%/98,06% e app 95,72%/90,54%/96,33%/96,85% em statements/branches/functions/lines; Playwright M18 5/5 em `artifacts/browser-audit/2026-08-14T20-50-46-769Z-86143ae5-d22e-4690-bbc1-4c5d8545145e/`; global 54/54 em `artifacts/browser-audit/2026-08-14T20-56-15-327Z-053af8bb-9eb3-4ebc-a0bd-17362e56815d/`; typecheck, lint, builds, tsc raiz e diff-check aprovados. Não houve migration ou nova permissão.
+
+Próxima milestone formal: M19 — Auditoria. Não iniciar M19 nesta unidade sem decisão explícita de retomada.

@@ -56,10 +56,26 @@ describe("TaskCard", () => {
     if (status === "PAUSED")
       expect(screen.queryByRole("button", { name: /Concluir/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ver detalhes/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ver detalhes/ })).toHaveClass("kanban-card-action");
     if (status === "DONE") {
       expect(screen.queryByRole("button", { name: /Mover tarefa/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Editar tarefa/ })).not.toBeInTheDocument();
     }
+  });
+
+  it("mantém mover e ações com alvo de toque responsivo", () => {
+    render(<TaskCard task={baseTask} />);
+
+    expect(screen.getByRole("button", { name: /Mover tarefa/ })).toHaveClass("kanban-card-move");
+    expect(screen.getByRole("button", { name: /Ver detalhes/ })).toHaveClass("kanban-card-action");
+    expect(screen.getByRole("button", { name: /Iniciar tarefa/ })).toHaveClass(
+      "kanban-card-action",
+    );
+    expect(screen.getByRole("button", { name: /Mover tarefa/ })).toHaveAttribute(
+      "aria-roledescription",
+      "draggable",
+    );
+    expect(screen.getByRole("button", { name: /Mover tarefa/ })).toHaveAttribute("tabindex", "0");
   });
 
   it("executa ação rápida e comunica pending", async () => {

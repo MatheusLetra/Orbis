@@ -15,6 +15,7 @@ import { canTransitionTask } from "@/features/tasks/task-transitions";
 import { groupTasksByStatus } from "./group-tasks";
 import { KanbanColumn } from "./kanban-column";
 import { KANBAN_COLUMNS } from "./kanban-contracts";
+import "./kanban-layout.css";
 
 export function KanbanBoard({
   tasks,
@@ -64,37 +65,69 @@ export function KanbanBoard({
         },
       }}
     >
-      <section
-        className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-        aria-label="Colunas do board"
-      >
-        {KANBAN_COLUMNS.map((column) => (
-          <div key={column.status} className="snap-start">
-            <KanbanColumn
-              status={column.status}
-              label={column.label}
-              tasks={grouped[column.status]}
-              pendingTaskIds={pendingTaskIds}
-              validDropTarget={Boolean(
-                activeTask && canTransitionTask(activeTask.status, column.status),
-              )}
-              onTransition={onTransition}
-              onViewDetails={onViewDetails}
-              canEdit={canEdit}
-              companyId={companyId}
-            />
-          </div>
-        ))}
-      </section>
+      <div className="kanban-board-shell">
+        <p className="kanban-board-hint" id="kanban-board-navigation-hint">
+          Deslize horizontalmente para acessar todas as colunas.
+        </p>
+        <section
+          className="kanban-board-scroll"
+          aria-describedby="kanban-board-navigation-hint"
+          aria-label="Colunas do board"
+          onFocusCapture={scrollFocusedControlIntoView}
+        >
+          {KANBAN_COLUMNS.map((column) => (
+            <div key={column.status} className="kanban-board-column-slot">
+              <KanbanColumn
+                status={column.status}
+                label={column.label}
+                tasks={grouped[column.status]}
+                pendingTaskIds={pendingTaskIds}
+                validDropTarget={Boolean(
+                  activeTask && canTransitionTask(activeTask.status, column.status),
+                )}
+                onTransition={onTransition}
+                onViewDetails={onViewDetails}
+                canEdit={canEdit}
+                companyId={companyId}
+              />
+            </div>
+          ))}
+        </section>
+      </div>
       <DragOverlay>
         {activeTask ? (
-          <div className="w-72 rounded-lg border bg-card p-4 shadow-lg" aria-hidden="true">
+          <div
+            className="kanban-drag-overlay rounded-lg border bg-card p-4 shadow-lg"
+            aria-hidden="true"
+          >
             <p className="text-sm font-semibold">{activeTask.title}</p>
           </div>
         ) : null}
       </DragOverlay>
     </DndContext>
   );
+}
+
+function scrollFocusedControlIntoView(event: React.FocusEvent<HTMLElement>): void {
+  const board = event.currentTarget;
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || target === board) return;
+  const boardRect = board.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (targetRect.left < boardRect.left) {
+    board.scrollTo({
+      left: board.scrollLeft + targetRect.left - boardRect.left,
+      behavior: "auto",
+    });
+  } else if (targetRect.right > boardRect.right) {
+    board.scrollTo({
+      left:
+        board.scrollLeft +
+        (targetRect.left + targetRect.width / 2) -
+        (boardRect.left + boardRect.width / 2),
+      behavior: "auto",
+    });
+  }
 }
 
 export function resolveTaskDrop(

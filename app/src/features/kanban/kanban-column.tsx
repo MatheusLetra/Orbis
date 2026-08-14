@@ -28,12 +28,12 @@ export function KanbanColumn({
   return (
     <section
       ref={droppable.setNodeRef}
-      className={`flex min-h-72 w-[min(21rem,calc(100vw-2rem))] shrink-0 flex-col rounded-xl p-3 sm:w-80 ${
+      className={`kanban-column flex min-h-72 flex-col rounded-xl p-3 ${
         droppable.isOver && validDropTarget ? "bg-primary/10 ring-2 ring-primary" : "bg-muted/50"
       }`}
       aria-labelledby={`kanban-column-${status}`}
     >
-      <div className="flex items-center justify-between gap-3 px-1 pb-3">
+      <div className="kanban-column-header flex items-center justify-between gap-3 px-1 pb-3">
         <h2 id={`kanban-column-${status}`} className="font-semibold">
           {label}
         </h2>

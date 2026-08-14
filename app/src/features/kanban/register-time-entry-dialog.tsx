@@ -7,6 +7,7 @@ import type { CompanyCapabilities } from "@/features/companies/capabilities-cont
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { useRegisterTimeEntry } from "@/features/tasks/time-entry-mutations";
 import { ApiError } from "@/lib/http/api-error";
+import "./register-time-entry-dialog.css";
 
 const MIN_DURATION = 1;
 const MAX_DURATION = 1440;
@@ -51,17 +52,19 @@ function RegisterTimeEntryForm({
   isOpen,
   onCapabilitiesForbidden,
 }: Omit<RegisterTimeEntryDialogProps, "canRegister">) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const durationRef = useRef<HTMLInputElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [duration, setDuration] = useState("");
   const [description, setDescription] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const visualViewport = useVisualViewport(dialogOpen);
   const taskContext = `${companyId}:${task.id}`;
   const previousTaskContext = useRef(taskContext);
   const registerTimeEntry = useRegisterTimeEntry(companyId, task.id, {
     onSuccess: () => {
-      if (!isOpen || !dialogRef.current?.open) return;
+      if (!isOpen || !dialogRef.current) return;
       setDuration("");
       setDescription("");
       setValidationError(null);
@@ -76,11 +79,7 @@ function RegisterTimeEntryForm({
   const close = useCallback(
     (restoreFocus = true) => {
       registerTimeEntry.abort();
-      const dialog = dialogRef.current;
-      if (dialog?.open) {
-        if (typeof dialog.close === "function") dialog.close();
-        else dialog.removeAttribute("open");
-      }
+      setDialogOpen(false);
       if (restoreFocus) window.setTimeout(() => triggerRef.current?.focus(), 0);
     },
     [registerTimeEntry.abort],
@@ -101,13 +100,37 @@ function RegisterTimeEntryForm({
   }, [registerTimeEntry.abort]);
 
   function open(): void {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
     setValidationError(null);
     registerTimeEntry.clearError();
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
+    setDialogOpen(true);
     window.setTimeout(() => durationRef.current?.focus(), 0);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      ),
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function validate(): number | null {
@@ -151,24 +174,40 @@ function RegisterTimeEntryForm({
 
   const error = validationError ?? registerTimeEntry.error?.message ?? null;
   const errorId = `register-time-entry-error-${task.id}`;
-  const dialog = (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={`register-time-entry-title-${task.id}`}
-      className="w-[min(100%-2rem,32rem)] rounded-xl border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/50"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          close();
-        }
+  const dialog = dialogOpen ? (
+    <div
+      className="register-time-entry-backdrop"
+      data-testid="register-time-entry-backdrop"
+      style={{
+        position: "fixed",
+        left: visualViewport.left,
+        top: visualViewport.top,
+        right: "auto",
+        bottom: "auto",
+        boxSizing: "border-box",
+        width: visualViewport.width,
+        height: visualViewport.height,
+        padding: 8,
+        overflow: "hidden",
       }}
     >
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`register-time-entry-title-${task.id}`}
+        className="register-time-entry-modal"
+        style={{
+          boxSizing: "border-box",
+          minWidth: 0,
+          maxWidth: "32rem",
+          minHeight: 0,
+          maxHeight: "calc(100dvh - 16px)",
+          overflow: "hidden",
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <header className="register-time-entry-header">
           <div>
             <h2 id={`register-time-entry-title-${task.id}`} className="text-lg font-semibold">
               Registrar horas
@@ -180,61 +219,63 @@ function RegisterTimeEntryForm({
           <Button type="button" variant="ghost" size="sm" onClick={() => close()}>
             Fechar
           </Button>
-        </div>
-        <form onSubmit={submit} noValidate>
-          <div className="grid gap-2">
-            <Label htmlFor={`register-time-entry-duration-${task.id}`}>Duração (minutos)</Label>
-            <Input
-              ref={durationRef}
-              id={`register-time-entry-duration-${task.id}`}
-              type="number"
-              min={MIN_DURATION}
-              max={MAX_DURATION}
-              step="1"
-              inputMode="numeric"
-              required
-              value={duration}
-              disabled={registerTimeEntry.isPending}
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? errorId : undefined}
-              onChange={(event) => {
-                setDuration(event.target.value);
-                setValidationError(null);
-                registerTimeEntry.clearError();
-              }}
-            />
-          </div>
-          <div className="mt-4 grid gap-2">
-            <Label htmlFor={`register-time-entry-description-${task.id}`}>
-              Descrição (opcional)
-            </Label>
-            <textarea
-              id={`register-time-entry-description-${task.id}`}
-              className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
-              maxLength={MAX_DESCRIPTION}
-              value={description}
-              disabled={registerTimeEntry.isPending}
-              aria-invalid={Boolean(error && description.length > MAX_DESCRIPTION)}
-              aria-describedby={error ? errorId : undefined}
-              onChange={(event) => {
-                setDescription(event.target.value);
-                setValidationError(null);
-                registerTimeEntry.clearError();
-              }}
-            />
-            <p className="text-right text-xs text-muted-foreground">
-              {description.length}/{MAX_DESCRIPTION}
-            </p>
-          </div>
-          {error && (
-            <p id={errorId} className="mt-3 text-sm text-destructive" role="alert">
-              {validationError ??
-                (registerTimeEntry.error
-                  ? messageForRegisterTimeEntryError(registerTimeEntry.error)
-                  : error)}
-            </p>
-          )}
-          <div className="mt-6 flex justify-end gap-2">
+        </header>
+        <form className="contents" onSubmit={submit} noValidate>
+          <main className="register-time-entry-main">
+            <div className="grid gap-2">
+              <Label htmlFor={`register-time-entry-duration-${task.id}`}>Duração (minutos)</Label>
+              <Input
+                ref={durationRef}
+                id={`register-time-entry-duration-${task.id}`}
+                type="number"
+                min={MIN_DURATION}
+                max={MAX_DURATION}
+                step="1"
+                inputMode="numeric"
+                required
+                value={duration}
+                disabled={registerTimeEntry.isPending}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? errorId : undefined}
+                onChange={(event) => {
+                  setDuration(event.target.value);
+                  setValidationError(null);
+                  registerTimeEntry.clearError();
+                }}
+              />
+            </div>
+            <div className="mt-4 grid gap-2">
+              <Label htmlFor={`register-time-entry-description-${task.id}`}>
+                Descrição (opcional)
+              </Label>
+              <textarea
+                id={`register-time-entry-description-${task.id}`}
+                className="min-h-24 rounded-md border bg-background px-3 py-2 text-sm"
+                maxLength={MAX_DESCRIPTION}
+                value={description}
+                disabled={registerTimeEntry.isPending}
+                aria-invalid={Boolean(error && description.length > MAX_DESCRIPTION)}
+                aria-describedby={error ? errorId : undefined}
+                onChange={(event) => {
+                  setDescription(event.target.value);
+                  setValidationError(null);
+                  registerTimeEntry.clearError();
+                }}
+              />
+              <p className="text-right text-xs text-muted-foreground">
+                {description.length}/{MAX_DESCRIPTION}
+              </p>
+            </div>
+            {error && (
+              <p id={errorId} className="mt-3 text-sm text-destructive" role="alert">
+                {validationError ??
+                  (registerTimeEntry.error
+                    ? messageForRegisterTimeEntryError(registerTimeEntry.error)
+                    : error)}
+              </p>
+            )}
+          </main>
+          <footer className="register-time-entry-footer">
             <Button
               type="button"
               variant="outline"
@@ -250,16 +291,16 @@ function RegisterTimeEntryForm({
             >
               {registerTimeEntry.isPending ? "Registrando..." : "Registrar horas"}
             </Button>
-          </div>
+          </footer>
           {registerTimeEntry.isPending && (
-            <p className="mt-3 text-right text-xs text-muted-foreground" role="status">
+            <p className="sr-only" role="status">
               Registrando horas...
             </p>
           )}
         </form>
       </div>
-    </dialog>
-  );
+    </div>
+  ) : null;
 
   return (
     <>
@@ -289,4 +330,35 @@ export function messageForRegisterTimeEntryError(error: Error): string {
     if (error.status >= 500) return "Não foi possível registrar as horas. Tente novamente.";
   }
   return "Não foi possível registrar as horas. Verifique sua conexão e tente novamente.";
+}
+
+function useVisualViewport(enabled: boolean) {
+  const [viewport, setViewport] = useState(readVisualViewport);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const visualViewport = window.visualViewport;
+    const update = () => setViewport(readVisualViewport());
+    update();
+    visualViewport?.addEventListener("resize", update);
+    visualViewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      visualViewport?.removeEventListener("resize", update);
+      visualViewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [enabled]);
+
+  return viewport;
+}
+
+function readVisualViewport() {
+  const viewport = window.visualViewport;
+  return {
+    left: viewport?.offsetLeft ?? 0,
+    top: viewport?.offsetTop ?? 0,
+    width: viewport?.width ?? window.innerWidth,
+    height: viewport?.height ?? window.innerHeight,
+  };
 }

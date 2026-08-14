@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { useUpdateTask } from "@/features/tasks/task-mutations";
 
@@ -12,19 +13,16 @@ const PRIORITIES = [
 ] as const;
 
 export function EditTaskDialog({ companyId, task }: { companyId: string; task: TaskCard }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(task.title);
   const [priority, setPriority] = useState(task.priority);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const updateTask = useUpdateTask();
 
   const close = useCallback(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.close === "function") dialog.close();
-    else dialog.removeAttribute("open");
+    setDialogOpen(false);
     window.setTimeout(() => triggerRef.current?.focus(), 0);
   }, []);
 
@@ -39,11 +37,7 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
     setPriority(task.priority);
     setValidationError(null);
     updateTask.clearError();
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
-    window.setTimeout(() => titleRef.current?.focus(), 0);
+    setDialogOpen(true);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -71,42 +65,31 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
       >
         Editar
       </Button>
-      <dialog
-        ref={dialogRef}
-        aria-labelledby={`edit-task-title-${task.id}`}
-        className="w-[min(100%-2rem,32rem)] rounded-xl border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/50"
-        onCancel={(event) => {
-          event.preventDefault();
-          close();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-          }
-        }}
+      <ResponsiveDialog
+        open={dialogOpen}
+        titleId={`edit-task-title-${task.id}`}
+        initialFocusRef={titleRef}
+        onClose={close}
       >
-        <div className="p-6">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h2 id={`edit-task-title-${task.id}`} className="text-lg font-semibold">
-                Editar tarefa
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Atualize o título e a prioridade.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={close}
-              disabled={updateTask.isPending}
-            >
-              Fechar
-            </Button>
+        <header className="responsive-dialog-header">
+          <div>
+            <h2 id={`edit-task-title-${task.id}`} className="text-lg font-semibold">
+              Editar tarefa
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Atualize o título e a prioridade.</p>
           </div>
-          <form onSubmit={submit} noValidate>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={close}
+            disabled={updateTask.isPending}
+          >
+            Fechar
+          </Button>
+        </header>
+        <form className="contents" onSubmit={submit} noValidate>
+          <main className="responsive-dialog-main">
             <div className="grid gap-2">
               <Label htmlFor={`edit-task-input-${task.id}`}>Título</Label>
               <Input
@@ -136,7 +119,7 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
               <Label htmlFor={`edit-task-priority-${task.id}`}>Prioridade</Label>
               <select
                 id={`edit-task-priority-${task.id}`}
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
                 value={priority}
                 onChange={(event) => setPriority(event.target.value as typeof priority)}
                 disabled={updateTask.isPending}
@@ -148,31 +131,22 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
                 ))}
               </select>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={close}
-                disabled={updateTask.isPending}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={updateTask.isPending}
-                aria-busy={updateTask.isPending}
-              >
-                {updateTask.isPending ? "Salvando..." : "Salvar alterações"}
-              </Button>
-            </div>
-            {updateTask.isPending && (
-              <p className="mt-3 text-right text-xs text-muted-foreground" role="status">
-                Salvando tarefa...
-              </p>
-            )}
-          </form>
-        </div>
-      </dialog>
+          </main>
+          <footer className="responsive-dialog-footer">
+            <Button type="button" variant="outline" onClick={close} disabled={updateTask.isPending}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={updateTask.isPending} aria-busy={updateTask.isPending}>
+              {updateTask.isPending ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </footer>
+          {updateTask.isPending && (
+            <p className="sr-only" role="status">
+              Salvando tarefa...
+            </p>
+          )}
+        </form>
+      </ResponsiveDialog>
     </>
   );
 }

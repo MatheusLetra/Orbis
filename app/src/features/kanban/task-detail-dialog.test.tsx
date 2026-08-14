@@ -183,6 +183,128 @@ describe("TaskDetailDialog", () => {
     expect(screen.getAllByText(/A fazer/)).toHaveLength(2);
   });
 
+  it("usa backdrop de viewport e estrutura fixa com scroll somente no main", () => {
+    queryState.data = detail;
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    const backdrop = screen.getByTestId("task-detail-backdrop");
+    const content = screen.getByTestId("task-detail-scroll");
+
+    expect(backdrop).toHaveClass("task-detail-backdrop");
+    expect(dialog).toHaveClass("task-detail-modal");
+    expect(content).toHaveClass("task-detail-main");
+    expect(getComputedStyle(backdrop).position).toBe("fixed");
+    expect(getComputedStyle(backdrop).overflow).toBe("hidden");
+    expect(getComputedStyle(dialog).width).toBe("100%");
+    expect(getComputedStyle(dialog).maxWidth).toBe("768px");
+    expect(getComputedStyle(dialog).boxSizing).toBe("border-box");
+    expect(getComputedStyle(dialog).overflow).toBe("hidden");
+    expect(getComputedStyle(content).overflowX).toBe("hidden");
+    expect(getComputedStyle(content).overflowY).toBe("auto");
+    expect(screen.getByRole("heading", { name: "Detalhes da tarefa" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeVisible();
+    expect(dialog.querySelector("header")).toBeInTheDocument();
+    expect(dialog.querySelector("footer")).toBeInTheDocument();
+    expect(dialog.tagName).toBe("DIV");
+  });
+
+  it.each([320, 360, 375, 390])(
+    "mantém a geometria mobile dentro da viewport de %spx",
+    (viewportWidth) => {
+      queryState.data = detail;
+      renderDialog();
+      const backdrop = screen.getByTestId("task-detail-backdrop");
+      const modal = screen.getByTestId("task-detail-modal");
+      const horizontalPadding = Number.parseFloat(getComputedStyle(backdrop).paddingLeft) * 2;
+      const availableWidth = viewportWidth - horizontalPadding;
+
+      expect(getComputedStyle(modal).width).toBe("100%");
+      expect(getComputedStyle(modal).minWidth).toBe("0px");
+      expect(getComputedStyle(modal).boxSizing).toBe("border-box");
+      expect(availableWidth).toBeLessThanOrEqual(viewportWidth);
+      expect(availableWidth).toBeGreaterThan(0);
+    },
+  );
+
+  it("limita a largura desktop a 768px", () => {
+    queryState.data = detail;
+    renderDialog();
+    const modal = screen.getByTestId("task-detail-modal");
+    expect(getComputedStyle(modal).maxWidth).toBe("768px");
+  });
+
+  it("preserva conteúdo longo de histórico, attachments e horas dentro do scroll interno", () => {
+    queryState.data = {
+      ...detail,
+      history: Array.from({ length: 20 }, (_, index) => ({
+        id: `hist-${index}`,
+        taskId: "task-1",
+        fromStatus: index === 0 ? null : "TODO",
+        toStatus: "DONE",
+        changedBy: "user-1",
+        changedAt: "2026-02-01T00:00:00.000Z",
+        metadata: null,
+      })),
+    };
+    attachmentsQueryState.data = [
+      {
+        id: "file-long",
+        companyId: "company-a",
+        owner: { type: "TASK", taskId: "task-1" },
+        kind: "FILE",
+        title: "Arquivo com nome muito longo para validar o comportamento responsivo",
+        fileName: `${"arquivo-".repeat(20)}.pdf`,
+        mimeType: "application/pdf",
+        checksum: "a".repeat(64),
+        sizeBytes: 10,
+        url: null,
+        createdBy: "user-1",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    timeEntriesQueryState.data = {
+      totalDurationMinutes: 90,
+      hasMore: false,
+      items: [
+        {
+          id: "entry-long",
+          companyId: "company-a",
+          taskId: "task-1",
+          userId: "user-1",
+          startedAt: null,
+          endedAt: null,
+          durationMinutes: 90,
+          description: "Descrição longa ".repeat(80),
+          createdAt: "2026-02-02T10:00:00.000Z",
+        },
+      ],
+    };
+
+    renderDialog();
+
+    expect(screen.getByText(/Descrição longa/)).toBeInTheDocument();
+    expect(screen.getByText(/Arquivo com nome muito longo/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeVisible();
+    expect(screen.getByTestId("task-detail-scroll")).toContainElement(
+      screen.getByText(/Descrição longa/),
+    );
+    expect(screen.getByText(/Arquivo com nome muito longo/).closest("li")).toBeInTheDocument();
+  });
+
+  it("mantém Tab e Shift+Tab dentro do modal fixo", async () => {
+    queryState.data = detail;
+    renderDialog();
+    const user = userEvent.setup();
+    const heading = screen.getByRole("heading", { name: "Detalhes da tarefa" });
+    const closeButton = screen.getByRole("button", { name: "Fechar" });
+
+    await waitFor(() => expect(heading).toHaveFocus());
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(closeButton).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(heading).toHaveFocus();
+  });
+
   it("exibe total zero e lista vazia de horas apontadas", () => {
     queryState.data = detail;
     renderDialog();

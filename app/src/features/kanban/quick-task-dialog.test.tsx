@@ -48,6 +48,28 @@ describe("QuickTaskDialog", () => {
     await waitFor(() => expect(screen.getByLabelText("Título")).toHaveFocus());
   });
 
+  it("mantém header, main, footer e foco contido no layout responsivo", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Nova tarefa" }));
+    const modal = screen.getByRole("dialog", { name: "Nova tarefa" });
+    const backdrop = screen.getByTestId("responsive-dialog-backdrop");
+    expect(modal).toHaveClass("responsive-dialog-modal");
+    expect(modal.querySelector("header")).toBeInTheDocument();
+    expect(modal.querySelector("main")).toHaveClass("responsive-dialog-main");
+    expect(modal.querySelector("footer")).toHaveClass("responsive-dialog-footer");
+    expect(backdrop).toHaveStyle({
+      width: `${window.innerWidth}px`,
+      height: `${window.innerHeight}px`,
+    });
+    await waitFor(() => expect(screen.getByLabelText("Título")).toHaveFocus());
+    screen.getByRole("button", { name: "Criar tarefa" }).focus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByRole("button", { name: "Fechar" })).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByLabelText("Título")).toHaveFocus();
+  });
+
   it("valida título, envia prioridade MEDIUM e restaura foco após Escape", async () => {
     const user = userEvent.setup();
     renderDialog();

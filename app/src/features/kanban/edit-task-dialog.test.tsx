@@ -66,6 +66,17 @@ describe("EditTaskDialog", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it("mantém o formulário longo em main rolável e footer acessível", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: /Editar tarefa/ }));
+    const modal = screen.getByRole("dialog", { name: "Editar tarefa" });
+    expect(modal).toHaveClass("responsive-dialog-modal");
+    expect(modal.querySelector("main")).toHaveClass("responsive-dialog-main");
+    expect(modal.querySelector("footer")).toHaveClass("responsive-dialog-footer");
+    expect(screen.getByRole("button", { name: "Salvar alterações" })).toBeInTheDocument();
+  });
+
   it("envia title e priority e bloqueia segundo submit durante pending", async () => {
     const user = userEvent.setup();
     renderDialog();

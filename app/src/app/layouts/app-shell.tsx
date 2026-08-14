@@ -3,45 +3,50 @@ import { ThemeToggle } from "@/components/common/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import "./app-shell.css";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const company = useActiveCompany();
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight">Orbis</span>
+    <div className="app-shell flex min-h-dvh flex-col">
+      <header className="app-shell-header">
+        <div className="app-shell-header-inner">
+          <div className="app-shell-brand-row">
+            <span className="app-shell-brand">Orbis</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="app-shell-controls">
             {company.companies.length > 1 && (
-              <label className="sr-only" htmlFor="active-company">
-                Empresa ativa
-              </label>
-            )}
-            {company.companies.length > 1 && (
-              <select
-                id="active-company"
-                className="h-9 max-w-48 rounded-md border bg-background px-2 text-sm"
-                value={company.activeCompany?.id ?? ""}
-                onChange={(event) => company.selectCompany(event.target.value)}
-              >
-                <option value="" disabled>
-                  Escolha a empresa
-                </option>
-                {company.companies.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
+              <div className="app-shell-company-control">
+                <label className="sr-only" htmlFor="active-company">
+                  Empresa ativa
+                </label>
+                <select
+                  id="active-company"
+                  className="app-shell-company-select"
+                  value={company.activeCompany?.id ?? ""}
+                  title={company.activeCompany?.name ?? "Escolha a empresa"}
+                  style={{ width: "100%", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}
+                  onChange={(event) => company.selectCompany(event.target.value)}
+                >
+                  <option value="" disabled>
+                    Escolha a empresa
                   </option>
-                ))}
-              </select>
+                  {company.companies.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={() => void auth.logout()}>
-              Sair
-            </Button>
+            <div className="app-shell-actions">
+              <ThemeToggle />
+              <Button variant="ghost" size="sm" onClick={() => void auth.logout()}>
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </header>

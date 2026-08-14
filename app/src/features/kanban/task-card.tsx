@@ -39,7 +39,7 @@ export function TaskCard({
     <article
       ref={draggable.setNodeRef}
       style={style}
-      className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm"
+      className="kanban-card rounded-lg border bg-card p-4 text-card-foreground shadow-sm"
       aria-busy={pending}
     >
       <div className="flex items-start justify-between gap-3">
@@ -50,7 +50,7 @@ export function TaskCard({
           <button
             ref={draggable.setActivatorNodeRef}
             type="button"
-            className="touch-none rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            className="kanban-card-move touch-none rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             aria-label={`Mover tarefa ${task.title}`}
             disabled={pending}
             {...draggable.listeners}
@@ -75,12 +75,13 @@ export function TaskCard({
           </dd>
         </div>
       </dl>
-      <fieldset className="mt-4 flex flex-wrap gap-2">
+      <fieldset className="kanban-card-actions mt-4 flex flex-wrap gap-2">
         <legend className="sr-only">Ações de {task.title}</legend>
         <Button
           type="button"
           size="sm"
           variant="outline"
+          className="kanban-card-action"
           disabled={pending}
           onClick={() => onViewDetails?.(task)}
           aria-label={`Ver detalhes da tarefa ${task.title}`}
@@ -93,6 +94,7 @@ export function TaskCard({
             type="button"
             size="sm"
             variant="outline"
+            className="kanban-card-action"
             disabled={pending}
             onClick={() => onTransition?.(task, action.status)}
             aria-label={`${action.label} tarefa ${task.title}`}

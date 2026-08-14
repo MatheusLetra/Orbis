@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingState } from "@/components/common/loading-state";
@@ -18,6 +19,7 @@ import { useTaskDetail } from "@/features/tasks/task-queries";
 import { useTaskTimeEntries } from "@/features/tasks/time-entry-queries";
 import { ApiError } from "@/lib/http/api-error";
 import { canRegisterTimeEntry, RegisterTimeEntryDialog } from "./register-time-entry-dialog";
+import "./task-detail-dialog.css";
 
 const statusLabels: Record<TaskStatus, string> = {
   TODO: "A fazer",
@@ -40,7 +42,7 @@ interface TaskDetailDialogProps {
 }
 
 export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetailDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
   const auth = useAuth();
@@ -70,6 +72,7 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
   const downloadControllersRef = useRef(new Map<string, AbortController>());
   const downloadGenerationRef = useRef(0);
   const mountedRef = useRef(true);
+  const visualViewport = useVisualViewport(isOpen);
 
   const abortDownloads = useCallback(() => {
     downloadGenerationRef.current += 1;
@@ -218,10 +221,6 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
 
   const close = useCallback(() => {
     abortDownloads();
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.close === "function") dialog.close();
-    else dialog.removeAttribute("open");
     window.setTimeout(() => {
       const previous = previousActiveElement.current;
       if (previous instanceof HTMLElement) previous.focus();
@@ -303,168 +302,217 @@ export function TaskDetailDialog({ companyId, task, isOpen, onClose }: TaskDetai
     }
   }, [confirmation]);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const onCancel = (event: Event) => {
-      event.preventDefault();
-      close();
-    };
-    dialog.addEventListener("cancel", onCancel);
-    return () => dialog.removeEventListener("cancel", onCancel);
-  }, [close]);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: reabrir/refocar ao trocar de task
   useEffect(() => {
-    if (!isOpen) {
-      const dialog = dialogRef.current;
-      if (dialog?.open) {
-        if (typeof dialog.close === "function") dialog.close();
-        else dialog.removeAttribute("open");
-      }
-      return;
-    }
+    if (!isOpen) return;
 
     previousActiveElement.current = document.activeElement;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
     window.setTimeout(() => titleRef.current?.focus(), 0);
   }, [isOpen, taskId]);
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLDialogElement>) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const modal = modalRef.current;
+    if (!modal?.contains(event.target as Node)) return;
     if (event.key === "Escape") {
       event.preventDefault();
       close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(
+      modal.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      ),
+    );
+    const first = titleRef.current ?? focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) {
+      event.preventDefault();
+      titleRef.current?.focus();
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   }
 
   const detail = detailQuery.data;
 
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="task-detail-title"
-      className="w-[min(100%-2rem,40rem)] rounded-xl border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/50"
-      onKeyDown={handleKeyDown}
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className="task-detail-backdrop"
+      data-testid="task-detail-backdrop"
+      style={{
+        position: "fixed",
+        left: visualViewport.left,
+        top: visualViewport.top,
+        right: "auto",
+        bottom: "auto",
+        boxSizing: "border-box",
+        width: visualViewport.width,
+        height: visualViewport.height,
+        padding: 8,
+        overflow: "hidden",
+      }}
     >
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-detail-title"
+        className="task-detail-modal"
+        data-testid="task-detail-modal"
+        style={{
+          boxSizing: "border-box",
+          width: "100%",
+          minWidth: 0,
+          maxWidth: "48rem",
+          height: "100%",
+          minHeight: 0,
+          maxHeight: "calc(100dvh - 16px)",
+          overflow: "hidden",
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <header className="task-detail-header">
           <h2
             id="task-detail-title"
             ref={titleRef}
             tabIndex={-1}
-            className="text-lg font-semibold outline-none"
+            className="min-w-0 break-words text-lg font-semibold outline-none"
           >
             Detalhes da tarefa
           </h2>
-          <Button type="button" variant="ghost" size="sm" onClick={close}>
+        </header>
+        <main
+          className="task-detail-main"
+          data-testid="task-detail-scroll"
+          style={{ minHeight: 0, minWidth: 0, overflowX: "hidden", overflowY: "auto" }}
+        >
+          {detailQuery.isPending && <LoadingState label="Carregando detalhes..." />}
+          {detailQuery.isError && (
+            <ErrorState
+              message={messageForDetailError(detailQuery.error)}
+              onRetry={() => void detailQuery.refetch()}
+            />
+          )}
+          {!detailQuery.isPending && !detailQuery.isError && detail && (
+            <TaskDetailContent
+              task={task}
+              companyId={companyId}
+              isOpen={isOpen}
+              detail={detail}
+              attachmentsQuery={attachmentsQuery}
+              timeEntriesQuery={timeEntriesQuery}
+              canRegisterTimeEntry={canRegisterTimeEntry(
+                task,
+                capabilitiesQuery.isSuccess ? capabilitiesQuery.data : undefined,
+                companyId,
+                auth.user?.id,
+                auth.status === "authenticated",
+              )}
+              onCapabilitiesForbidden={() => void capabilitiesQuery.refetch()}
+              downloadPending={downloadPending}
+              downloadErrors={downloadErrors}
+              onDownload={downloadFile}
+              canUpload={
+                capabilitiesQuery.isSuccess &&
+                capabilitiesQuery.data.capabilities["tasks.update"] === true
+              }
+              selectedFile={selectedFile}
+              uploadTitle={uploadTitle}
+              fileError={fileError}
+              uploadError={upload.error}
+              uploadPending={upload.isPending}
+              onFileChange={selectFile}
+              onTitleChange={setUploadTitle}
+              onUpload={submitUpload}
+              linkUrl={linkUrl}
+              linkTitle={linkTitle}
+              linkError={linkError}
+              createLinkError={createLink.error}
+              createLinkPending={createLink.isPending}
+              onLinkUrlChange={setLinkUrl}
+              onLinkTitleChange={setLinkTitle}
+              onCreateLink={submitLink}
+              canRemove={
+                capabilitiesQuery.isSuccess &&
+                capabilitiesQuery.data.capabilities["tasks.update"] === true
+              }
+              removePending={removeAttachment.pending}
+              removeErrors={removeAttachment.errors}
+              onRequestRemove={(attachment, trigger) => {
+                confirmationTriggerRef.current = trigger;
+                setConfirmation(attachment);
+              }}
+            />
+          )}
+          {!detailQuery.isPending && !detailQuery.isError && !detail && (
+            <EmptyState title="Nenhuma tarefa selecionada" />
+          )}
+        </main>
+        <footer className="task-detail-footer" data-testid="task-detail-footer">
+          <Button type="button" variant="outline" onClick={close}>
             Fechar
           </Button>
-        </div>
-        {detailQuery.isPending && <LoadingState label="Carregando detalhes..." />}
-        {detailQuery.isError && (
-          <ErrorState
-            message={messageForDetailError(detailQuery.error)}
-            onRetry={() => void detailQuery.refetch()}
-          />
-        )}
-        {!detailQuery.isPending && !detailQuery.isError && detail && (
-          <TaskDetailContent
-            task={task}
-            companyId={companyId}
-            isOpen={isOpen}
-            detail={detail}
-            attachmentsQuery={attachmentsQuery}
-            timeEntriesQuery={timeEntriesQuery}
-            canRegisterTimeEntry={canRegisterTimeEntry(
-              task,
-              capabilitiesQuery.isSuccess ? capabilitiesQuery.data : undefined,
-              companyId,
-              auth.user?.id,
-              auth.status === "authenticated",
-            )}
-            onCapabilitiesForbidden={() => void capabilitiesQuery.refetch()}
-            downloadPending={downloadPending}
-            downloadErrors={downloadErrors}
-            onDownload={downloadFile}
-            canUpload={
-              capabilitiesQuery.isSuccess &&
-              capabilitiesQuery.data.capabilities["tasks.update"] === true
-            }
-            selectedFile={selectedFile}
-            uploadTitle={uploadTitle}
-            fileError={fileError}
-            uploadError={upload.error}
-            uploadPending={upload.isPending}
-            onFileChange={selectFile}
-            onTitleChange={setUploadTitle}
-            onUpload={submitUpload}
-            linkUrl={linkUrl}
-            linkTitle={linkTitle}
-            linkError={linkError}
-            createLinkError={createLink.error}
-            createLinkPending={createLink.isPending}
-            onLinkUrlChange={setLinkUrl}
-            onLinkTitleChange={setLinkTitle}
-            onCreateLink={submitLink}
-            canRemove={
-              capabilitiesQuery.isSuccess &&
-              capabilitiesQuery.data.capabilities["tasks.update"] === true
-            }
-            removePending={removeAttachment.pending}
-            removeErrors={removeAttachment.errors}
-            onRequestRemove={(attachment, trigger) => {
-              confirmationTriggerRef.current = trigger;
-              setConfirmation(attachment);
-            }}
-          />
-        )}
-        {!detailQuery.isPending && !detailQuery.isError && !detail && (
-          <EmptyState title="Nenhuma tarefa selecionada" />
-        )}
-      </div>
-      {confirmation && (
-        <div
-          ref={confirmationRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="remove-attachment-title"
-          tabIndex={-1}
-          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
-        >
-          <div className="w-[min(100%,28rem)] rounded-xl border bg-card p-5 text-card-foreground shadow-xl">
-            <h2 id="remove-attachment-title" className="text-base font-semibold">
-              Remover attachment?
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Remover "{confirmation.title ?? confirmation.fileName ?? "Sem título"}"? Esta ação não
-              pode ser desfeita.
-            </p>
-            {removeAttachment.errors[confirmation.id] && (
-              <p role="alert" className="mt-3 text-sm text-destructive">
-                {removeAttachment.errors[confirmation.id]}
+        </footer>
+        {confirmation && (
+          <div
+            ref={confirmationRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-attachment-title"
+            tabIndex={-1}
+            className="task-detail-confirmation-backdrop"
+          >
+            <div className="task-detail-confirmation">
+              <h2 id="remove-attachment-title" className="text-base font-semibold">
+                Remover attachment?
+              </h2>
+              <p className="mt-2 break-words text-sm text-muted-foreground">
+                Remover "{confirmation.title ?? confirmation.fileName ?? "Sem título"}"? Esta ação
+                não pode ser desfeita.
               </p>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setConfirmation(null)}>
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={removeAttachment.pending[confirmation.id]}
-                aria-busy={removeAttachment.pending[confirmation.id]}
-                onClick={() => void removeAttachment.remove(confirmation.id)}
-              >
-                {removeAttachment.pending[confirmation.id] ? "Removendo..." : "Remover"}
-              </Button>
+              {removeAttachment.errors[confirmation.id] && (
+                <p role="alert" className="mt-3 break-words text-sm text-destructive">
+                  {removeAttachment.errors[confirmation.id]}
+                </p>
+              )}
+              <div className="mt-4 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setConfirmation(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={removeAttachment.pending[confirmation.id]}
+                  aria-busy={removeAttachment.pending[confirmation.id]}
+                  onClick={() => void removeAttachment.remove(confirmation.id)}
+                >
+                  {removeAttachment.pending[confirmation.id] ? "Removendo..." : "Remover"}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </dialog>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -536,9 +584,9 @@ function TaskDetailContent({
   onRequestRemove: (attachment: AttachmentOutput, trigger: HTMLButtonElement) => void;
 }) {
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 gap-6">
       <section>
-        <h3 className="text-base font-semibold">{detail.title}</h3>
+        <h3 className="break-words text-base font-semibold">{detail.title}</h3>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
           <span className="rounded-full border px-2 py-1 font-medium">
             Prioridade {priorityLabels[detail.priority]}
@@ -588,7 +636,7 @@ function TaskDetailContent({
             <label className="grid gap-1 text-sm font-medium">
               Título (opcional)
               <input
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="task-detail-form-control h-9 rounded-md border bg-background px-3 text-sm"
                 value={uploadTitle}
                 disabled={uploadPending}
                 onChange={(event) => onTitleChange(event.currentTarget.value)}
@@ -610,7 +658,7 @@ function TaskDetailContent({
               <input
                 type="url"
                 required
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="task-detail-form-control h-9 rounded-md border bg-background px-3 text-sm"
                 value={linkUrl}
                 disabled={createLinkPending}
                 onChange={(event) => onLinkUrlChange(event.currentTarget.value)}
@@ -620,7 +668,7 @@ function TaskDetailContent({
               Título
               <input
                 required
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="task-detail-form-control h-9 rounded-md border bg-background px-3 text-sm"
                 value={linkTitle}
                 disabled={createLinkPending}
                 onChange={(event) => onLinkTitleChange(event.currentTarget.value)}
@@ -882,7 +930,7 @@ function AttachmentGroup({
               </a>
             ) : (
               <>
-                <p className="mt-1 text-muted-foreground">
+                <p className="mt-1 break-words text-muted-foreground">
                   {attachment.fileName} · {attachment.mimeType ?? "tipo desconhecido"} ·{" "}
                   {formatBytes(attachment.sizeBytes)}
                 </p>
@@ -1001,4 +1049,35 @@ export function messageForDownloadError(error: Error): string {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function useVisualViewport(enabled: boolean) {
+  const [viewport, setViewport] = useState(readVisualViewport);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const visualViewport = window.visualViewport;
+    const update = () => setViewport(readVisualViewport());
+    update();
+    visualViewport?.addEventListener("resize", update);
+    visualViewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      visualViewport?.removeEventListener("resize", update);
+      visualViewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [enabled]);
+
+  return viewport;
+}
+
+function readVisualViewport() {
+  const viewport = window.visualViewport;
+  return {
+    left: viewport?.offsetLeft ?? 0,
+    top: viewport?.offsetTop ?? 0,
+    width: viewport?.width ?? window.innerWidth,
+    height: viewport?.height ?? window.innerHeight,
+  };
 }

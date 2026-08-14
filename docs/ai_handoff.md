@@ -195,6 +195,54 @@ Em 2026-08-13, o login manual no Chrome visível funcionou e os dados reais de a
 
 M12.4A, M12.4B, M12.4C e hardening estão concluídos; M12.4 está encerrada/validada. Validação automática: 246 testes aprovados, typecheck aprovado, lint aprovado, build aprovado e `git diff --check` aprovado. A auditoria manual de Attachments permanece uma pendência independente.
 
+## Auditoria visual de responsividade — achados
+
+Em 2026-08-13, com Chrome visível, DevTools, login manual e viewports `320x844`, `360x800`, `390x844` e desktop, foram relatados: seletor de empresa quase sobreposto ao logo em `320x844`; detalhe da Task cortado nas três viewports mobile; acessibilidade das colunas péssima em `390x844`; e distribuição ruim das colunas no desktop, com aproximadamente 25% da tela exibindo somente fundo preto. O header desktop e o header em `390x844` foram aprovados; o scroll horizontal intencional do Kanban não foi classificado como overflow acidental.
+
+Os achados são de responsividade, usabilidade, acessibilidade e apresentação, não de contrato funcional de M12.4. Teclado virtual, conteúdo extremo, estados loading/error/empty/retry e lifecycle/cache visual não foram suficientemente decompostos e permanecem não executados. Não houve alteração de código.
+
+BUILD recomendado: corrigir primeiro o layout responsivo do header, a navegação/acessibilidade das colunas e a largura/altura/scroll do detalhe da Task em `320x844`, `360x800`, `390x844` e desktop; preservar o scroll horizontal intencional, contratos e comportamento funcional de M11/M12.
+
+## Correção do TaskDetailDialog
+
+O `TaskDetailDialog` foi corrigido com largura responsiva, margens seguras, `max-height` baseado em `100dvh`, cabeçalho fixo e scroll interno do conteúdo. Foco inicial, Tab, Escape, restauração, overlays de remoção, Attachments, TimeEntries, formulários e lifecycle foram preservados.
+
+Testes focados: 33 passed, 0 failed, 0 skipped. Suíte serial do app: 249 passed, 0 failed, 0 skipped. Typecheck, lint, build e `git diff --check` aprovados. A suíte paralela apresentou instabilidade de worker; a execução serial foi a validação considerada. A validação manual pós-correção em `320x844`, `360x800`, `390x844` e desktop ainda é obrigatória. Header, seletor e distribuição das colunas permanecem pendentes para unidade posterior.
+
+R1 foi reestruturada com container externo de geometria previsível, `header` fixo, área central `main` rolável e `footer` acessível. A composição usa abordagem mobile-first, margens seguras, altura baseada em `100dvh`, limite desktop e quebra segura de conteúdo. Nenhum contrato funcional de M11/M12, Attachments ou TimeEntry foi alterado. A validação manual pós-R1 ainda é obrigatória e não deve ser marcada como aprovada antes do Chrome real nos quatro viewports.
+
 ## Próximo passo
 
-Próxima unidade recomendada: M13 — Capacidade e previsão, mantendo edição, remoção, filtros adicionais, paginação e apontamento por intervalo fora do escopo. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade.
+Próxima unidade recomendada: validação manual pós-correção do TaskDetailDialog; depois BUILD de responsividade/acessibilidade do header e Kanban, seguido de M13 — Capacidade e previsão. A auditoria manual real de Attachments continua pendente por limitação RDP/Wayland, mas não bloqueia M12. Backend continua sendo a autoridade.
+
+## R1 — reescrita definitiva validada
+
+R1 foi corrigida por reescrita estrutural do `TaskDetailDialog`, não por novo ajuste incremental. O `<dialog>` foi substituído por portal com backdrop fixo e painel próprio em `header`, `main` rolável e `footer`; o painel acompanha tamanho e offsets do `visualViewport`, preservando limite de 768px no desktop e evitando depender de `innerWidth`. O `RegisterTimeEntryDialog` também usa overlay próprio responsivo.
+
+Chrome visível com dados reais confirmou: `320x844` painel 304px (`8..312`); `360x800` painel 344px (`8..352`); solicitações `375x844` e `390x844` com largura visual efetiva de 368.02px produziram painel 352.02px (`8..360.02`); desktop `1440x900` produziu painel 768px centralizado (`336..1104`). Em todos os casos o painel coube objetivamente no `visualViewport`, header/footer ficaram visíveis e o `main` teve scroll real. Attachments, FILE download, LINK, remoção, TimeEntries e RegisterTimeEntry estavam alcançáveis. O submodal de horas mediu 374px na viewport solicitada de 390px; foco inicial, Tab/Shift+Tab, Escape correto e restauração foram validados. A sessão desktop não oferece teclado virtual físico, mas resize/offset de visual viewport foi exercitado e tratado por listeners.
+
+Validação final: app completo 260 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. Não houve alteração funcional em Attachments nem em M12.4. R2 — header mobile e R3 — Kanban permanecem pendentes. Próxima unidade: R2.
+
+## R2 — AppShell/header concluído
+
+R2 foi implementada somente em `AppShell`, com stylesheet local e teste dedicado. A composição mobile-first separa a marca dos controles; o seletor é fluido e contido por `min-width: 0`, `max-width: 100%`, `box-sizing: border-box`, ellipsis e `title` com o nome completo. ThemeToggle, logout, ActiveCompanyProvider, AuthProvider e `selectCompany` não tiveram contratos alterados. Desktop recompõe marca e controles em uma linha horizontal.
+
+Validação manual em Chrome visível, com usuário autenticado e tenant ativo: `320x844` aprovado (`right=304`); `360x800` aprovado (`right=344`); `390x844` aprovado (`right=374`); desktop `1440x900` aprovado (`right=1416`). Não houve overlap, corte ou overflow horizontal externo. Nome longo foi exercitado; seletor, tema e logout foram clicáveis; troca de empresa, tema e logout funcionaram; logout retornou `/login`; Tab/Shift+Tab percorreram os controles. O cenário de nome longo foi aplicado visualmente no DOM para estressar o controle, sem alteração persistente de dados.
+
+Automação final: 264 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. Prompt Mestre não existe como arquivo identificável no workspace; nenhum conteúdo ausente foi inventado. Não houve alteração em TaskDetail, Attachments, TimeEntry, backend, API, `commands/` ou contratos M11/M12. R3 — Kanban responsivo — é a próxima unidade. Auditoria funcional de Attachments permanece independente e pendente.
+
+## R3 — Kanban concluído
+
+R3 alterou somente a apresentação do Kanban. `KanbanBoard` agora possui shell contido, hint de scroll horizontal no mobile, colunas com largura fluida e snap; no desktop, quatro colunas em grid fluido. `overflow: clip` no shell impede que o scroll intencional vaze para o documento. `KanbanColumn` e `TaskCard` receberam `min-width: 0`, quebra segura, scroll margin e alvos de toque mínimos de 44px. O foco em ações fora da viewport centraliza/reposiciona o scroll do board.
+
+Chrome visível com usuário autenticado e tenants Real Audit A/B: `320x844` aprovado, colunas 288px, `scrollWidth=1188`; `360x800` aprovado, colunas 328px, `scrollWidth=1348`; `390x844` aprovado, colunas 358px, `scrollWidth=1468`; desktop solicitado `1440x900` aprovado com viewport visual efetiva de 1425px, quatro colunas de aproximadamente 328px. Nenhum overflow externo foi observado. Foco no quarto grupo deixou o controle em `x=81..176`; DnD por teclado ativou o live region e Escape cancelou sem transição; drag de mouse foi iniciado e cancelado sem alterar status. Troca de tenant preservou as quatro colunas. Loading foi exercitado manualmente; error/empty não foram reproduzidos manualmente nesta sessão, permanecendo cobertos pela suíte automatizada. Touch drag não teve evidência conclusiva por causa da posição já deslocada do alvo na emulação.
+
+Validação final: 266 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. Não houve alteração em TaskDetailDialog, Attachments, TimeEntry, backend, API, `commands/` ou contratos M11/M12. R4 — demais dialogs/formulários — é a próxima unidade aplicável. Auditoria funcional de Attachments permanece independente e pendente.
+
+## R4 — dialogs e formulários concluídos
+
+R4 adicionou `ResponsiveDialog`, uma primitive local sem `<dialog>` nativo, com backdrop dimensionado pelo `visualViewport`, painel limitado, header/main/footer, scroll interno, `box-sizing`, contenção de largura, foco inicial, trap de Tab/Shift+Tab, Escape, body lock e lifecycle de restauração. QuickTask e EditTask foram migrados para essa estrutura. RegisterTimeEntry manteve sua implementação própria já validada, com correção para centralizar o painel desktop removendo a altura inline que bloqueava a media query.
+
+Chrome visível aprovou QuickTask e EditTask em `320x844` (`304px`), `360x800` (`344px`), `390x844` (`374px`) e desktop (`512px` centralizados). RegisterTimeEntry foi aprovado nos três mobiles e no desktop (`512x444`, `left=464`, `top=228`). Upload FILE, criação LINK e confirmação de remoção permaneceram alcançáveis no detalhe; confirmação manteve foco em `Cancelar`. Foco inicial, Escape e footer foram observados. Estados error/empty e teclado virtual físico não foram reproduzidos manualmente; pending/erros estão cobertos por automação.
+
+Validação final: 268 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. R1, R2 e R3 foram preservadas. Não houve alteração em backend, API, `commands/`, contratos ou lógica funcional de M11.6/M12. Auditoria funcional de Attachments continua independente e pendente. Próxima recomendação: encerrar a frente responsiva e seguir para a próxima milestone funcional.

@@ -1,0 +1,106 @@
+.responsive-dialog-backdrop {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  box-sizing: border-box;
+  padding: 8px;
+  place-items: stretch center;
+  overflow: hidden;
+  background: rgb(0 0 0 / 50%);
+}
+
+.responsive-dialog-modal {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 32rem;
+  height: 100%;
+  min-height: 0;
+  max-height: calc(100dvh - 16px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 35%);
+}
+
+.responsive-dialog-modal *,
+.responsive-dialog-modal *::before,
+.responsive-dialog-modal *::after {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.responsive-dialog-modal :where(h1, h2, h3, h4, p, label, span) {
+  overflow-wrap: anywhere;
+}
+
+.responsive-dialog-header,
+.responsive-dialog-footer {
+  flex: 0 0 auto;
+  background: var(--card);
+}
+
+.responsive-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.responsive-dialog-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.responsive-dialog-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
+
+.responsive-dialog-footer > button {
+  min-height: 44px;
+}
+
+.responsive-dialog-control {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .responsive-dialog-backdrop {
+    padding: 16px;
+    place-items: center;
+  }
+
+  .responsive-dialog-modal {
+    width: min(32rem, calc(100vw - 32px));
+    height: auto;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .responsive-dialog-header,
+  .responsive-dialog-main {
+    padding: 24px;
+  }
+
+  .responsive-dialog-footer {
+    padding: 16px 24px;
+  }
+}

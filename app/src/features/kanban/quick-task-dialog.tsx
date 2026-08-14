@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { useCreateTask } from "@/features/tasks/task-mutations";
 
 const PRIORITIES = [
@@ -17,30 +18,17 @@ export function QuickTaskDialog({
   companyId: string;
   canCreate: boolean;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const createTask = useCreateTask();
 
   const close = useCallback((): void => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.close === "function") dialog.close();
-    else dialog.removeAttribute("open");
+    setDialogOpen(false);
     window.setTimeout(() => triggerRef.current?.focus(), 0);
-  }, []);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const onClose = () => {
-      triggerRef.current?.focus();
-    };
-    dialog.addEventListener("close", onClose);
-    return () => dialog.removeEventListener("close", onClose);
   }, []);
 
   useEffect(() => {
@@ -53,12 +41,8 @@ export function QuickTaskDialog({
   }, [createTask.isSuccess, createTask.reset, close]);
 
   function open(): void {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
+    setDialogOpen(true);
     setValidationError(null);
-    window.setTimeout(() => titleRef.current?.focus(), 0);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
@@ -82,42 +66,31 @@ export function QuickTaskDialog({
           Nova tarefa
         </Button>
       )}
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="quick-task-title"
-        className="w-[min(100%-2rem,32rem)] rounded-xl border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/50"
-        onCancel={(event) => {
-          event.preventDefault();
-          close();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-          }
-        }}
+      <ResponsiveDialog
+        open={dialogOpen}
+        titleId="quick-task-title"
+        initialFocusRef={titleRef}
+        onClose={close}
       >
-        <div className="p-6">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h2 id="quick-task-title" className="text-lg font-semibold">
-                Nova tarefa
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Crie uma tarefa rápida no Kanban.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={close}
-              disabled={createTask.isPending}
-            >
-              Fechar
-            </Button>
+        <header className="responsive-dialog-header">
+          <div>
+            <h2 id="quick-task-title" className="text-lg font-semibold">
+              Nova tarefa
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">Crie uma tarefa rápida no Kanban.</p>
           </div>
-          <form onSubmit={submit} noValidate>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={close}
+            disabled={createTask.isPending}
+          >
+            Fechar
+          </Button>
+        </header>
+        <form className="contents" onSubmit={submit} noValidate>
+          <main className="responsive-dialog-main">
             <div className="grid gap-2">
               <Label htmlFor="quick-task-title-input">Título</Label>
               <Input
@@ -143,7 +116,7 @@ export function QuickTaskDialog({
               <Label htmlFor="quick-task-priority">Prioridade</Label>
               <select
                 id="quick-task-priority"
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
                 value={priority}
                 onChange={(event) => setPriority(event.target.value as typeof priority)}
                 disabled={createTask.isPending}
@@ -155,31 +128,22 @@ export function QuickTaskDialog({
                 ))}
               </select>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={close}
-                disabled={createTask.isPending}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createTask.isPending}
-                aria-busy={createTask.isPending}
-              >
-                {createTask.isPending ? "Criando..." : "Criar tarefa"}
-              </Button>
-            </div>
-            {createTask.isPending && (
-              <p className="mt-3 text-right text-xs text-muted-foreground" role="status">
-                Criando tarefa...
-              </p>
-            )}
-          </form>
-        </div>
-      </dialog>
+          </main>
+          <footer className="responsive-dialog-footer">
+            <Button type="button" variant="outline" onClick={close} disabled={createTask.isPending}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={createTask.isPending} aria-busy={createTask.isPending}>
+              {createTask.isPending ? "Criando..." : "Criar tarefa"}
+            </Button>
+          </footer>
+          {createTask.isPending && (
+            <p className="sr-only" role="status">
+              Criando tarefa...
+            </p>
+          )}
+        </form>
+      </ResponsiveDialog>
     </>
   );
 }

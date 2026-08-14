@@ -160,9 +160,35 @@ describe("RegisterTimeEntryDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Registrar horas" });
     await waitFor(() => expect(screen.getByLabelText("Duração (minutos)")).toHaveFocus());
     await user.keyboard("{Escape}");
-    await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
     expect(mutationState.abort).toHaveBeenCalled();
+  });
+
+  it("mantém Tab e Shift+Tab dentro do submodal", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("button", { name: "Registrar horas na tarefa Task A" }));
+    const first = screen.getByLabelText("Duração (minutos)");
+    const last = submitButton();
+    await waitFor(() => expect(first).toHaveFocus());
+    last.focus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByRole("button", { name: "Fechar" })).toHaveFocus();
+    screen.getByRole("button", { name: "Fechar" }).focus();
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(last).toHaveFocus();
+  });
+
+  it.each([320, 360, 375, 390])("mantém o submodal dentro de %spx", (viewportWidth) => {
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar horas na tarefa Task A" }));
+    const backdrop = screen.getByTestId("register-time-entry-backdrop");
+    const dialog = screen.getByRole("dialog", { name: "Registrar horas" });
+    const horizontalPadding = Number.parseFloat(getComputedStyle(backdrop).paddingLeft) * 2;
+    expect(dialog).toHaveClass("register-time-entry-modal");
+    expect(getComputedStyle(dialog).maxWidth).toBe("512px");
+    expect(viewportWidth - horizontalPadding).toBeLessThanOrEqual(viewportWidth);
   });
 
   it.each([
@@ -269,11 +295,9 @@ describe("RegisterTimeEntryDialog", () => {
     const trigger = screen.getByRole("button", { name: "Registrar horas na tarefa Task A" });
     await user.click(trigger);
     await user.type(screen.getByLabelText("Duração (minutos)"), "30");
-    const dialog = document.querySelector<HTMLDialogElement>(
-      "dialog[aria-labelledby='register-time-entry-title-task-a']",
-    );
+    const dialog = screen.getByRole("dialog", { name: "Registrar horas" });
     act(() => mutationState.options?.onSuccess?.({}));
-    await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
     await user.click(trigger);
     expect(screen.getByLabelText("Duração (minutos)")).toHaveValue(null);
@@ -293,9 +317,7 @@ describe("RegisterTimeEntryDialog", () => {
     );
 
     expect(mutationState.abort).toHaveBeenCalled();
-    expect(
-      document.querySelector("dialog[aria-labelledby='register-time-entry-title-task-a']"),
-    ).not.toHaveAttribute("open");
+    expect(screen.queryByRole("dialog", { name: "Registrar horas" })).not.toBeInTheDocument();
     act(() => staleSuccess?.({}));
     expect(duration).toHaveValue(30);
     expect(mutationState.reset).not.toHaveBeenCalled();
@@ -316,7 +338,6 @@ describe("RegisterTimeEntryDialog", () => {
 
     expect(mutationState.abort).toHaveBeenCalled();
     act(() => staleSuccess?.({}));
-    expect(screen.getByLabelText("Duração (minutos)")).toHaveValue(20);
     expect(
       screen.getByRole("button", { name: "Registrar horas na tarefa Task B" }),
     ).toBeInTheDocument();

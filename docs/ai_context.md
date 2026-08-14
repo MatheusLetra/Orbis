@@ -19,10 +19,10 @@ A especificação exige Kanban, timeline semanal, timeline mensal/anual, priorid
 - Fastify
 - Drizzle ORM
 - PostgreSQL
-- Redis opcional
+- Redis não implementado; somente evolução futura se houver necessidade concreta
 - JWT
 - Zod
-- WebSocket quando necessário
+- WebSocket não implementado; chat e notificações usam HTTP explícito
 - Documentação de API via **Scalar** (`@scalar/fastify-api-reference`) + `@fastify/swagger` — **todo endpoint deve ser documentado** (UI em `/reference`)
 
 ### App
@@ -139,7 +139,7 @@ Pertence a um sistema.
 
 Pertence a uma versão e representa um executável/artefato publicado.
 
-O executável não deve ficar no PostgreSQL. O banco guarda metadados e uma referência ao storage.
+O Orbis não armazena o executável. O banco guarda metadados e somente `artifactLocation` textual; não existe storage ou download de Release.
 
 ### Requisição
 

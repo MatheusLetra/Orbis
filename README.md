@@ -1,118 +1,79 @@
 # Orbis
 
-Plataforma web **multiempresa** para gestão do ciclo de trabalho de equipes de desenvolvimento: requisições, tarefas, capacidade da equipe, Kanban, timelines, sistemas, versões, releases, notificações e comunicação interna.
+Plataforma web multiempresa para requisições, Tasks, Kanban, capacidade, timelines, relatórios, notificações, chat e auditoria.
 
-## O que é o Orbis
+Este README é o índice operacional. Os procedimentos completos estão em [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md) e [`docs/DEVELOPER_MANUAL.md`](docs/DEVELOPER_MANUAL.md).
 
-O Orbis é um SaaS de gestão de desenvolvimento construído do zero. O conceito central é a **Requisição** (demanda formal de trabalho), que pode possuir **tarefas** executáveis no Kanban.
+## Estado atual
 
-Principais características:
+- M01 a M10: concluídas.
+- M11: concluída.
+- M12: concluída.
+- M13: concluída.
+- M14: concluída.
+- M15: concluída.
+- M16: concluída.
+- M17: concluída.
+- M18: concluída.
+- M19: concluída.
+- M20: concluída.
+- M21: não iniciada e bloqueada até solicitação formal.
 
-- **Multiempresa (tenants)**: `Company` = tenant, `User` = identidade global, `Membership` = vínculo entre usuário e empresa.
-- **Autenticação JWT**: login, refresh token com rotação/revogação e logout; rotas protegidas exigem `Authorization: Bearer <access token>`.
-- **Kanban** com colunas personalizáveis (A Fazer, Em Andamento, Pausado, Concluído) e histórico de status imutável.
-- **Ciclo de pausas transacional**: pausar abre um intervalo, retomar ou concluir fecha a pausa e calcula sua duração em segundos.
-- **Timelines** semanal, mensal e anual com filtros e indicadores.
-- **Cálculo de capacidade e previsão** de entrega baseado em dias úteis e horas da equipe.
-- **Sistemas → Versões → Releases** com localização manual (`artifactLocation`); o Orbis não armazena nem acessa artefatos de Releases.
-- **Anexos** (imagens, PDFs, links) em requisições e tarefas, persistidos no PostgreSQL.
-- **Notificações configuráveis in-app** e **chat direto persistido**, ambos isolados por tenant.
-- **Visual mobile-first**, elegante e totalmente personalizável por usuário (tema claro/escuro, cor de destaque, densidade).
+O estado detalhado e as decisões atuais estão em [`docs/ai_handoff.md`](docs/ai_handoff.md). O roadmap está em [`docs/PLANO-IMPLEMENTACAO.md`](docs/PLANO-IMPLEMENTACAO.md).
 
-> **Regra de domínio:** o termo oficial é **Requisição**. O conceito de "ordem" do sistema original não deve ser utilizado.
+## Documentação
 
-## Stack
+- [Manual do usuário](docs/USER_MANUAL.md)
+- [Manual do desenvolvedor](docs/DEVELOPER_MANUAL.md)
+- [Arquitetura](docs/architecture.md)
+- [Handoff](docs/ai_handoff.md)
+- [Plano de implementação](docs/PLANO-IMPLEMENTACAO.md)
+- [Regras para agentes](docs/AGENTS.md)
+- [Contexto de IA](docs/ai_context.md)
+- [Operação M20](docs/operations/M20.md)
+- [Milestones M01-M20](docs/milestones/)
 
-### API (`API/`)
+## Arquitetura e tecnologias
 
-- Node.js + TypeScript (strict)
-- Fastify
-- Drizzle ORM
-- PostgreSQL
-- Zod
-- Logger estruturado (pino) com `request id` e redact de segredos
-- Erros tipados com envelope de resposta `{ error: { code, message, details? } }`
-- JWT
-- WebSocket (quando necessário)
-- Redis (opcional, somente com necessidade real)
-- Documentação de API via **Scalar** (`@scalar/fastify-api-reference` + `@fastify/swagger`)
+`API/` e `app/` são aplicações independentes. A API usa Node.js, TypeScript, Fastify, Drizzle, PostgreSQL, Zod, Pino, JWT e Scalar/OpenAPI. O app usa React, Vite, TypeScript, React Router, React Query, Tailwind, shadcn/ui, dnd-kit e Vitest. Auditorias de browser usam Playwright.
 
-### App (`app/`)
+O backend segue Presentation -> Application -> Domain; Infrastructure implementa as portas. O isolamento é tenant-aware por `companyId`, validado no backend. PostgreSQL é a fonte de verdade. Chat e notificações usam HTTP explícito e persistência; WebSocket, polling, EventSource e Redis não estão implementados.
 
-- React + Vite + TypeScript (strict)
-- shadcn/ui
-- Tailwind CSS v4
-
-`API` e `app` são aplicações independentes, cada uma com `package.json`, dependências, TypeScript, scripts e build próprios.
-
-## Estrutura do repositório
+Estrutura principal:
 
 ```text
-/
-├── API/          → Backend (Fastify)
-├── app/          → Frontend (React/Vite)
-├── docs/         → Documentação do projeto e regras para agentes de IA
-└── README.md
+API/src/{config,shared,modules,infrastructure}
+app/src/{app,components,features,lib}
+audit/{scripts,specs,fixtures}
+docs/{milestones,operations}
 ```
 
-Documentação detalhada:
+## Execução local
 
-- `docs/AGENTS.md` — regras de desenvolvimento e nomenclatura.
-- `docs/ai_context.md` — contexto rápido e decisões fundamentais.
-- `docs/architecture.md` — arquitetura detalhada.
-- `docs/PLANO-IMPLEMENTACAO.md` — plano de implementação em módulos (M0–M18).
-- `docs/ai_handoff.md` — estado atual do projeto e próxima ação.
-
-## Como executar localmente
-
-Pré-requisitos: Node.js 20+ (recomendado 22+), npm e PostgreSQL (para M1 em diante).
-
-Para auditorias browser reais, instale as dependências do orquestrador na raiz e o Chromium empacotado:
-
-```bash
-npm install
-npm run audit:install
-```
-
-### 1. Banco de dados (PostgreSQL)
-
-Suba um PostgreSQL local (ex.: via Docker) com banco `orbis`. Há duas opções:
-
-**Opção A — imagem pronta (schema aplicado na primeira execução):**
+Pré-requisitos: Node.js 20+ (a imagem oficial usa Node 22), npm, Docker e PostgreSQL quando não for usado o container fornecido.
 
 ```bash
 cd API
-  docker build -f Dockerfile.postgres -t orbis-db .   # contém migrations + script de init
-docker run --name orbis-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=orbis \
-  -p 5432:5432 -d orbis-db
-```
-
-Na primeira subida com volume vazio, o script `docker/db-init.sh` aplica o SQL das migrations e registra cada uma no journal do drizzle (`drizzle.__drizzle_migrations`), então `npm run db:migrate` não reaplica nada.
-
-**Opção B — Postgres puro (aplicar migrations manualmente):**
-
-```bash
-docker run --name orbis-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=orbis \
-  -p 5432:5432 -d postgres:17-alpine
-```
-
-### 2. API
-
-```bash
-cd API
+docker build -f Dockerfile.postgres -t orbis-db .
+docker run --name orbis-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=orbis -p 5432:5432 -d orbis-db
+cp .env.example .env
 npm install
-cp .env.example .env   # ajuste as variáveis se necessário (DATABASE_URL, JWT secrets)
-npm run db:migrate     # aplica as migrations (schema base)
-npm run dev            # sobe em http://localhost:3333
+npm run db:migrate
+npm run dev
 ```
 
-Verificar o health check:
+Em outro terminal:
+
+```bash
+cd app
+cp .env.example .env
+npm install
+npm run dev
+```
+
+API: `http://localhost:3333`. App: `http://localhost:5173`.
+
+Health e documentação:
 
 ```bash
 curl http://localhost:3333/health
@@ -120,172 +81,58 @@ curl http://localhost:3333/health/live
 curl http://localhost:3333/health/ready
 ```
 
-Documentação da API (Scalar) — **todo endpoint é documentado automaticamente**:
+Scalar: `http://localhost:3333/reference`. OpenAPI: `/reference/openapi.json` e `/reference/openapi.yaml`.
 
-```text
-http://localhost:3333/reference             → UI interativa
-http://localhost:3333/reference/openapi.json → spec OpenAPI (JSON)
-http://localhost:3333/reference/openapi.yaml → spec OpenAPI (YAML)
-```
+Para o banco puro, use `postgres:17-alpine` e depois `cd API && npm run db:migrate`. Migrations repetidas são idempotentes pelo journal do Drizzle. Não existe comando oficial de reset.
 
-Endpoints já implementados:
+## Usuário inicial
 
-```text
-POST /auth/login                         → autentica e retorna access + refresh tokens
-POST /auth/refresh                       → rotaciona o refresh token
-POST /auth/logout                        → revoga o refresh token
-
-POST   /users                            → cria usuário (identidade global)
-
-POST   /companies                        → cria empresa + membership GESTOR do dono
-GET    /companies                        → lista empresas do usuário autenticado
-GET    /companies/:companyId             → obtém empresa com acesso
-PATCH  /companies/:companyId             → atualiza empresa
-
-POST   /memberships                      → vincula usuário a empresa
-GET    /memberships                      → lista memberships do usuário autenticado
-
-POST   /companies/:companyId/systems                → cria um sistema
-GET    /companies/:companyId/systems                → lista sistemas da empresa
-GET    /companies/:companyId/systems/:systemId      → obtém um sistema
-PATCH  /companies/:companyId/systems/:systemId      → atualiza um sistema
-DELETE /companies/:companyId/systems/:systemId      → remove um sistema
-
-POST   /companies/:companyId/systems/:systemId/versions → cria uma versão para o sistema
-GET    /companies/:companyId/systems/:systemId/versions → lista versões do sistema
-GET    /companies/:companyId/versions/:versionId       → obtém uma versão
-PATCH  /companies/:companyId/versions/:versionId       → atualiza uma versão
-DELETE /companies/:companyId/versions/:versionId       → remove uma versão
-
-POST   /companies/:companyId/releases                → cria uma release em rascunho
-GET    /companies/:companyId/releases                → lista releases da empresa
-GET    /companies/:companyId/releases/:releaseId     → obtém uma release
-POST   /companies/:companyId/releases/:releaseId/publish → publica metadados + artifactLocation
-DELETE /companies/:companyId/releases/:releaseId     → remove uma release
-
-POST  /companies/:companyId/tasks                    → cria uma tarefa
-GET   /companies/:companyId/tasks                    → lista tarefas
-GET   /companies/:companyId/tasks/:taskId            → obtém tarefa e histórico
-PATCH /companies/:companyId/tasks/:taskId            → atualiza uma tarefa
-PATCH /companies/:companyId/tasks/:taskId/status     → inicia, pausa, retoma ou conclui uma tarefa
-POST  /companies/:companyId/tasks/:taskId/time-entries → registra horas por duração
-GET   /companies/:companyId/tasks/:taskId/time-entries → lista horas e total da tarefa
-GET   /companies/:companyId/timeline/weekly             → timeline semanal (`weekStart` na segunda-feira)
-GET   /companies/:companyId/timeline/monthly            → timeline mensal (`period=YYYY-MM`)
-GET   /companies/:companyId/timeline/yearly             → timeline anual (`year=YYYY`)
-GET   /companies/:companyId/reports/tasks               → relatório paginado de Tasks
-GET   /companies/:companyId/reports/tasks/export        → relatório completo em CSV (máx. 10.000 Tasks)
-GET   /companies/:companyId/audit                       → auditoria tenant-aware com filtros e cursor
-
-GET   /companies/:companyId/notifications               → lista notificações próprias e não lidas
-PATCH /companies/:companyId/notifications/:notificationId/read → marca notificação própria como lida
-GET   /companies/:companyId/notification-preferences    → lista preferências próprias
-PATCH /companies/:companyId/notification-preferences    → atualiza preferência in-app própria
-
-GET   /companies/:companyId/conversations                              → lista conversas diretas próprias
-POST  /companies/:companyId/conversations                              → cria conversa direta
-GET   /companies/:companyId/conversations/:conversationId/messages     → lista histórico paginado
-POST  /companies/:companyId/conversations/:conversationId/messages     → envia mensagem
-PATCH /companies/:companyId/conversations/:conversationId/read         → marca conversa como lida
-
-GET   /health/live                         → liveness sem banco
-GET   /health/ready                        → readiness com banco
-```
-
-As rotas de negócio (`/companies`, `/memberships`, `/systems`, `/versions`, `/releases`) são protegidas e exigem o header `Authorization: Bearer <access token>`.
-
-### 3. App
-
-```bash
-cd app
-npm install
-cp .env.example .env   # ajuste VITE_API_URL se necessário
-npm run dev            # sobe em http://localhost:5173
-```
+Não existe seed, script, endpoint MASTER ou credencial padrão oficial. `POST /users` cria uma identidade global; depois do login, `POST /companies` cria uma empresa e uma membership `GESTOR` para o usuário autenticado. O cargo `ADMINISTRADOR` existe como preset de permissões, mas não há fluxo automatizado chamado MASTER. Consulte a seção correspondente no manual do desenvolvedor; nunca use senha fixa ou texto puro.
 
 ## Scripts
 
-### API
+No diretório `API/`: `npm run dev`, `npm run build`, `npm start`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:coverage`, `npm run db:generate`, `npm run db:migrate`, `npm run db:studio`.
 
-| Script | Descrição |
-|---|---|
-| `npm run dev` | Servidor com reload automático |
-| `npm run build` | Compilação TypeScript |
-| `npm start` | Executa o build |
-| `npm run lint` | Lint + formatação (Biome) |
-| `npm run lint:fix` | Lint + formatação com correção automática |
-| `npm run typecheck` | Verificação de tipos |
-| `npm test` | Testes (vitest) |
-| `npm run test:coverage` | Testes com relatório de cobertura |
-| `npm run db:generate` | Gera migration a partir do schema |
-| `npm run db:migrate` | Aplica migrations no banco |
-| `npm run db:studio` | Abre o Drizzle Studio |
+No diretório `app/`: `npm run dev`, `npm run build`, `npm run preview`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:coverage`.
 
-### App
+Na raiz: `npm install`, `npm run audit:install`, `npm run audit:browser`, `npm run audit:browser:headed`, `npm run audit:responsive`, `npm run audit:attachments`, `npm run audit:time-entries`, `npm run audit:capacity`, `npm run audit:notifications`, `npm run audit:chat`, `npm run audit:timeline`, `npm run audit:timeline-monthly`, `npm run audit:reports` e `npm run audit:m20`.
 
-| Script | Descrição |
-|---|---|
-| `npm run dev` | Dev server com HMR |
-| `npm run build` | TypeScript + build Vite |
-| `npm run preview` | Pré-visualiza o build de produção |
-| `npm run lint` | Lint + formatação (Biome) |
-| `npm run lint:fix` | Lint + formatação com correção automática |
-| `npm run typecheck` | Verificação de tipos |
-| `npm test` | Testes (vitest) |
-| `npm run test:coverage` | Testes com relatório de cobertura |
-
-### Auditoria browser
-
-As auditorias funcionais e visuais reais usam `@playwright/test` com Chromium empacotado, fixtures temporárias e PostgreSQL Docker isolado. `jsdom` e testes de API não substituem esta suíte.
-
-| Script | Descrição |
-|---|---|
-| `npm run audit:install` | Instala o Chromium usado pela auditoria |
-| `npm run audit:browser` | Executa todas as suítes serialmente |
-| `npm run audit:browser:headed` | Executa todas as suítes em browser visível |
-| `npm run audit:responsive` | Executa a suíte de responsividade |
-| `npm run audit:attachments` | Executa Attachments |
-| `npm run audit:time-entries` | Executa TimeEntry |
-| `npm run audit:capacity` | Executa Capacity |
-| `npm run audit:m19` | Executa a auditoria browser específica de M19 |
-| `npm run audit:timeline` | Executa a timeline semanal |
-| `npm run audit:notifications` | Executa a central de notificações |
-| `npm run audit:chat` | Executa o Chat |
-
-Cada execução gera relatório HTML, JSON, screenshots, vídeos/traces em `artifacts/browser-audit/`. Falhas são classificadas como ambiente, fixture, funcional, visual, acessibilidade ou console inesperado. A execução é serial quando depende de banco e o avanço do roadmap fica bloqueado enquanto qualquer auditoria obrigatória falhar ou não for executada.
+Os detalhes, diretórios e limitações estão em [`docs/DEVELOPER_MANUAL.md`](docs/DEVELOPER_MANUAL.md). A auditoria de browser é serial (`workers: 1`) e gera artefatos em `artifacts/browser-audit/`.
 
 ## Testes e cobertura
 
-A API e o app possuem cobertura de testes obrigatória, com a meta de se aproximar de **100% do código** (unitários, integração, API e frontend).
-
 ```bash
+cd API && npm test
 cd API && npm run test:coverage
+cd app && npm test
 cd app && npm run test:coverage
 ```
 
-Thresholds mínimos definidos no `vitest.config.ts` de cada aplicação (~95% de statements/lines/functions e ~90% de branches). O relatório é gerado em `coverage/`.
+Os thresholds são definidos nos dois `vitest.config.ts`: 95% para statements/functions/lines e 90% para branches. O estado M20 validado foi API 1027/1027 e app 632/632, com coverage API 96,59%/90,05%/97,17%/97,71% e app 95,72%/90,54%/96,33%/96,85% (statements/branches/functions/lines). PostgreSQL real é executado serialmente; Playwright M20 foi 1/1 e global 57/57.
 
-## Estado do projeto
+## Docker, backup e storage
 
-O projeto está sendo construído em módulos definidos em `docs/PLANO-IMPLEMENTACAO.md`:
+Há `API/Dockerfile` e `app/Dockerfile`. O procedimento de backup/restore PostgreSQL isolado, com RPO 24h, RTO 4h e retenção técnica de sete backups diários, está em [`docs/operations/M20.md`](docs/operations/M20.md).
 
-| Módulo | Descrição | Status |
-|---|---|---|
-| M0 | Fundação dos projetos (API + app, tema, responsividade) | ✅ Concluído |
-| M1 | Infraestrutura de dados (PostgreSQL + Drizzle + migrations) | ✅ Concluído |
-| M2 | Núcleo compartilhado (config, erros, logging, env) | ✅ Concluído |
-| M3 | Identidade: companies / users / memberships | ✅ Concluído |
-| M4 | Autenticação (JWT, login, refresh, logout) | ✅ Concluído |
-| M5 | Autorização por permissões | ✅ Concluído |
-| M6 | Catálogo de software: systems / versions / releases / storage | ✅ Concluído |
-| M7 | Requisições | ⏳ Próximo |
-| M12 | Pausas e apontamento de horas | ✅ Concluído; M12.4 validada manualmente |
-| M13 | Capacidade e previsão | ✅ Concluído |
-| M14 | Timeline semanal | ✅ Concluído; M14.1 cobre todos os itens |
-| M15 | Timeline mensal/anual | ✅ Concluída; M15.1 e M15.2 concluídas |
-| M16 | Notificações persistidas in-app | ✅ Concluída |
-| M17 | Chat direto persistido e tenant-aware | ✅ Concluída |
-| M18 | Relatórios de Tasks, filtros e CSV | ✅ Concluída |
-| M19 | Auditoria append-only e consulta tenant-aware | ✅ Concluída |
+Attachments FILE usam `attachments` + `attachment_blobs.data BYTEA` no PostgreSQL, com metadados, checksum SHA-256, leitura sob demanda e sem BYTEA nas listas. LINK guarda somente metadados.
 
-O estado atual e a próxima ação recomendada estão sempre em `docs/ai_handoff.md`. M19 está concluída; a próxima milestone formal é M20 — Hardening, observabilidade e deploy.
+Releases usam somente `artifactLocation` textual. O Orbis não armazena, baixa, valida, calcula checksum ou resolve o artefato; não há filesystem, S3/provider ou download binário de Release.
+
+## Segurança e limites
+
+Access token JWT fica em memória no app. Refresh token usa cookie HttpOnly, rotação e hash no banco. Em produção, segredos fortes e `FRONTEND_ORIGIN` HTTPS são obrigatórios. Não commite `.env`, tokens, senhas ou backups.
+
+Limites relevantes: upload de Attachment até 10 MB; TimeEntry de 1 a 1440 minutos; mensagem de chat de 1 a 5000 caracteres; CSV de Reports até 10.000 Tasks; cursor e filtros seguem OpenAPI.
+
+## Troubleshooting
+
+- `/health/live` falha: verifique o processo da API e a porta 3333.
+- `/health/ready` retorna 503: verifique `DATABASE_URL`, PostgreSQL e migrations.
+- Login falha: confirme `VITE_API_URL`, `FRONTEND_ORIGIN`, cookie e origem do navegador.
+- Banco limpo: aplique `cd API && npm run db:migrate`; não execute SQL de produção manualmente.
+- Testes PostgreSQL: execute a suíte serialmente e use um banco isolado.
+- Playwright: execute `npm run audit:install` antes da primeira auditoria.
+
+## Contribuição e auditoria
+
+Mudanças devem preservar contratos, autorização, tenant isolation, Attachments e `artifactLocation`. Atualize o plano, a documentação relevante e os testes. Antes de avançar uma milestone, execute a auditoria automatizada obrigatória em browser e registre o resultado. M21 continua bloqueada até solicitação formal.

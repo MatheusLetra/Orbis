@@ -8,6 +8,9 @@ import { Login } from "@/modules/auth/application/use-cases/login";
 import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
 import { JoseTokenService } from "@/modules/auth/infrastructure/security/jose-token-service";
+import { GetAvailableDevelopers } from "@/modules/capacity/application/use-cases/get-available-developers";
+import { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/get-daily-hours-per-developer";
+import { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -57,6 +60,10 @@ import {
   InMemoryAttachmentUnitOfWork,
 } from "./fakes/attachment-fakes";
 import {
+  InMemoryCompanyCapacitySettingsRepository,
+  InMemoryDeveloperAvailabilityRepository,
+} from "./fakes/capacity-fakes";
+import {
   InMemoryArtifactStorage,
   InMemoryReleaseRepository,
   InMemorySystemRepository,
@@ -104,6 +111,8 @@ export interface TestModules extends Omit<OrbisModules, "requisitions"> {
     timeEntries: InMemoryTimeEntryRepository;
     attachments: InMemoryAttachmentRepository;
     attachmentBlobs: InMemoryAttachmentBlobRepository;
+    developerAvailability: InMemoryDeveloperAvailabilityRepository;
+    companyCapacitySettings: InMemoryCompanyCapacitySettingsRepository;
   };
   artifactStorage: InMemoryArtifactStorage;
 }
@@ -162,6 +171,12 @@ export function buildTestModules(): TestModules {
   );
   const attachmentRepository = new InMemoryAttachmentRepository();
   const attachmentBlobRepository = new InMemoryAttachmentBlobRepository();
+  const developerAvailabilityRepository = new InMemoryDeveloperAvailabilityRepository(
+    companies,
+    memberships,
+    users,
+  );
+  const companyCapacitySettingsRepository = new InMemoryCompanyCapacitySettingsRepository();
   const attachmentUnitOfWork = new InMemoryAttachmentUnitOfWork(
     attachmentRepository,
     attachmentBlobRepository,
@@ -193,6 +208,8 @@ export function buildTestModules(): TestModules {
       timeEntries,
       attachments: attachmentRepository,
       attachmentBlobs: attachmentBlobRepository,
+      developerAvailability: developerAvailabilityRepository,
+      companyCapacitySettings: companyCapacitySettingsRepository,
     },
     artifactStorage,
     createUser: new CreateUser(users, fakePasswordHasher),
@@ -210,6 +227,24 @@ export function buildTestModules(): TestModules {
     listMemberships: new ListMemberships(memberships),
     listCompanyMembers: new ListCompanyMembers(
       new InMemoryCompanyMemberLookupRepository(memberships, users),
+      accessService,
+      authorization,
+    ),
+    getAvailableDevelopers: new GetAvailableDevelopers(
+      developerAvailabilityRepository,
+      companies,
+      accessService,
+      authorization,
+    ),
+    getDailyHoursPerDeveloper: new GetDailyHoursPerDeveloper(
+      companyCapacitySettingsRepository,
+      companies,
+      accessService,
+      authorization,
+    ),
+    setDailyHoursPerDeveloper: new SetDailyHoursPerDeveloper(
+      companyCapacitySettingsRepository,
+      companies,
       accessService,
       authorization,
     ),

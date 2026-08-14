@@ -246,3 +246,47 @@ R4 adicionou `ResponsiveDialog`, uma primitive local sem `<dialog>` nativo, com 
 Chrome visível aprovou QuickTask e EditTask em `320x844` (`304px`), `360x800` (`344px`), `390x844` (`374px`) e desktop (`512px` centralizados). RegisterTimeEntry foi aprovado nos três mobiles e no desktop (`512x444`, `left=464`, `top=228`). Upload FILE, criação LINK e confirmação de remoção permaneceram alcançáveis no detalhe; confirmação manteve foco em `Cancelar`. Foco inicial, Escape e footer foram observados. Estados error/empty e teclado virtual físico não foram reproduzidos manualmente; pending/erros estão cobertos por automação.
 
 Validação final: 268 passed, 0 failed, 0 skipped; typecheck, lint, build e `git diff --check` aprovados. R1, R2 e R3 foram preservadas. Não houve alteração em backend, API, `commands/`, contratos ou lógica funcional de M11.6/M12. Auditoria funcional de Attachments continua independente e pendente. Próxima recomendação: encerrar a frente responsiva e seguir para a próxima milestone funcional.
+
+## M13.1 — BusinessCalendar concluído
+
+`BusinessCalendar` foi implementado em `API/src/modules/capacity/domain/services/business-calendar.ts` como serviço de domínio puro. A API pública é `isBusinessDay(date, holidays?)` e `addBusinessDays(date, businessDays, holidays?)`; feriados são uma entrada explícita `readonly Date[]`, sem persistência ou origem definida. Segunda a sexta são dias úteis; sábado, domingo e feriados fornecidos não são úteis.
+
+O serviço usa componentes UTC para manter o resultado determinístico, preserva o horário da entrada, não muta `Date` nem feriados e retorna nova data. `businessDays = 0` retorna cópia da data original sem incluir/avançar o dia inicial; valores fracionários ou negativos são rejeitados. Datas e feriados inválidos também são rejeitados com `BusinessRuleError`. Não foram definidos timezone operacional, capacidade zero, fórmula, arredondamento, disponibilidade ou escopo de feriados globais/por empresa.
+
+Validação M13.1: teste focado 28 passed, 0 failed, 0 skipped; API completa 693 passed, 0 failed, 75 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. Os testes são puros, sem banco, HTTP, Fastify, Drizzle ou dependência nova.
+
+M11, M12 e Attachments foram preservados. A auditoria manual funcional de Attachments continua pendente. Próxima unidade formal: M13.2 — `CapacityCalculator`; cálculo de `dailyCapacity`, `requiredDays`, `plannedDeliveryDate`, disponibilidade e endpoint permanecem fora desta unidade.
+
+## M13.2 — CapacityCalculator concluído
+
+`CapacityCalculator` foi implementado em `API/src/modules/capacity/domain/services/capacity-calculator.ts` como serviço puro, dependente somente de `BusinessCalendar` e `BusinessRuleError`. A API pública é `new CapacityCalculator(calendar).calculate(input)`, com entrada `{ startDate, estimatedHours, availableDevelopers, dailyHoursPerDeveloper, holidays? }` e saída `{ dailyCapacity, requiredDays, plannedDeliveryDate }`.
+
+`dailyCapacity` usa `availableDevelopers × dailyHoursPerDeveloper`. Desenvolvedores devem ser inteiros finitos não negativos; horas diárias devem ser finitas e maiores que zero; estimativa deve ser finita e não negativa. Capacidade diária zero ou não finita, datas inválidas e feriados inválidos são rejeitados. `estimatedHours = 0` é válido, retorna `requiredDays = 0`, nova data inicial e não chama `addBusinessDays`.
+
+Para estimativas positivas, `requiredDays` preserva a fração matemática e somente `Math.ceil(requiredDays)` é enviado ao `BusinessCalendar`; o dia inicial é excluído. Feriados são entrada explícita, datas e coleções não são mutadas, o resultado é uma nova `Date` e a previsão nunca fica antes do início. UTC é usado indiretamente pelo calendário; timezone operacional da empresa, disponibilidade persistida, feriados persistidos/globais e carga comprometida permanecem fora do escopo.
+
+Validação M13.2: teste focado 34 passed, 0 failed, 0 skipped; API completa 727 passed, 0 failed, 75 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. Não houve PostgreSQL, HTTP, Fastify, Drizzle ou dependência nova.
+
+M11, M12, Attachments e `commands/` foram preservados. A auditoria manual funcional de Attachments continua pendente. Próxima unidade formal: M13.3A — disponibilidade derivada.
+
+## M13.3A — disponibilidade de desenvolvedores concluída
+
+Foi implementado o modelo mínimo derivado dos dados existentes, sem migration ou alteração de schema. `DeveloperAvailabilityRepository.countAvailableDevelopers(companyId)` retorna somente a contagem, sem actor, nomes ou IDs. O repository Drizzle faz uma query única tenant-aware sobre `memberships`, `users` e `companies`, com `memberships.company_id`, membership ativa, usuário ativo, `position = "DESENVOLVEDOR"`, empresa ativa e `count(distinct user_id)`.
+
+`GetAvailableDevelopers` recebe `{ actor, companyId }`, valida UUID, contexto tenant-aware, exige `capacity.read`, exige membership ativa do ator e confirma empresa ativa. Empresa inexistente/inativa retorna `NotFoundError`; falta de acesso retorna `ForbiddenError`; zero elegíveis retorna `availableDevelopers: 0`. `tasks.read`, `hours.register`, `kanban.manage`, assignee, Tasks e TimeEntries não participam da elegibilidade.
+
+Não foram adicionados endpoint, OpenAPI, UoW, daily hours, disponibilidade parcial, férias, ausências, feriados persistidos, carga comprometida, timezone operacional ou modelo individual. M11, M12, Attachments e `commands/` foram preservados. A auditoria manual funcional de Attachments continua pendente.
+
+Validação inicial M13.3A: testes focados 8 passed, 0 failed, 3 skipped condicionais; API completa 735 passed, 0 failed, 78 skipped condicionais. Validação posterior PostgreSQL real: 11 passed, 0 failed, 0 skipped no container `orbis-postgres-test`, banco `orbis_test`, porta `5433`, com 4 migrations aplicadas. Tenant isolation, empresas ativas, memberships ativas, usuários ativos, posição `DESENVOLVEDOR`, zero e contagens independentes foram confirmados. A suíte PostgreSQL global paralela não foi executada devido aos deadlocks conhecidos.
+
+Próxima unidade formal: M13.3B — definição e origem de `dailyHoursPerDeveloper`.
+
+## M13.3B — dailyHoursPerDeveloper concluído
+
+Foi adicionada a migration `0004_clever_skin.sql`, persistindo `companies.daily_hours_per_developer` como `NUMERIC(4,2) NULL`, sem default. O schema, `CompanyProps`, mapper e composição foram atualizados; `NULL` representa empresa ativa sem configuração. O domínio aceita valores finitos de `0.01` a `24.00`, com até duas casas decimais, e rejeita zero, negativos, valores acima de 24, `NaN`, `Infinity` e precisão excessiva.
+
+`CompanyCapacitySettingsRepository` possui `getDailyHoursPerDeveloper(companyId)` e `setDailyHoursPerDeveloper(companyId, value)`. `GetDailyHoursPerDeveloper` exige `capacity.read`; `SetDailyHoursPerDeveloper` exige `company.update`. Ambos validam contexto tenant-aware, membership ativa e empresa ativa; empresa inexistente/inativa retorna `NotFoundError`. Não há endpoint, `capacity.manage`, histórico, vigência, frontend, timezone operacional ou integração com `CapacityCalculator`.
+
+Validação M13.3B: testes focados 25 passed, 0 failed, 0 skipped contra PostgreSQL real; API completa 757 passed, 0 failed, 81 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. PostgreSQL confirmou a coluna `numeric(4,2)`, nullable, sem default, e 5 migrations aplicadas. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente.
+
+Próxima unidade formal: M13.4 — integração da capacidade e previsão.

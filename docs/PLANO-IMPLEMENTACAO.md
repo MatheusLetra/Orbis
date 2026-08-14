@@ -18,7 +18,7 @@ Este documento funciona como índice e roadmap das milestones do Orbis. O conte�
 | 10 | M10 — Anexos de requisições e tarefas | [M10.md](milestones/M10.md) | Concluída |
 | 11 | M11 — Kanban | [M11.md](milestones/M11.md) | Em andamento |
 | 12 | M12 — Pausas e apontamento de horas | [M12.md](milestones/M12.md) | Concluída |
-| 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Não iniciada |
+| 13 | M13 — Capacidade e previsão | [M13.md](milestones/M13.md) | Em andamento |
 | 14 | M14 — Timeline semanal | [M14.md](milestones/M14.md) | Não iniciada |
 | 15 | M15 — Timeline mensal/anual | [M15.md](milestones/M15.md) | Não iniciada |
 | 16 | M16 — Notificações | [M16.md](milestones/M16.md) | Não iniciada |
@@ -160,3 +160,27 @@ R2 foi implementada e validada como correção isolada do AppShell/header. No mo
 R3 foi concluída na camada de apresentação do Kanban. O mobile agora usa faixa horizontal intencional com snap, hint de navegação, colunas fluidas por viewport, `overflow: clip` externo e foco que reposiciona o scroll para controles fora da área visível. O desktop usa grid fluido de quatro colunas. Cards longos quebram, ações recebem alvos de toque de 44px e o DnD por teclado mantém instruções e live region do dnd-kit. Chrome aprovou `320x844` (288px por coluna), `360x800` (328px), `390x844` (358px) e desktop solicitado `1440x900` (viewport efetiva 1425px, aproximadamente 328px por coluna), sem overflow externo. Loading foi exercitado manualmente; error/empty ficaram cobertos por automação e não foram reproduzidos manualmente. Automação final: 266 passed, 0 failed, 0 skipped; typecheck, lint, build e diff-check aprovados. R4 — demais dialogs/formulários — é a próxima unidade; Attachments continua pendente independente.
 
 R4 foi implementada com a primitive local `ResponsiveDialog` para QuickTask e EditTask. A primitive fornece backdrop por `visualViewport`, painel mobile seguro, main rolável, header/footer fixos, foco inicial, trap de Tab/Shift+Tab, Escape, restauração externa e bloqueio de overflow do body. RegisterTimeEntry foi alinhado no desktop sem alterar seu comportamento; formulários FILE/LINK e confirmação de remoção permaneceram no detalhe R1 e foram revalidados. Chrome aprovou QuickTask/EditTask em `320x844`, `360x800`, `390x844` e desktop; RegisterTimeEntry também, com desktop `512x444` centralizado. Automação final: 268 passed, 0 failed, 0 skipped; typecheck, lint, build e diff-check aprovados. Estados error/empty e teclado virtual físico não foram reproduzidos manualmente. A frente responsiva fica tecnicamente encerrada com essa limitação registrada; Attachments funcional permanece pendente independente.
+
+## Progresso M13
+
+- [x] M13.1 — `BusinessCalendar` puro, com fins de semana, feriados explícitos, avanço de dias úteis e validações determinísticas.
+- [x] M13.2 — `CapacityCalculator` puro, fórmula de capacidade e previsão com arredondamento somente no avanço do calendário.
+- [x] M13.3A — leitura tenant-aware de desenvolvedores elegíveis.
+- [x] M13.3B — configuração persistida tenant-aware de `dailyHoursPerDeveloper`.
+- [ ] M13.4 — integração da capacidade e previsão.
+
+M13.1 usa `Date` válido e componentes UTC, retorna nova data, não altera a entrada nem a coleção de feriados e rejeita quantidade fracionária ou negativa. Feriados não possuem persistência ou escopo definido; capacidade zero, fórmula, arredondamento, inclusão do dia inicial para previsão e timezone operacional da empresa continuam abertos para unidades posteriores. M11, M12 e Attachments foram preservados; a auditoria manual de Attachments continua pendente.
+
+Validação M13.1: teste focado 28 passed; API completa 693 passed e 75 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. M13.2 foi concluída na sequência; a próxima unidade é M13.3 — disponibilidade.
+
+M13.2 implementou `CapacityCalculator` em serviço de domínio puro. `dailyCapacity` usa `availableDevelopers × dailyHoursPerDeveloper`; capacidade zero, valores negativos, frações de desenvolvedores, `NaN` e infinitos são rejeitados. `estimatedHours = 0` é válido; `requiredDays` mantém a fração matemática; `Math.ceil(requiredDays)` é usado somente para chamar `BusinessCalendar`, com exclusão do dia inicial. Feriados continuam entrada explícita e a unidade usa UTC indiretamente pelo calendário, sem definir timezone operacional, disponibilidade persistida ou carga comprometida.
+
+Validação M13.2: teste focado 34 passed; API completa 727 passed e 75 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. M11, M12, Attachments e `commands/` foram preservados. Auditoria manual de Attachments continua pendente. Próxima unidade: M13.3A — disponibilidade derivada.
+
+M13.3A implementou a porta `DeveloperAvailabilityRepository`, o repository Drizzle e o use case `GetAvailableDevelopers`. A contagem deriva de usuário ativo, membership ativa, cargo `DESENVOLVEDOR` e empresa ativa, sempre filtrada por tenant. `capacity.read` é obrigatória para consulta; zero desenvolvedores é resultado válido; empresa inexistente/inativa retorna `NotFoundError`; não há endpoint, migration, daily hours ou UoW.
+
+Validação inicial M13.3A: testes focados 8 passed e 3 skipped condicionais; API completa 735 passed e 78 skipped condicionais. Validação posterior PostgreSQL real: 11 passed, 0 failed, 0 skipped no container `orbis-postgres-test`, banco `orbis_test`, porta `5433`, com 4 migrations aplicadas. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente.
+
+M13.3B adicionou `companies.daily_hours_per_developer` como `NUMERIC(4,2) NULL`, sem default. A configuração é tenant-aware: leitura exige `capacity.read`, alteração exige `company.update`, ambas exigem membership ativa e empresa ativa. `NULL` permanece como não configurado; valores aceitos vão de `0.01` a `24.00`, com duas casas decimais. Não há endpoint, histórico, vigência, frontend, timezone operacional ou integração com `CapacityCalculator`.
+
+Validação M13.3B: testes focados 25 passed, 0 failed, 0 skipped contra PostgreSQL real; API completa 757 passed e 81 skipped condicionais; typecheck, lint, build e `git diff --check` aprovados. A migration 0004 foi aplicada e a coluna foi confirmada como nullable e sem default. M11, M12, Attachments e `commands/` foram preservados; auditoria manual de Attachments continua pendente. Próxima unidade: M13.4 — integração da capacidade e previsão.

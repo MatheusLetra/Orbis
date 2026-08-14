@@ -5,6 +5,7 @@ export type CompanyRow = {
   name: string;
   timezone: string;
   settings: Record<string, unknown>;
+  dailyHoursPerDeveloper: number | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +21,7 @@ export function toInsertValues(company: Company): CompanyRow {
     name: company.name,
     timezone: company.timezone,
     settings: company.settings,
+    dailyHoursPerDeveloper: company.dailyHoursPerDeveloper,
     isActive: company.isActive,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,

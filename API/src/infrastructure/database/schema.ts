@@ -42,6 +42,11 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
   settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+  dailyHoursPerDeveloper: numeric("daily_hours_per_developer", {
+    precision: 4,
+    scale: 2,
+    mode: "number",
+  }),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

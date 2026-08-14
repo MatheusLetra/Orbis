@@ -10,6 +10,7 @@ describe("Company", () => {
     expect(company.name).toBe("Orbis Corp");
     expect(company.timezone).toBe("America/Sao_Paulo");
     expect(company.settings).toEqual({});
+    expect(company.dailyHoursPerDeveloper).toBeNull();
     expect(company.isActive).toBe(true);
     expect(company.createdAt).toBeInstanceOf(Date);
     expect(company.updatedAt).toBeInstanceOf(Date);
@@ -33,6 +34,7 @@ describe("Company", () => {
       name: "Outra",
       timezone: "UTC",
       settings: {},
+      dailyHoursPerDeveloper: null,
       isActive: false,
       createdAt: now,
       updatedAt: now,

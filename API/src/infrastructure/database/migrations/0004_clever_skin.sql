@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "daily_hours_per_developer" numeric(4, 2);

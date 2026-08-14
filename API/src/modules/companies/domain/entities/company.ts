@@ -5,6 +5,7 @@ export interface CompanyProps {
   name: string;
   timezone: string;
   settings: Record<string, unknown>;
+  dailyHoursPerDeveloper: number | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +29,7 @@ export class Company extends Entity<string> {
       name: data.name,
       timezone: data.timezone ?? "America/Sao_Paulo",
       settings: data.settings ?? {},
+      dailyHoursPerDeveloper: null,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -48,6 +50,10 @@ export class Company extends Entity<string> {
 
   get settings(): Record<string, unknown> {
     return this.props.settings;
+  }
+
+  get dailyHoursPerDeveloper(): number | null {
+    return this.props.dailyHoursPerDeveloper;
   }
 
   get isActive(): boolean {

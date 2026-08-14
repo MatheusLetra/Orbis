@@ -14,6 +14,11 @@ import { Logout } from "@/modules/auth/application/use-cases/logout";
 import { RefreshToken } from "@/modules/auth/application/use-cases/refresh-token";
 import { DrizzleRefreshTokenRepository } from "@/modules/auth/infrastructure/repositories/drizzle-refresh-token-repository";
 import { JoseTokenService } from "@/modules/auth/infrastructure/security/jose-token-service";
+import { GetAvailableDevelopers } from "@/modules/capacity/application/use-cases/get-available-developers";
+import { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/get-daily-hours-per-developer";
+import { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
+import { DrizzleCompanyCapacitySettingsRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-company-capacity-settings-repository";
+import { DrizzleDeveloperAvailabilityRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-developer-availability-repository";
 import { CreateCompany } from "@/modules/companies/application/use-cases/create-company";
 import { GetCompany } from "@/modules/companies/application/use-cases/get-company";
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
@@ -82,6 +87,9 @@ export interface OrbisModules {
   createMembership: CreateMembership;
   listMemberships: ListMemberships;
   listCompanyMembers: ListCompanyMembers;
+  getAvailableDevelopers: GetAvailableDevelopers;
+  getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
+  setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
   tokenService: JoseTokenService;
   requisitions: {
@@ -143,6 +151,8 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
   const companyMemberLookupRepository = new DrizzleCompanyMemberLookupRepository(database);
+  const developerAvailabilityRepository = new DrizzleDeveloperAvailabilityRepository(database);
+  const companyCapacitySettingsRepository = new DrizzleCompanyCapacitySettingsRepository(database);
   const refreshTokenRepository = new DrizzleRefreshTokenRepository(database);
   const systemRepository = new DrizzleSystemRepository(database);
   const systemVersionRepository = new DrizzleSystemVersionRepository(database);
@@ -186,6 +196,24 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     listMemberships: new ListMemberships(membershipRepository),
     listCompanyMembers: new ListCompanyMembers(
       companyMemberLookupRepository,
+      accessService,
+      authorization,
+    ),
+    getAvailableDevelopers: new GetAvailableDevelopers(
+      developerAvailabilityRepository,
+      companyRepository,
+      accessService,
+      authorization,
+    ),
+    getDailyHoursPerDeveloper: new GetDailyHoursPerDeveloper(
+      companyCapacitySettingsRepository,
+      companyRepository,
+      accessService,
+      authorization,
+    ),
+    setDailyHoursPerDeveloper: new SetDailyHoursPerDeveloper(
+      companyCapacitySettingsRepository,
+      companyRepository,
       accessService,
       authorization,
     ),

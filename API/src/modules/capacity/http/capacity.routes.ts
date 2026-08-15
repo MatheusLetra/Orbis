@@ -2,11 +2,15 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import { getCurrentUserId } from "@/infrastructure/http/current-user";
 import type { CalculateCapacity } from "@/modules/capacity/application/use-cases/calculate-capacity";
+import type { GetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/get-daily-hours-per-developer";
+import type { SetDailyHoursPerDeveloper } from "@/modules/capacity/application/use-cases/set-daily-hours-per-developer";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
 import { ValidationError } from "@/shared/errors/typed-errors";
 
 export interface CapacityRouteOptions {
   calculateCapacity: CalculateCapacity;
+  getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
+  setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
 }
 
@@ -77,6 +81,16 @@ const errorResponse = {
   additionalProperties: false,
 } as const;
 
+const capacitySettingsResponse = {
+  type: "object",
+  properties: {
+    companyId: { type: "string", format: "uuid" },
+    dailyHoursPerDeveloper: { type: ["number", "null"], exclusiveMinimum: 0, maximum: 24 },
+  },
+  required: ["companyId", "dailyHoursPerDeveloper"],
+  additionalProperties: false,
+} as const;
+
 function parseStartDate(value: string): Date {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) throw new ValidationError("startDate inválida");
@@ -104,6 +118,61 @@ export async function registerCapacityRoutes(
   app: FastifyInstance,
   options: CapacityRouteOptions,
 ): Promise<void> {
+  app.get(
+    "/companies/:companyId/capacity-settings",
+    {
+      schema: {
+        tags: ["Capacidade"],
+        description: "Obtém a configuração de capacidade da empresa.",
+        headers: userHeader,
+        params: companyParams,
+        response: { 200: capacitySettingsResponse },
+      },
+    },
+    async (request) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.getDailyHoursPerDeveloper.execute({ actor, companyId });
+    },
+  );
+
+  app.patch(
+    "/companies/:companyId/capacity-settings",
+    {
+      schema: {
+        tags: ["Capacidade"],
+        description: "Atualiza as horas diárias por desenvolvedor da empresa.",
+        headers: userHeader,
+        params: companyParams,
+        body: {
+          type: "object",
+          properties: {
+            dailyHoursPerDeveloper: {
+              type: "number",
+              exclusiveMinimum: 0,
+              maximum: 24,
+              multipleOf: 0.01,
+            },
+          },
+          required: ["dailyHoursPerDeveloper"],
+          additionalProperties: false,
+        },
+        response: { 200: capacitySettingsResponse },
+      },
+    },
+    async (request) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      const { dailyHoursPerDeveloper } = request.body as { dailyHoursPerDeveloper: number };
+      const updated = await options.setDailyHoursPerDeveloper.execute({
+        actor,
+        companyId,
+        dailyHoursPerDeveloper,
+      });
+      return { companyId, dailyHoursPerDeveloper: updated };
+    },
+  );
+
   app.get(
     "/companies/:companyId/capacity",
     {

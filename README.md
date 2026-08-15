@@ -21,6 +21,21 @@ Este README é o índice operacional. Os procedimentos completos estão em [`doc
 
 O estado detalhado e as decisões atuais estão em [`docs/ai_handoff.md`](docs/ai_handoff.md). O roadmap está em [`docs/PLANO-IMPLEMENTACAO.md`](docs/PLANO-IMPLEMENTACAO.md).
 
+## Cobertura de produto versus API
+
+M01-M20 foram concluídas conforme seus escopos. Isso pode incluir domínio, backend, API, testes ou uma superfície frontend específica; não significa que todos os módulos administrativos tenham UI.
+
+- Endpoint não equivale a tela.
+- Client, fixture ou teste não equivale a tela.
+- As rotas frontend reais são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`.
+- O `AppShell` fornece seleção de empresa ativa, Chat, Notifications, tema e logout.
+- Não existe painel administrativo formal.
+- Companies, Users/Memberships, Systems, Versions, Releases e Audit possuem operações API-only ou parcialmente expostas.
+- Requisitions são lidas indiretamente nas timelines, mas não possuem CRUD frontend.
+- M21 não foi iniciada.
+
+Operações administrativas disponíveis somente pela API devem ser tratadas como API-only, não como funções disponíveis na interface.
+
 ## Documentação
 
 - [Manual do usuário](docs/USER_MANUAL.md)

@@ -33,6 +33,11 @@ export interface ReleaseArtifactData {
   artifactLocation: string;
 }
 
+export interface ReleaseMetadataData {
+  versionLabel?: string;
+  channel?: ReleaseChannel;
+}
+
 export class Release extends Entity<string> {
   private constructor(private readonly props: ReleaseProps) {
     super(props.id);
@@ -112,5 +117,13 @@ export class Release extends Entity<string> {
     this.props.artifactLocation = location;
     this.props.status = "PUBLISHED";
     this.props.publishedAt = new Date();
+  }
+
+  updateMetadata(metadata: ReleaseMetadataData): void {
+    if (this.status !== "DRAFT") {
+      throw new Error("Apenas releases em rascunho podem ser alteradas");
+    }
+    if (metadata.versionLabel !== undefined) this.props.versionLabel = metadata.versionLabel;
+    if (metadata.channel !== undefined) this.props.channel = metadata.channel;
   }
 }

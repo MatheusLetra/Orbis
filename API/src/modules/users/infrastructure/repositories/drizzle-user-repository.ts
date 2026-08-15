@@ -7,8 +7,11 @@ import type { UserRepository } from "@/modules/users/domain/repositories/user-re
 import { toEntity, toInsertValues } from "@/modules/users/infrastructure/mappers/user-mapper";
 import { requireRow } from "@/shared/utils/require-row";
 
+type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type DatabaseExecutor = Database | DatabaseTransaction;
+
 export class DrizzleUserRepository implements UserRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: DatabaseExecutor) {}
 
   async create(user: User): Promise<User> {
     const rows = await this.db.insert(users).values(toInsertValues(user)).returning();

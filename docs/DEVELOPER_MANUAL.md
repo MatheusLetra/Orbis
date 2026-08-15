@@ -114,6 +114,52 @@ GET /companies/:companyId/audit
 
 The API has no Release binary download route. It also has no frontend route for CRUD de Requisitions, Systems, Versions, Releases or Audit; those contracts remain API/Scalar surfaces.
 
+## Matriz Backend/Frontend
+
+| Funcionalidade | Backend | Endpoint | Frontend | Rota | Permissão | Teste Playwright | Status |
+|---|---|---|---|---|---|---|---|
+| Companies: seleção/listagem | Sim | `GET /companies` | Sim | `/`, AppShell | Membership ativa | Responsividade/Capacity | Implementada no backend e frontend |
+| Companies: criar/editar/timezone | Sim | `POST /companies`, `PATCH /companies/:companyId` | Não | — | `company.update` na edição | Não | Implementada somente no backend |
+| Companies: ativar/inativar | Não há operação HTTP confirmada | — | Não | — | — | Não | Não implementada |
+| Capacity: simulação | Sim | `GET /companies/:companyId/capacity` | Sim | `/` | `capacity.read` | `capacity.spec.ts` | Implementada no backend e frontend |
+| Capacity: configuração persistida | Repository/use case | Sem endpoint HTTP confirmado | Não | — | `company.update`/`capacity.read` internamente | Não | Implementada somente parcialmente |
+| Users | `POST /users` | `POST /users` | Não | — | Público | Não | Implementada somente no backend |
+| Users/Memberships administrativas | Parcial | `POST /memberships`, `GET /memberships`, `GET /companies/:companyId/members` | Lookup indireto, sem tela administrativa | `/chat`, features existentes | `users.read`, `users.manage` | Chat | Implementada somente parcialmente |
+| Requisitions: CRUD | Sim | CRUD em `/companies/:companyId/requisitions` | Não | — | `requisitions.read/create/update/delete` | Não | Implementada somente no backend |
+| Requisitions: leitura/filtros | Sim | `GET /companies/:companyId/requisitions` | Parcial | `/timeline/monthly`, `/timeline/yearly` | `requisitions.read` | Timelines | Implementada somente parcialmente |
+| Requisitions: assignees | Sim | `.../assignees` | Não | — | `requisitions.read/update` | Não | Implementada somente no backend |
+| Tasks associadas a Requisition | Sim | `requisitionId` em Tasks | Parcial | `/kanban` | `tasks.create/update` | Kanban | Implementada somente parcialmente |
+| Systems | Sim | CRUD `/companies/:companyId/systems` | Não | — | `systems.read/manage` | Não | Implementada somente no backend |
+| Versions | Sim | CRUD `/companies/:companyId/.../versions` | Não | — | `systems.read`, `versions.manage` | Não | Implementada somente no backend |
+| Releases | Sim | CRUD/publicação `/companies/:companyId/releases` | Não | — | `releases.read/manage` | M20 via API | Implementada somente no backend |
+| Release download | Não | Não existe | Não | — | — | Ausente | Não implementada |
+| Audit | Sim | `GET /companies/:companyId/audit` | Não | — | `audit.read` | M19 via API | Implementada somente no backend |
+| AppShell | — | — | Sim | Todas as rotas autenticadas | Sessão | Responsividade global | Implementada somente parcialmente |
+
+### Rotas frontend reais
+
+`/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. O AppShell fornece seleção de empresa ativa, Chat, Notifications, tema e logout. Não há menu ou layout de administração.
+
+### Operações API-only
+
+São API-only: criação/edição de Company; criação de User; criação e listagem administrativa de Memberships; CRUD e assignees de Requisitions; CRUD de Systems; CRUD de Versions; CRUD/publicação de Releases; consulta de Audit; e qualquer operação de ativação/inativação não exposta por endpoint confirmado. Requisitions possuem leitura indireta nas timelines, não CRUD frontend.
+
+### Permissões sem UI correspondente
+
+Permissões existentes no backend: `company.read`, `company.update`, `users.read`, `users.manage`, `permissions.manage`, `systems.read`, `systems.manage`, `versions.manage`, `releases.read`, `releases.manage`, `requisitions.read`, `requisitions.create`, `requisitions.update`, `requisitions.delete`, `tasks.read`, `tasks.create`, `tasks.update`, `tasks.delete`, `kanban.manage`, `timeline.manage`, `capacity.read`, `hours.register`, `notifications.manage`, `chat.use` e `audit.read`.
+
+Sem tela administrativa correspondente estão, em especial, `company.read`, `company.update`, `users.read`, `users.manage`, `permissions.manage`, `systems.read`, `systems.manage`, `versions.manage`, `releases.read`, `releases.manage`, `requisitions.create`, `requisitions.update`, `requisitions.delete` e `audit.read`. As permissões operacionais de Tasks, Timelines, Capacity, Notifications e Chat têm uso em telas específicas, mas não formam um painel administrativo.
+
+O contrato de capabilities atualmente exposto ao app contém somente `tasks.create`, `tasks.update`, `kanban.manage`, `hours.register`, `capacity.read`, `users.read` e `requisitions.read`. A ausência de uma capability no app não transforma a permissão backend em tela disponível.
+
+### MASTER
+
+Não existe fluxo oficial suportado de criação ou promoção MASTER. `POST /users` cria uma identidade; `POST /companies` cria empresa e membership conforme o contrato existente; `POST /memberships` associa usuários conforme autorização. Não há seed oficial, senha padrão, endpoint de promoção ou tela MASTER. Essa é uma lacuna futura, não um procedimento operacional.
+
+### Painel administrativo futuro
+
+Uma milestone administrativa futura deve ser decomposta, após aprovação de contratos e capabilities, em: Company Administration; Users/Memberships; Requisitions; Systems/Versions; Releases; Audit. Cada unidade deve distinguir explicitamente API existente, endpoint novo, tela, gate, testes e limitações.
+
 ## Dicionário
 
 Company: tenant. Membership: vínculo e permissões por empresa. Actor: contexto autenticado. Permission: autorização efetiva. Task: unidade executável. Requisition: demanda formal. TimeEntry: apontamento manual. PauseInterval: intervalo de pausa. Capacity: simulação de capacidade. Timeline: leitura temporal. Notification: aviso in-app persistido. Conversation/Message: chat direto persistido. Release: metadado publicado. `artifactLocation`: texto opaco da localização externa. Attachment: metadado de FILE/LINK. AuditLog: registro append-only. Tenant isolation: filtro e autorização por empresa. UoW: transação compartilhada. Stale response: resposta de request anterior descartada. Optimistic update: alteração visual antes da confirmação, usada somente com rollback explícito. Cursor: marcador opaco de paginação. Readiness/liveness: disponibilidade com/sem dependência do banco.

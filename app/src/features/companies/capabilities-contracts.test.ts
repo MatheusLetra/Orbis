@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseCompanyCapabilities } from "./capabilities-contracts";
+import { COMPANY_CAPABILITY_NAMES, parseCompanyCapabilities } from "./capabilities-contracts";
 
-const validCapabilities = {
-  "tasks.create": false,
-  "tasks.update": false,
-  "kanban.manage": false,
-  "hours.register": true,
-  "capacity.read": false,
-  "users.read": false,
-  "requisitions.read": false,
-};
+const validCapabilities = Object.fromEntries(
+  COMPANY_CAPABILITY_NAMES.map((name) => [name, name === "hours.register"]),
+);
 
 describe("parseCompanyCapabilities", () => {
   it("aceita hours.register no contrato tenant-aware", () => {

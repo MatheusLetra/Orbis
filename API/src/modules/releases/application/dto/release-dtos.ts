@@ -14,6 +14,23 @@ export const createReleaseSchema = z.object({
 
 export type CreateReleaseInput = z.infer<typeof createReleaseSchema>;
 
+export const updateReleaseMetadataSchema = z
+  .object({
+    versionLabel: z
+      .string()
+      .trim()
+      .min(1, "Rótulo da versão é obrigatório")
+      .max(100, "Rótulo muito longo")
+      .optional(),
+    channel: z.enum(RELEASE_CHANNELS).optional(),
+  })
+  .strict()
+  .refine((value) => value.versionLabel !== undefined || value.channel !== undefined, {
+    message: "Informe ao menos um metadado",
+  });
+
+export type UpdateReleaseMetadataInput = z.infer<typeof updateReleaseMetadataSchema>;
+
 export const publishReleaseSchema = z.object({
   artifactName: z
     .string()

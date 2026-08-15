@@ -54,4 +54,20 @@ describe.skipIf(!available)("DrizzleCompanyMemberLookupRepository", () => {
       { userId: USER_B, name: "Bruno Lima" },
     ]);
   });
+
+  it("lista campos administrativos por join sem vazar outro tenant", async () => {
+    await expect(repository.listMembershipsByCompany(COMPANY_A)).resolves.toEqual([
+      expect.objectContaining({
+        id: MEMBERSHIP_A,
+        companyId: COMPANY_A,
+        userId: USER_A,
+        name: "Ana Silva",
+        email: "ana@example.com",
+        position: "SUPORTE",
+        permissions: [],
+        isActive: true,
+        userIsActive: true,
+      }),
+    ]);
+  });
 });

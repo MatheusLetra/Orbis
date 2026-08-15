@@ -330,3 +330,133 @@ describe("GET /companies/:companyId/members", () => {
     await app.close();
   });
 });
+
+describe("membership administration", () => {
+  it("lista membership e usuário do tenant com users.read", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    const otherCompany = await modules.repositories.companies.create(Company.create({ name: "B" }));
+    const user = await seedUser(modules);
+    const foreign = await modules.repositories.users.create(
+      User.create({ email: "foreign@example.com", name: "Foreign", passwordHash: "hash" }),
+    );
+    await seedActorMembership(modules, company.id);
+    await seedMembership(modules, company.id, user.id);
+    await seedMembership(modules, otherCompany.id, foreign.id);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/companies/${company.id}/memberships`,
+      headers: await authHeaders(modules, USER_ID),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: user.id,
+          name: "Ana",
+          email: "ana@orbis.io",
+          position: "SUPORTE",
+          permissions: [],
+          userIsActive: true,
+        }),
+      ]),
+    );
+    expect(response.json()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ userId: foreign.id })]),
+    );
+    await app.close();
+  });
+
+  it("cria usuário e membership e rejeita MASTER", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    await seedActorMembership(modules, company.id);
+    const headers = await authHeaders(modules, USER_ID);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/companies/${company.id}/members`,
+      headers,
+      payload: {
+        email: "new@example.com",
+        name: "New User",
+        password: "password123",
+        position: "DESENVOLVEDOR",
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      email: "new@example.com",
+      name: "New User",
+      position: "DESENVOLVEDOR",
+    });
+    const createdUser = await modules.repositories.users.findByEmail("new@example.com");
+    expect(createdUser?.passwordHash).toBe("scrypt:password123");
+    expect(
+      await modules.repositories.memberships.findByUserAndCompany(
+        createdUser?.id ?? "",
+        company.id,
+      ),
+    ).not.toBeNull();
+
+    const master = await app.inject({
+      method: "POST",
+      url: `/companies/${company.id}/members`,
+      headers,
+      payload: {
+        email: "master@example.com",
+        name: "Master",
+        password: "password123",
+        position: "MASTER",
+      },
+    });
+    expect(master.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("altera permissões estritamente e isola membership de outro tenant", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    const otherCompany = await modules.repositories.companies.create(Company.create({ name: "B" }));
+    const user = await seedUser(modules);
+    await seedActorMembership(modules, company.id);
+    await seedMembership(modules, otherCompany.id, user.id);
+    const foreign = await modules.repositories.memberships.findByUserAndCompany(
+      user.id,
+      otherCompany.id,
+    );
+    const headers = await authHeaders(modules, USER_ID);
+
+    const hidden = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/memberships/${foreign?.id}/permissions`,
+      headers,
+      payload: { permissions: ["tasks.read"] },
+    });
+    expect(hidden.statusCode).toBe(404);
+
+    const actorMembership = await modules.repositories.memberships.findByUserAndCompany(
+      USER_ID,
+      company.id,
+    );
+    const valid = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/memberships/${actorMembership?.id}/permissions`,
+      headers,
+      payload: { permissions: ["tasks.read", "permissions.manage"] },
+    });
+    expect(valid.statusCode).toBe(200);
+    expect(valid.json().permissions).toEqual(["tasks.read", "permissions.manage"]);
+
+    const invalid = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/memberships/${actorMembership?.id}/permissions`,
+      headers,
+      payload: { permissions: ["invented.permission"] },
+    });
+    expect(invalid.statusCode).toBe(400);
+    await app.close();
+  });
+});

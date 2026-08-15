@@ -42,12 +42,16 @@ import { ListCompanies } from "@/modules/companies/application/use-cases/list-co
 import { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
 import { DrizzleCompanyRepository } from "@/modules/companies/infrastructure/repositories/drizzle-company-repository";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import { CreateCompanyMember } from "@/modules/memberships/application/use-cases/create-company-member";
 import { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
 import { ListCompanyMembers } from "@/modules/memberships/application/use-cases/list-company-members";
+import { ListCompanyMemberships } from "@/modules/memberships/application/use-cases/list-company-memberships";
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import { UpdateMembershipPermissions } from "@/modules/memberships/application/use-cases/update-membership-permissions";
 import { DrizzleCompanyMemberLookupRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-company-member-lookup-repository";
 import { DrizzleMembershipRepository } from "@/modules/memberships/infrastructure/repositories/drizzle-membership-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
+import { DrizzleMembershipUnitOfWork } from "@/modules/memberships/infrastructure/unit-of-work/drizzle-membership-unit-of-work";
 import { NotificationHandler } from "@/modules/notifications/application/services/notification-handler";
 import { PreferenceResolver } from "@/modules/notifications/application/services/preference-resolver";
 import { GetNotificationPreferences } from "@/modules/notifications/application/use-cases/get-notification-preferences";
@@ -64,6 +68,7 @@ import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-r
 import { GetRelease } from "@/modules/releases/application/use-cases/get-release";
 import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import { UpdateReleaseMetadata } from "@/modules/releases/application/use-cases/update-release-metadata";
 import { DrizzleReleaseRepository } from "@/modules/releases/infrastructure/repositories/drizzle-release-repository";
 import { GetTaskReport } from "@/modules/reports/application/use-cases/get-task-report";
 import { DrizzleTaskReportReadRepository } from "@/modules/reports/infrastructure/repositories/drizzle-task-report-read-repository";
@@ -120,8 +125,11 @@ export interface OrbisModules {
   listCompanies: ListCompanies;
   updateCompany: UpdateCompany;
   createMembership: CreateMembership;
+  createCompanyMember: CreateCompanyMember;
   listMemberships: ListMemberships;
   listCompanyMembers: ListCompanyMembers;
+  listCompanyMemberships: ListCompanyMemberships;
+  updateMembershipPermissions: UpdateMembershipPermissions;
   getAvailableDevelopers: GetAvailableDevelopers;
   calculateCapacity: CalculateCapacity;
   getDailyHoursPerDeveloper: GetDailyHoursPerDeveloper;
@@ -170,6 +178,7 @@ export interface OrbisModules {
     listReleases: ListReleases;
     getRelease: GetRelease;
     publishRelease: PublishRelease;
+    updateReleaseMetadata: UpdateReleaseMetadata;
     deleteRelease: DeleteRelease;
   };
   tasks: {
@@ -209,6 +218,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
   const userRepository = new DrizzleUserRepository(database);
   const companyRepository = new DrizzleCompanyRepository(database);
   const membershipRepository = new DrizzleMembershipRepository(database);
+  const membershipUnitOfWork = new DrizzleMembershipUnitOfWork(database);
   const companyMemberLookupRepository = new DrizzleCompanyMemberLookupRepository(database);
   const developerAvailabilityRepository = new DrizzleDeveloperAvailabilityRepository(database);
   const companyCapacitySettingsRepository = new DrizzleCompanyCapacitySettingsRepository(database);
@@ -291,9 +301,26 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
       accessService,
       authorization,
     ),
+    createCompanyMember: new CreateCompanyMember(
+      membershipUnitOfWork,
+      scryptPasswordHasher,
+      companyRepository,
+      accessService,
+      authorization,
+    ),
     listMemberships: new ListMemberships(membershipRepository),
     listCompanyMembers: new ListCompanyMembers(
       companyMemberLookupRepository,
+      accessService,
+      authorization,
+    ),
+    listCompanyMemberships: new ListCompanyMemberships(
+      companyMemberLookupRepository,
+      accessService,
+      authorization,
+    ),
+    updateMembershipPermissions: new UpdateMembershipPermissions(
+      membershipRepository,
       accessService,
       authorization,
     ),
@@ -458,6 +485,11 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
         authorization,
         notificationHandler,
         auditRecorder,
+      ),
+      updateReleaseMetadata: new UpdateReleaseMetadata(
+        releaseRepository,
+        accessService,
+        authorization,
       ),
       deleteRelease: new DeleteRelease(releaseRepository, accessService, authorization),
     },

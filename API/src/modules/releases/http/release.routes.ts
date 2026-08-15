@@ -7,12 +7,14 @@ import type { DeleteRelease } from "@/modules/releases/application/use-cases/del
 import type { GetRelease } from "@/modules/releases/application/use-cases/get-release";
 import type { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
 import type { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import type { UpdateReleaseMetadata } from "@/modules/releases/application/use-cases/update-release-metadata";
 
 export interface ReleaseRouteOptions {
   createRelease: CreateRelease;
   listReleases: ListReleases;
   getRelease: GetRelease;
   publishRelease: PublishRelease;
+  updateReleaseMetadata: UpdateReleaseMetadata;
   deleteRelease: DeleteRelease;
   permissionResolver: PermissionResolver;
 }
@@ -95,6 +97,45 @@ export async function registerReleaseRoutes(
         data: request.body as never,
       });
       return reply.status(201).send(output);
+    },
+  );
+
+  app.patch(
+    "/companies/:companyId/releases/:releaseId",
+    {
+      schema: {
+        tags: ["Releases"],
+        description: "Atualiza os metadados de uma release em rascunho.",
+        headers: userHeader,
+        params: {
+          type: "object",
+          properties: {
+            companyId: { type: "string", format: "uuid" },
+            releaseId: { type: "string", format: "uuid" },
+          },
+          required: ["companyId", "releaseId"],
+          additionalProperties: false,
+        },
+        body: {
+          type: "object",
+          properties: {
+            versionLabel: { type: "string", minLength: 1, maxLength: 100 },
+            channel: { type: "string", enum: ["STABLE", "BETA"] },
+          },
+          minProperties: 1,
+          additionalProperties: false,
+        },
+        response: { 200: releaseResponse },
+      },
+    },
+    async (request) => {
+      const { companyId, releaseId } = request.params as { companyId: string; releaseId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.updateReleaseMetadata.execute({
+        actor,
+        releaseId,
+        data: request.body as never,
+      });
     },
   );
 

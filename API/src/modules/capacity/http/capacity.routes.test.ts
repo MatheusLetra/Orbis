@@ -279,3 +279,29 @@ describe("GET /companies/:companyId/capacity", () => {
     await app.close();
   });
 });
+
+describe("/companies/:companyId/capacity-settings", () => {
+  it("obtém e atualiza usando os use cases existentes", async () => {
+    const { app, modules } = await build();
+    await seedCapacity(modules);
+    const headers = await authHeaders(modules);
+
+    const initial = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY_ID}/capacity-settings`,
+      headers,
+    });
+    expect(initial.statusCode).toBe(200);
+    expect(initial.json()).toEqual({ companyId: COMPANY_ID, dailyHoursPerDeveloper: null });
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/companies/${COMPANY_ID}/capacity-settings`,
+      headers,
+      payload: { dailyHoursPerDeveloper: 7.5 },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toEqual({ companyId: COMPANY_ID, dailyHoursPerDeveloper: 7.5 });
+    await app.close();
+  });
+});

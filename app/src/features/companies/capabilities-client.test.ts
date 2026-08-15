@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "@/lib/http/api-client";
 import { capabilitiesClient } from "./capabilities-client";
+import { COMPANY_CAPABILITY_NAMES } from "./capabilities-contracts";
+
+const capabilities = () =>
+  Object.fromEntries(COMPANY_CAPABILITY_NAMES.map((name) => [name, false]));
 
 describe("capabilitiesClient", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -9,15 +13,7 @@ describe("capabilitiesClient", () => {
     const signal = new AbortController().signal;
     const request = vi.spyOn(apiClient, "request").mockResolvedValue({
       companyId: "company-a",
-      capabilities: {
-        "tasks.create": true,
-        "tasks.update": false,
-        "kanban.manage": false,
-        "hours.register": true,
-        "capacity.read": true,
-        "users.read": true,
-        "requisitions.read": false,
-      },
+      capabilities: { ...capabilities(), "tasks.create": true },
     });
 
     await expect(capabilitiesClient.get("company/a", { signal })).resolves.toMatchObject({
@@ -37,16 +33,7 @@ describe("capabilitiesClient", () => {
   it("rejeita capability inesperada", async () => {
     vi.spyOn(apiClient, "request").mockResolvedValue({
       companyId: "company-a",
-      capabilities: {
-        "tasks.create": false,
-        "tasks.update": false,
-        "kanban.manage": false,
-        "hours.register": false,
-        "capacity.read": false,
-        "users.read": false,
-        "requisitions.read": false,
-        "unexpected.permission": true,
-      },
+      capabilities: { ...capabilities(), "unexpected.permission": true },
     });
 
     await expect(capabilitiesClient.get("company-a")).rejects.toThrow(

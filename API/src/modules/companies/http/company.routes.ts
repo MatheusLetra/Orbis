@@ -5,7 +5,7 @@ import type { GetCompany } from "@/modules/companies/application/use-cases/get-c
 import type { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
 import type { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
 import type { PermissionResolver } from "@/modules/permissions/application/ports/permission-resolver";
-import type { Permission } from "@/modules/permissions/domain/permission";
+import { ALL_PERMISSIONS } from "@/modules/permissions/domain/permission";
 
 export interface CompanyRouteOptions {
   createCompany: CreateCompany;
@@ -47,15 +47,7 @@ const companyListResponse = {
   items: companyResponse,
 } as const;
 
-const EXPOSED_CAPABILITIES = [
-  "tasks.create",
-  "tasks.update",
-  "kanban.manage",
-  "hours.register",
-  "capacity.read",
-  "users.read",
-  "requisitions.read",
-] as const satisfies readonly Permission[];
+const EXPOSED_CAPABILITIES = ALL_PERMISSIONS;
 
 const capabilitiesResponse = {
   type: "object",

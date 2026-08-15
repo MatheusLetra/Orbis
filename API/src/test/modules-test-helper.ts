@@ -32,9 +32,12 @@ import { GetCompany } from "@/modules/companies/application/use-cases/get-compan
 import { ListCompanies } from "@/modules/companies/application/use-cases/list-companies";
 import { UpdateCompany } from "@/modules/companies/application/use-cases/update-company";
 import { MembershipAccessService } from "@/modules/memberships/application/services/membership-access-service";
+import { CreateCompanyMember } from "@/modules/memberships/application/use-cases/create-company-member";
 import { CreateMembership } from "@/modules/memberships/application/use-cases/create-membership";
 import { ListCompanyMembers } from "@/modules/memberships/application/use-cases/list-company-members";
+import { ListCompanyMemberships } from "@/modules/memberships/application/use-cases/list-company-memberships";
 import { ListMemberships } from "@/modules/memberships/application/use-cases/list-memberships";
+import { UpdateMembershipPermissions } from "@/modules/memberships/application/use-cases/update-membership-permissions";
 import type { Membership } from "@/modules/memberships/domain/entities/membership";
 import type { CompanyMemberLookupRepository } from "@/modules/memberships/domain/repositories/company-member-lookup-repository";
 import { MembershipPermissionResolver } from "@/modules/memberships/infrastructure/resolvers/membership-permission-resolver";
@@ -60,6 +63,7 @@ import { DeleteRelease } from "@/modules/releases/application/use-cases/delete-r
 import { GetRelease } from "@/modules/releases/application/use-cases/get-release";
 import { ListReleases } from "@/modules/releases/application/use-cases/list-releases";
 import { PublishRelease } from "@/modules/releases/application/use-cases/publish-release";
+import { UpdateReleaseMetadata } from "@/modules/releases/application/use-cases/update-release-metadata";
 import { AddRequisitionAssignee } from "@/modules/requisitions/application/use-cases/add-requisition-assignee";
 import { CreateRequisition } from "@/modules/requisitions/application/use-cases/create-requisition";
 import { DeleteRequisition } from "@/modules/requisitions/application/use-cases/delete-requisition";
@@ -301,6 +305,32 @@ class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupReposi
       )
       .map(({ membership, user }) => ({ userId: membership.userId, name: user?.name ?? "" }));
   }
+
+  async listMembershipsByCompany(companyId: string) {
+    const companyMemberships = await this.memberships.listByCompany(companyId);
+    const entries = await Promise.all(
+      companyMemberships.map(async (membership) => ({
+        membership,
+        user: await this.users.findById(membership.userId),
+      })),
+    );
+    return entries
+      .filter((entry) => entry.user !== null)
+      .map(({ membership, user }) => ({
+        id: membership.id,
+        companyId: membership.companyId,
+        userId: membership.userId,
+        name: user?.name ?? "",
+        email: user?.email ?? "",
+        position: membership.position,
+        permissions: membership.permissions,
+        isActive: membership.isActive,
+        userIsActive: user?.isActive ?? false,
+        createdAt: membership.createdAt,
+        updatedAt: membership.updatedAt,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  }
 }
 
 export function buildTestModules(
@@ -419,9 +449,26 @@ export function buildTestModules(
       accessService,
       authorization,
     ),
+    createCompanyMember: new CreateCompanyMember(
+      { execute: (work) => work({ memberships, users }) },
+      fakePasswordHasher,
+      companies,
+      accessService,
+      authorization,
+    ),
     listMemberships: new ListMemberships(memberships),
     listCompanyMembers: new ListCompanyMembers(
       new InMemoryCompanyMemberLookupRepository(memberships, users),
+      accessService,
+      authorization,
+    ),
+    listCompanyMemberships: new ListCompanyMemberships(
+      new InMemoryCompanyMemberLookupRepository(memberships, users),
+      accessService,
+      authorization,
+    ),
+    updateMembershipPermissions: new UpdateMembershipPermissions(
+      memberships,
       accessService,
       authorization,
     ),
@@ -558,6 +605,7 @@ export function buildTestModules(
         notificationDispatcher,
         auditRecorder,
       ),
+      updateReleaseMetadata: new UpdateReleaseMetadata(releases, accessService, authorization),
       deleteRelease: new DeleteRelease(releases, accessService, authorization),
     },
     tasks: {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "@/app";
 import { Company } from "@/modules/companies/domain/entities/company";
 import { Membership } from "@/modules/memberships/domain/entities/membership";
+import { ALL_PERMISSIONS } from "@/modules/permissions/domain/permission";
 import { buildTestModules, type TestModules } from "@/test/modules-test-helper";
 
 const OWNER_ID = "11111111-1111-4111-8111-111111111111";
@@ -194,7 +195,7 @@ describe("GET /companies/:companyId/capabilities", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
+    expect(response.json()).toMatchObject({
       companyId: company.id,
       capabilities: {
         "tasks.create": true,
@@ -204,6 +205,13 @@ describe("GET /companies/:companyId/capabilities", () => {
         "capacity.read": true,
         "users.read": true,
         "requisitions.read": true,
+        "users.manage": true,
+        "permissions.manage": true,
+        "company.update": true,
+        "systems.manage": true,
+        "versions.manage": true,
+        "releases.manage": true,
+        "audit.read": true,
       },
     });
     expect(response.json()).not.toHaveProperty("accessToken");
@@ -280,15 +288,10 @@ describe("GET /companies/:companyId/capabilities", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(Object.values(response.json().capabilities)).toEqual([
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-    ]);
+    expect(Object.keys(response.json().capabilities)).toHaveLength(ALL_PERMISSIONS.length);
+    expect(Object.values(response.json().capabilities).every((value) => value === false)).toBe(
+      true,
+    );
     await app.close();
   });
 

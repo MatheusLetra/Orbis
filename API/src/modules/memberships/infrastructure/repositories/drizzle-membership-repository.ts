@@ -10,8 +10,11 @@ import {
 } from "@/modules/memberships/infrastructure/mappers/membership-mapper";
 import { requireRow } from "@/shared/utils/require-row";
 
+type DatabaseTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type DatabaseExecutor = Database | DatabaseTransaction;
+
 export class DrizzleMembershipRepository implements MembershipRepository {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: DatabaseExecutor) {}
 
   async create(membership: Membership): Promise<Membership> {
     const rows = await this.db.insert(memberships).values(toInsertValues(membership)).returning();

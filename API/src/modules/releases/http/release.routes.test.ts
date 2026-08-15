@@ -250,6 +250,45 @@ describe("POST /companies/:companyId/releases/:releaseId/publish", () => {
   });
 });
 
+describe("PATCH /companies/:companyId/releases/:releaseId", () => {
+  it("atualiza parcialmente metadados apenas enquanto DRAFT", async () => {
+    const { app, modules } = await build();
+    const company = await modules.repositories.companies.create(Company.create({ name: "Orbis" }));
+    await modules.repositories.memberships.create(
+      Membership.create({ companyId: company.id, userId: USER_ID, position: "GESTOR" }),
+    );
+    const version = await seedVersion(modules, company.id);
+    const release = await seedDraftRelease(modules, company.id, version.id);
+    const headers = await authHeaders(modules, USER_ID);
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/releases/${release.id}`,
+      headers,
+      payload: { channel: "BETA" },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      versionLabel: "1.0.0",
+      channel: "BETA",
+      status: "DRAFT",
+    });
+
+    await modules.repositories.releases.publishIfDraft(release.id, {
+      artifactName: "app.exe",
+      artifactLocation: "https://example.test/app.exe",
+    });
+    const conflict = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/releases/${release.id}`,
+      headers,
+      payload: { versionLabel: "2.0.0" },
+    });
+    expect(conflict.statusCode).toBe(409);
+    await app.close();
+  });
+});
+
 describe("DELETE /companies/:companyId/releases/:releaseId", () => {
   it("remove uma release", async () => {
     const { app, modules } = await build();

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@/infrastructure/database/client";
 import { releases } from "@/infrastructure/database/schema";
-import type { Release } from "@/modules/releases/domain/entities/release";
+import type { Release, ReleaseMetadataData } from "@/modules/releases/domain/entities/release";
 import type { ReleaseRepository } from "@/modules/releases/domain/repositories/release-repository";
 import { toEntity, toInsertValues } from "@/modules/releases/infrastructure/mappers/release-mapper";
 import { requireRow } from "@/shared/utils/require-row";
@@ -40,6 +40,21 @@ export class DrizzleReleaseRepository implements ReleaseRepository {
       .returning();
 
     return toEntity(requireRow(rows[0]));
+  }
+
+  async updateMetadataIfDraft(
+    id: string,
+    companyId: string,
+    metadata: ReleaseMetadataData,
+  ): Promise<Release | null> {
+    const rows = await this.db
+      .update(releases)
+      .set(metadata)
+      .where(
+        and(eq(releases.id, id), eq(releases.companyId, companyId), eq(releases.status, "DRAFT")),
+      )
+      .returning();
+    return rows[0] ? toEntity(rows[0]) : null;
   }
 
   async publishIfDraft(

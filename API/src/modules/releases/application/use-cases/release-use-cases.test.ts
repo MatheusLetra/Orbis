@@ -23,6 +23,7 @@ import { DeleteRelease } from "./delete-release";
 import { GetRelease } from "./get-release";
 import { ListReleases } from "./list-releases";
 import { PublishRelease } from "./publish-release";
+import { UpdateReleaseMetadata } from "./update-release-metadata";
 
 function build() {
   const releaseRepository = new InMemoryReleaseRepository();
@@ -459,6 +460,70 @@ describe("DeleteRelease", () => {
 
     await expect(
       deleteUseCase.execute({ actor: foreign, releaseId: created.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("UpdateReleaseMetadata", () => {
+  it("altera parcialmente uma release DRAFT e rejeita uma PUBLISHED", async () => {
+    const context = build();
+    const user = await actor(context.membershipRepository, "company-1");
+    const version = await seedVersion(
+      context.systemRepository,
+      context.systemVersionRepository,
+      "company-1",
+    );
+    const created = await new CreateRelease(
+      context.releaseRepository,
+      context.systemVersionRepository,
+      context.accessService,
+      context.authorization,
+    ).execute({ actor: user, data: { systemVersionId: version.id, versionLabel: "1.0.0" } });
+    const update = new UpdateReleaseMetadata(
+      context.releaseRepository,
+      context.accessService,
+      context.authorization,
+    );
+
+    await expect(
+      update.execute({ actor: user, releaseId: created.id, data: { channel: "BETA" } }),
+    ).resolves.toMatchObject({ versionLabel: "1.0.0", channel: "BETA", status: "DRAFT" });
+
+    await context.releaseRepository.publishIfDraft(created.id, {
+      artifactName: "app.exe",
+      artifactLocation: "https://example.test/app.exe",
+    });
+    await expect(
+      update.execute({ actor: user, releaseId: created.id, data: { versionLabel: "2.0.0" } }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("rejeita corpo vazio e oculta releases de outro tenant", async () => {
+    const context = build();
+    const owner = await actor(context.membershipRepository, "company-1");
+    const foreign = await foreignActor(context.membershipRepository, "company-2");
+    const version = await seedVersion(
+      context.systemRepository,
+      context.systemVersionRepository,
+      "company-1",
+    );
+    const created = await new CreateRelease(
+      context.releaseRepository,
+      context.systemVersionRepository,
+      context.accessService,
+      context.authorization,
+    ).execute({ actor: owner, data: { systemVersionId: version.id, versionLabel: "1.0.0" } });
+    const update = new UpdateReleaseMetadata(
+      context.releaseRepository,
+      context.accessService,
+      context.authorization,
+    );
+
+    await expect(
+      update.execute({ actor: owner, releaseId: created.id, data: {} }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      update.execute({ actor: foreign, releaseId: created.id, data: { channel: "BETA" } }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

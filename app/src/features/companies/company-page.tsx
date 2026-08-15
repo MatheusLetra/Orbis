@@ -7,6 +7,17 @@ import { useCompanyCapabilities } from "@/features/companies/capabilities-querie
 export function CompanyPage() {
   const company = useActiveCompany();
   const capabilities = useCompanyCapabilities(company.activeCompany?.id ?? null);
+  const canOpenAdmin = [
+    "company.read",
+    "users.read",
+    "requisitions.read",
+    "systems.read",
+    "releases.read",
+    "audit.read",
+  ].some(
+    (capability) =>
+      capabilities.data?.capabilities[capability as keyof typeof capabilities.data.capabilities],
+  );
 
   if (company.status === "loading" || company.status === "idle") {
     return (
@@ -85,6 +96,14 @@ export function CompanyPage() {
           >
             Abrir timeline
           </Link>
+          {canOpenAdmin && (
+            <Link
+              className="inline-flex min-h-11 items-center rounded-md border bg-background px-4 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              to="/admin"
+            >
+              Administração
+            </Link>
+          )}
         </div>
         <CapacitySimulationPanel
           key={company.activeCompany.id}

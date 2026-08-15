@@ -216,6 +216,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       }
       await registerCapacityRoutes(protectedRoutes, {
         calculateCapacity: modules.calculateCapacity,
+        getDailyHoursPerDeveloper: modules.getDailyHoursPerDeveloper,
+        setDailyHoursPerDeveloper: modules.setDailyHoursPerDeveloper,
         permissionResolver: modules.permissionResolver,
       });
       if (modules.chat) {

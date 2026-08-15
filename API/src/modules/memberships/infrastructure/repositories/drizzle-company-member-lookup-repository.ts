@@ -5,6 +5,7 @@ import { memberships, users } from "@/infrastructure/database/schema";
 import type {
   CompanyMemberLookup,
   CompanyMemberLookupRepository,
+  CompanyMembershipLookup,
 } from "@/modules/memberships/domain/repositories/company-member-lookup-repository";
 
 export class DrizzleCompanyMemberLookupRepository implements CompanyMemberLookupRepository {
@@ -27,6 +28,28 @@ export class DrizzleCompanyMemberLookupRepository implements CompanyMemberLookup
       .orderBy(asc(users.name), asc(users.id));
 
     return rows;
+  }
+
+  async listMembershipsByCompany(companyId: string): Promise<CompanyMembershipLookup[]> {
+    return this.db
+      .select({
+        id: memberships.id,
+        companyId: memberships.companyId,
+        userId: users.id,
+        name: users.name,
+        email: users.email,
+        position: memberships.position,
+        permissions: memberships.permissions,
+        isActive: memberships.isActive,
+        userIsActive: users.isActive,
+        createdAt: memberships.createdAt,
+        updatedAt: memberships.updatedAt,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(eq(memberships.companyId, companyId))
+      .orderBy(asc(users.name), asc(memberships.id))
+      .then((rows) => rows.map((row) => ({ ...row, position: row.position ?? "" })));
   }
 }
 

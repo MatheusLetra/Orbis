@@ -1,4 +1,4 @@
-import type { Release } from "@/modules/releases/domain/entities/release";
+import type { Release, ReleaseMetadataData } from "@/modules/releases/domain/entities/release";
 import type { ReleaseRepository } from "@/modules/releases/domain/repositories/release-repository";
 import type { System } from "@/modules/systems/domain/entities/system";
 import type { SystemRepository } from "@/modules/systems/domain/repositories/system-repository";
@@ -99,6 +99,17 @@ export class InMemoryReleaseRepository implements ReleaseRepository {
 
   async update(release: Release): Promise<Release> {
     this.items.set(release.id, release);
+    return release;
+  }
+
+  async updateMetadataIfDraft(
+    id: string,
+    companyId: string,
+    metadata: ReleaseMetadataData,
+  ): Promise<Release | null> {
+    const release = this.items.get(id);
+    if (!release || release.companyId !== companyId || release.status !== "DRAFT") return null;
+    release.updateMetadata(metadata);
     return release;
   }
 

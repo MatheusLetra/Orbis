@@ -1,18 +1,36 @@
 export const COMPANY_CAPABILITY_NAMES = [
+  "tasks.read",
   "tasks.create",
   "tasks.update",
+  "tasks.delete",
   "kanban.manage",
+  "timeline.manage",
   "hours.register",
   "capacity.read",
+  "company.read",
+  "company.update",
   "users.read",
+  "users.manage",
+  "permissions.manage",
+  "systems.read",
+  "systems.manage",
+  "versions.manage",
+  "releases.read",
+  "releases.manage",
   "requisitions.read",
+  "requisitions.create",
+  "requisitions.update",
+  "requisitions.delete",
+  "notifications.manage",
+  "chat.use",
+  "audit.read",
 ] as const;
 
 export type CompanyCapability = (typeof COMPANY_CAPABILITY_NAMES)[number];
 
 export interface CompanyCapabilities {
   companyId: string;
-  capabilities: Record<CompanyCapability, boolean>;
+  capabilities: Partial<Record<CompanyCapability, boolean>>;
 }
 
 export function parseCompanyCapabilities(value: unknown): CompanyCapabilities {

@@ -78,6 +78,13 @@ describe("swagger", () => {
     expect(doc.paths).toHaveProperty("/companies/{companyId}");
     expect(doc.paths).toHaveProperty("/companies/{companyId}/capabilities");
     expect(doc.paths).toHaveProperty("/memberships");
+    expect(doc.paths).toHaveProperty("/companies/{companyId}/memberships");
+    expect(doc.paths).toHaveProperty("/companies/{companyId}/members");
+    expect(doc.paths).toHaveProperty(
+      "/companies/{companyId}/memberships/{membershipId}/permissions",
+    );
+    expect(doc.paths).toHaveProperty("/companies/{companyId}/capacity-settings");
+    expect(doc.paths).toHaveProperty("/companies/{companyId}/releases/{releaseId}");
     expect(doc.paths["/auth/login"]?.post).not.toHaveProperty(
       "responses.200.content.application/json.schema.properties.refreshToken",
     );

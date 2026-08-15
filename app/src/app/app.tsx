@@ -1,5 +1,16 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppProviders } from "@/app/providers/app-providers";
+import { AdminLayout } from "@/features/admin/admin-layout";
+import {
+  AdminHomePage,
+  AuditPage,
+  CompaniesPage,
+  ReleasesPage,
+  RequisitionsPage,
+  SystemsPage,
+  UsersPage,
+  VersionsPage,
+} from "@/features/admin/admin-pages";
 import { useAuth } from "@/features/auth/auth-provider";
 import { LoginPage } from "@/features/auth/login-page";
 import { ChatPage } from "@/features/chat/chat-page";
@@ -24,6 +35,25 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route
+        path="/admin"
+        element={
+          auth.status === "authenticated" ? (
+            <AdminLayout />
+          ) : (
+            <Navigate to="/login" replace state={{ from: location }} />
+          )
+        }
+      >
+        <Route index element={<AdminHomePage />} />
+        <Route path="companies" element={<CompaniesPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="requisitions" element={<RequisitionsPage />} />
+        <Route path="systems" element={<SystemsPage />} />
+        <Route path="versions" element={<VersionsPage />} />
+        <Route path="releases" element={<ReleasesPage />} />
+        <Route path="audit" element={<AuditPage />} />
+      </Route>
       <Route
         path="/login"
         element={auth.status === "authenticated" ? <Navigate to="/" replace /> : <LoginPage />}

@@ -28,9 +28,13 @@ docs/{milestones,operations}
 
 Módulos reais: auth, users, companies, memberships, permissions, systems, versions, releases, requisitions, tasks, capacity, timeline, notifications, chat, reports, attachments e audit. Application usa ports, DTOs, parsers e UoW quando necessário. Frontend usa clients, parsers runtime, React Query/query keys tenant-aware, AbortSignal e stale protection.
 
+As únicas rotas frontend registradas são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. O `AppShell` oferece seleção de empresa ativa, Chat, Notifications, tema e logout. Não existe painel administrativo formal. Os módulos administrativos têm cobertura de API maior que a cobertura de UI; endpoint, client, fixture e teste não equivalem a tela.
+
 ## Identidade e tenant
 
 `Company` é tenant; `User` é identidade global; `Membership` liga ambos e contém `position`, permissões explícitas e estado ativo. O cargo pode resolver preset, mas autorização continua permission-based. Cada use case tenant-owned recebe actor/contexto e valida membership, empresa ativa e `companyId`; ausência e cross-tenant não revelam dados.
+
+Não há fluxo oficial de criação ou promoção MASTER. `POST /users`, `POST /companies` e `POST /memberships` são contratos de API, sem tela frontend correspondente.
 
 ## Contratos de domínio
 

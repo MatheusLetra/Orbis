@@ -3,7 +3,7 @@ import type { TaskStatus } from "./task-contracts";
 export const TASK_STATUS_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = {
   TODO: ["IN_PROGRESS"],
   IN_PROGRESS: ["PAUSED", "DONE"],
-  PAUSED: ["IN_PROGRESS"],
+  PAUSED: ["IN_PROGRESS", "DONE"],
   DONE: [],
 };
 
@@ -17,6 +17,9 @@ export const QUICK_TASK_ACTIONS = {
     { label: "Pausar", status: "PAUSED" },
     { label: "Concluir", status: "DONE" },
   ],
-  PAUSED: [{ label: "Retomar", status: "IN_PROGRESS" }],
+  PAUSED: [
+    { label: "Retomar", status: "IN_PROGRESS" },
+    { label: "Concluir", status: "DONE" },
+  ],
   DONE: [],
 } as const satisfies Readonly<Record<TaskStatus, readonly { label: string; status: TaskStatus }[]>>;

@@ -2,11 +2,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { apiClient } from "@/lib/http/api-client";
 import { ApiError } from "@/lib/http/api-error";
 import { createQueryClient } from "@/lib/query/query-client";
 import { tasksClient } from "./task-client";
 import type { TaskCard } from "./task-contracts";
-import { useTasks } from "./task-queries";
+import { useTaskLookups, useTasks } from "./task-queries";
 
 function task(companyId: string, title: string): TaskCard {
   return {
@@ -34,6 +35,32 @@ function Probe({ companyId }: { companyId: string }) {
   if (query.isError) return <span>error</span>;
   if (query.data.length === 0) return <span>empty</span>;
   return <span>{query.data[0]?.title}</span>;
+}
+
+function LookupProbe() {
+  const query = useTaskLookups("company-a");
+  if (query.isPending) return <span>loading lookups</span>;
+  if (query.isError) return <span>lookup error</span>;
+  return (
+    <span>
+      {query.data.members[0]?.name} · {query.data.requisitions[0]?.title}
+    </span>
+  );
+}
+
+function RestrictedLookupProbe() {
+  const query = useTaskLookups("company-a", true, { members: true, requisitions: false });
+  return <span>{query.data?.requisitions.length ?? "pending"}</span>;
+}
+
+function FullyRestrictedLookupProbe() {
+  const query = useTaskLookups("company-a", true, { members: false, requisitions: false });
+  return <span>{query.data?.members.length ?? "pending"}</span>;
+}
+
+function DisabledLookupProbe() {
+  const query = useTaskLookups(null);
+  return <span>{query.fetchStatus === "idle" ? "disabled" : "pending"}</span>;
 }
 
 describe("task query hooks", () => {
@@ -95,5 +122,51 @@ describe("task query hooks", () => {
     pending.get("company-b")?.([task("company-b", "Tarefa atual")]);
     expect(await screen.findByText("Tarefa atual")).toBeInTheDocument();
     expect(screen.queryByText("Tarefa antiga")).not.toBeInTheDocument();
+  });
+
+  it("carrega responsáveis e requisições no tenant ativo", async () => {
+    vi.spyOn(apiClient, "request")
+      .mockResolvedValueOnce([{ userId: "user-a", name: "Ana" }])
+      .mockResolvedValueOnce([{ id: "req-a", number: 7, title: "Entrega" }]);
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <LookupProbe />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Ana · Entrega")).toBeInTheDocument();
+    expect(apiClient.request).toHaveBeenNthCalledWith(1, "/companies/company-a/members");
+    expect(apiClient.request).toHaveBeenNthCalledWith(2, "/companies/company-a/requisitions");
+  });
+
+  it("não consulta lookups sem tenant", () => {
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <DisabledLookupProbe />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("disabled")).toBeInTheDocument();
+  });
+
+  it("não consulta o lookup de requisições sem capability", async () => {
+    vi.spyOn(apiClient, "request").mockResolvedValueOnce([{ userId: "user-a", name: "Ana" }]);
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <RestrictedLookupProbe />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("0")).toBeInTheDocument();
+    expect(apiClient.request).toHaveBeenCalledWith("/companies/company-a/members");
+    expect(apiClient.request).not.toHaveBeenCalledWith("/companies/company-a/requisitions");
+  });
+
+  it("não consulta nenhum lookup sem as capabilities correspondentes", async () => {
+    const request = vi.spyOn(apiClient, "request");
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <FullyRestrictedLookupProbe />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("0")).toBeInTheDocument();
+    expect(request).not.toHaveBeenCalled();
   });
 });

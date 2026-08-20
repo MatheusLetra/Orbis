@@ -11,6 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { useState } from "react";
 import type { TaskCard, TaskStatus } from "@/features/tasks/task-contracts";
+import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
 import { canTransitionTask } from "@/features/tasks/task-transitions";
 import { groupTasksByStatus } from "./group-tasks";
 import { KanbanColumn } from "./kanban-column";
@@ -24,6 +25,8 @@ export function KanbanBoard({
   onViewDetails,
   canEdit,
   companyId,
+  members,
+  requisitions,
 }: {
   tasks: readonly TaskCard[];
   pendingTaskIds?: ReadonlySet<string>;
@@ -31,6 +34,8 @@ export function KanbanBoard({
   onViewDetails?: (task: TaskCard) => void;
   canEdit?: (task: TaskCard) => boolean;
   companyId?: string;
+  members?: TaskLookupMember[];
+  requisitions?: TaskLookupRequisition[];
 }) {
   const grouped = groupTasksByStatus(tasks);
   const [activeTask, setActiveTask] = useState<TaskCard | null>(null);
@@ -89,6 +94,8 @@ export function KanbanBoard({
                 onViewDetails={onViewDetails}
                 canEdit={canEdit}
                 companyId={companyId}
+                members={members}
+                requisitions={requisitions}
               />
             </div>
           ))}

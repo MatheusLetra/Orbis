@@ -6,7 +6,7 @@ M01-M21 estão concluídas. M21 foi aprovada após todos os gates obrigatórios.
 
 M21 adicionou painel administrativo em `/admin/*`, com gates por capability e tenant ativo. Endpoint, client, fixture ou teste não equivale a operação aprovada sem os gates correspondentes.
 
-Validação registrada de M21: API 1040/1040 testes, app 665/665; coverage API 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines; app 95,70%, 90,02%, 96,13%, 96,71%. PostgreSQL real serial sem skips, Playwright M21 3/3, Playwright global 60/60, typecheck, lint, builds, `tsc` raiz e diff-check aprovados.
+Validação registrada de M21: API 1040/1040 testes, app 676/676; coverage API 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines; app 95,51%, 90,01%, 95,68%, 96,56%. PostgreSQL real serial sem skips, Playwright M21 3/3, Playwright global concluído, typecheck, lint, builds, `tsc` raiz e diff-check aprovados.
 
 ## Contratos que não podem regredir
 
@@ -69,9 +69,9 @@ Os detalhes históricos das decisões e validações permanecem nos arquivos das
 
 ## Validação M21
 
-API: 1040/1040 testes, PostgreSQL real serial sem skips; coverage 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines. App: 665/665; coverage 95,70%, 90,02%, 96,13%, 96,71%. Typecheck, lint e builds de API/app, `tsc` raiz e `git diff --check` aprovados.
+API: 1040/1040 testes, PostgreSQL real serial sem skips; coverage 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines. App: 676/676; coverage 95,51%, 90,01%, 95,68%, 96,56%. Typecheck, lint e builds de API/app, `tsc` raiz e `git diff --check` aprovados.
 
-Playwright M21: 3/3. Playwright global: 60/60. Artifacts foram gerados em `artifacts/browser-audit/`. Nenhuma migration M21 foi criada ou aplicada; Attachments e Releases/storage permaneceram inalterados.
+Playwright M21: 3/3 em `artifacts/browser-audit/2026-08-20T17-35-54-351Z-0be45380-14ed-4f8b-9e49-121fb369d49c/`. Playwright global foi concluído em `artifacts/browser-audit/2026-08-20T17-29-43-708Z-8f822727-7358-42b2-9ab4-30fefdb18803/`. Nenhuma migration M21 foi criada ou aplicada; Attachments e Releases/storage permaneceram inalterados.
 
 O worktree está sujo e preservado, sem commit. Não há processos temporários de API/Vite/Vitest/Playwright. O container preexistente `orbis-postgres-test` permanece ativo na porta 5433. `commands/` não foi alterado.
 
@@ -120,6 +120,32 @@ M22 ainda não foi definida, não foi iniciada e não possui número, escopo ou 
 - métricas e tracing adicionais.
 
 Nenhum item deste backlog possui implementação, endpoint, migration, dependência ou tela aprovada. O runtime atual continua HTTP-only; PostgreSQL continua sendo a fonte da verdade; não há WebSocket, scheduler, e-mail, push, Redis ou storage externo. Releases usam somente `artifactLocation`; Attachments continuam em PostgreSQL BYTEA.
+
+## Correções pós-M21
+
+- O PATCH administrativo de permissões agora aceita a resposta básica de Membership sem parseá-la como membro administrativo; o sucesso refaz as queries do tenant e erros HTTP/rede mantêm o formulário aberto.
+- Requisitions administrativas preservam datas `YYYY-MM-DD`; o schema HTTP aceita data de calendário e `date-time`.
+- O detalhe administrativo oferece **Adicionar tarefa**, reutilizando o formulário de Task com `requisitionId` pré-selecionado, responsável, prioridade, descrição e datas.
+- A criação de Task pelo Kanban e por **Adicionar tarefa** envia datas de calendário como `YYYY-MM-DD`; o backend adapta explicitamente para o `date` PostgreSQL e a resposta ISO UTC não desloca o dia. A Requisition não fornece autofill nem é alterada.
+- A divergência manual foi reproduzida no browser: `QuickTaskDialog` atualizava os inputs, mas `useCreateTask` descartava `description`, `startDate` e `plannedEndDate` ao montar o fallback legado de `tasksClient.create`. O request real saía sem as datas e o PostgreSQL recebia `NULL`; schema HTTP, rota, `CreateTask`, Drizzle, cache e bundle estavam corretos. A correção ficou restrita ao mapeamento da mutation.
+- O AppShell oferece Início, Voltar, Tarefas, Timeline e Relatórios; AdminLayout mantém breadcrumb e navegação administrativa.
+- Tasks preservam `TODO -> IN_PROGRESS`, `IN_PROGRESS -> PAUSED|DONE`, `PAUSED -> IN_PROGRESS|DONE` e `DONE` terminal. Não foi implementado `DONE -> outro status` nem `IN_PROGRESS -> TODO`.
+
+## Validação pós-M21
+
+- API: 1040/1040 testes, coverage 96,64% statements, 90,07% branches, 97,24% functions e 97,76% lines.
+- App: 679/679 testes, coverage 95,55% statements, 90,08% branches, 95,71% functions e 96,60% lines.
+- PostgreSQL real serial: `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/orbis_test`, sem migrations novas.
+- Typecheck, lint, builds, `npx tsc -p tsconfig.json --noEmit` e `git diff --check`: aprovados.
+- Playwright global: `artifacts/browser-audit/2026-08-20T18-31-49-406Z-1267ba01-3f74-4f0b-93d4-6ccb29ed9f1c/`; Notifications isolado: `artifacts/browser-audit/2026-08-20T18-30-49-072Z-12327f7d-e67d-4fe2-9e23-2badc6be2766/`.
+- Validação desta correção: API 1042/1042 e app 680/680; coverage API 96,59%/90,04%/97,25%/97,70% e app 95,53%/90,08%/95,72%/96,60% (statements/branches/functions/lines), PostgreSQL serial sem skips indevidos. Browser global: `artifacts/browser-audit/2026-08-20T19-07-41-810Z-87321401-9cdf-4930-82ca-7bd282fade50/`; M21: `artifacts/browser-audit/2026-08-20T19-07-23-980Z-0f4a9b00-cfbb-492e-b02c-1048e6a377fc/`.
+- Investigação e validação real das datas: a reprodução inicial sem a correção está em `artifacts/browser-audit/2026-08-20T19-26-54-776Z-4173d9d6-6710-4a9c-8431-c9c755d6cc8a/` e mostrou card/detalhe sem datas apesar de inputs preenchidos. A validação final dedicada dos fluxos Kanban e Requisition está em `artifacts/browser-audit/2026-08-20T19-35-06-427Z-66286401-c23a-460f-bf80-4ca8355048dc/`, incluindo request/resposta, screenshot, trace e consulta PostgreSQL; a auditoria global final está em `artifacts/browser-audit/2026-08-20T19-46-29-924Z-b189f745-028f-4d23-83fe-3f686957d65d/`.
+- Resultado final: aprovado. Ambos os fluxos enviam `startDate: "2026-08-20"` e `plannedEndDate: "2026-08-25"`, recebem as datas na resposta, refazem a lista, exibem card/detalhe e persistem `2026-08-20`/`2026-08-25` como `date` no PostgreSQL.
+
+## Decisões pendentes
+
+- Reabrir `DONE` e criar `IN_PROGRESS -> TODO` permanecem decisões de produto bloqueantes e não foram implementadas.
+- Attachments, Releases/artifactLocation, Capacity, Timelines, Notifications, Chat, Reports e `commands/` foram preservados.
 
 ## Próximo passo recomendado
 

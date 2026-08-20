@@ -53,8 +53,10 @@ test.describe("@m21 superfícies administrativas", () => {
 
       const systemsLink = page.getByRole("link", { name: "Sistemas" });
       await systemsLink.evaluate((element) => (element as HTMLElement).click());
-      await expect(page.getByRole("heading", { name: "Sistemas e versões" })).toBeVisible();
-      await page.getByRole("button", { name: "Versões" }).first().click();
+      await expect(page.getByRole("heading", { name: "Systems" })).toBeVisible();
+      await page.getByRole("link", { name: "Versões" }).evaluate((element) => (element as HTMLElement).click());
+      await expect(page.getByRole("heading", { name: "Versions" })).toBeVisible();
+      await page.getByLabel("System").selectOption({ index: 1 });
       await expect(page.getByText("20.0.0")).toBeVisible();
 
       const releasesLink = page.getByRole("link", { name: "Releases" });

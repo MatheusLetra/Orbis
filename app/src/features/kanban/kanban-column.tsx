@@ -1,6 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { EmptyState } from "@/components/common/empty-state";
 import type { TaskCard as TaskCardData, TaskStatus } from "@/features/tasks/task-contracts";
+import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
 import { TaskCard } from "./task-card";
 
 export function KanbanColumn({
@@ -13,6 +14,8 @@ export function KanbanColumn({
   onViewDetails,
   canEdit,
   companyId,
+  members,
+  requisitions,
 }: {
   label: string;
   status: TaskStatus;
@@ -23,6 +26,8 @@ export function KanbanColumn({
   onViewDetails?: (task: TaskCardData) => void;
   canEdit?: (task: TaskCardData) => boolean;
   companyId?: string;
+  members?: TaskLookupMember[];
+  requisitions?: TaskLookupRequisition[];
 }) {
   const droppable = useDroppable({ id: `column:${status}`, data: { status } });
   return (
@@ -52,6 +57,8 @@ export function KanbanColumn({
               onViewDetails={onViewDetails}
               canEdit={canEdit?.(task)}
               companyId={companyId}
+              members={members}
+              requisitions={requisitions}
             />
           ))
         ) : (

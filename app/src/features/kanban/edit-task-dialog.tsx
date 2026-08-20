@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { useUpdateTask } from "@/features/tasks/task-mutations";
+import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
 
 const PRIORITIES = [
   ["LOW", "Baixa"],
@@ -12,11 +13,23 @@ const PRIORITIES = [
   ["HIGH", "Alta"],
 ] as const;
 
-export function EditTaskDialog({ companyId, task }: { companyId: string; task: TaskCard }) {
+export function EditTaskDialog({
+  companyId,
+  task,
+  members = [],
+  requisitions = [],
+}: {
+  companyId: string;
+  task: TaskCard;
+  members?: TaskLookupMember[];
+  requisitions?: TaskLookupRequisition[];
+}) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(task.title);
   const [priority, setPriority] = useState(task.priority);
+  const [assigneeId, setAssigneeId] = useState(task.assigneeId ?? "");
+  const [requisitionId, setRequisitionId] = useState(task.requisitionId ?? "");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const updateTask = useUpdateTask();
@@ -35,6 +48,8 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
   function open() {
     setTitle(task.title);
     setPriority(task.priority);
+    setAssigneeId(task.assigneeId ?? "");
+    setRequisitionId(task.requisitionId ?? "");
     setValidationError(null);
     updateTask.clearError();
     setDialogOpen(true);
@@ -49,7 +64,14 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
       return;
     }
     setValidationError(null);
-    updateTask.update({ companyId, taskId: task.id, title: normalizedTitle, priority });
+    updateTask.update({
+      companyId,
+      taskId: task.id,
+      title: normalizedTitle,
+      priority,
+      assigneeId: assigneeId || null,
+      requisitionId: requisitionId || null,
+    });
   }
 
   const error = validationError ?? updateTask.error;
@@ -127,6 +149,40 @@ export function EditTaskDialog({ companyId, task }: { companyId: string; task: T
                 {PRIORITIES.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <Label htmlFor={`edit-task-assignee-${task.id}`}>Responsável</Label>
+              <select
+                id={`edit-task-assignee-${task.id}`}
+                value={assigneeId}
+                onChange={(event) => setAssigneeId(event.target.value)}
+                disabled={updateTask.isPending}
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">Sem responsável</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <Label htmlFor={`edit-task-requisition-${task.id}`}>Requisition</Label>
+              <select
+                id={`edit-task-requisition-${task.id}`}
+                value={requisitionId}
+                onChange={(event) => setRequisitionId(event.target.value)}
+                disabled={updateTask.isPending}
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">Sem Requisition</option>
+                {requisitions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    #{item.number} · {item.title}
                   </option>
                 ))}
               </select>

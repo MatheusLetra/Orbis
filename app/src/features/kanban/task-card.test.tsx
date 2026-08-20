@@ -33,6 +33,19 @@ describe("TaskCard", () => {
     expect(screen.getByText("#42 · Melhoria de acesso")).toBeInTheDocument();
   });
 
+  it("exibe datas de calendário sem convertê-las em instantes locais", () => {
+    render(
+      <TaskCard
+        task={{
+          ...baseTask,
+          startDate: "2026-08-20T00:00:00.000Z",
+          plannedEndDate: "2026-08-25T00:00:00.000Z",
+        }}
+      />,
+    );
+    expect(screen.getByText("20/08/2026 - 25/08/2026")).toBeInTheDocument();
+  });
+
   it("trata relações nulas explicitamente", () => {
     render(<TaskCard task={{ ...baseTask, assignee: null, requisition: null, priority: "LOW" }} />);
     expect(screen.getByText("Sem responsável")).toBeInTheDocument();
@@ -54,7 +67,7 @@ describe("TaskCard", () => {
     for (const label of labels)
       expect(screen.getByRole("button", { name: new RegExp(label) })).toBeInTheDocument();
     if (status === "PAUSED")
-      expect(screen.queryByRole("button", { name: /Concluir/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Concluir/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ver detalhes/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ver detalhes/ })).toHaveClass("kanban-card-action");
     if (status === "DONE") {

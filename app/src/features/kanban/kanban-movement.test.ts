@@ -11,6 +11,7 @@ describe("movimentos do Kanban", () => {
     ["IN_PROGRESS", "PAUSED"],
     ["IN_PROGRESS", "DONE"],
     ["PAUSED", "IN_PROGRESS"],
+    ["PAUSED", "DONE"],
   ] as const)("permite %s → %s", (from, to) => {
     expect(canTransitionTask(from, to)).toBe(true);
     expect(resolveTaskDrop({ ...task, status: from }, to)).toEqual({
@@ -21,7 +22,6 @@ describe("movimentos do Kanban", () => {
 
   it.each([
     ["TODO", "TODO"],
-    ["PAUSED", "DONE"],
     ["DONE", "IN_PROGRESS"],
   ] as [TaskStatus, TaskStatus][])("trata %s → %s como no-op", (from, to) => {
     expect(resolveTaskDrop({ ...task, status: from }, to)).toBeNull();
@@ -33,7 +33,10 @@ describe("movimentos do Kanban", () => {
       { label: "Pausar", status: "PAUSED" },
       { label: "Concluir", status: "DONE" },
     ]);
-    expect(QUICK_TASK_ACTIONS.PAUSED).toEqual([{ label: "Retomar", status: "IN_PROGRESS" }]);
+    expect(QUICK_TASK_ACTIONS.PAUSED).toEqual([
+      { label: "Retomar", status: "IN_PROGRESS" },
+      { label: "Concluir", status: "DONE" },
+    ]);
     expect(QUICK_TASK_ACTIONS.DONE).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
 import { useCreateTask } from "@/features/tasks/task-mutations";
+import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
 
 const PRIORITIES = [
   ["LOW", "Baixa"],
@@ -14,14 +15,27 @@ const PRIORITIES = [
 export function QuickTaskDialog({
   companyId,
   canCreate,
+  members = [],
+  requisitions = [],
+  initialRequisitionId = "",
+  triggerLabel = "Nova tarefa",
 }: {
   companyId: string;
   canCreate: boolean;
+  members?: TaskLookupMember[];
+  requisitions?: TaskLookupRequisition[];
+  initialRequisitionId?: string;
+  triggerLabel?: string;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [requisitionId, setRequisitionId] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [plannedEndDate, setPlannedEndDate] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const createTask = useCreateTask();
@@ -35,14 +49,20 @@ export function QuickTaskDialog({
     if (!createTask.isSuccess) return;
     setTitle("");
     setPriority("MEDIUM");
+    setAssigneeId("");
+    setRequisitionId(initialRequisitionId);
+    setDescription("");
+    setStartDate("");
+    setPlannedEndDate("");
     setValidationError(null);
     close();
     createTask.reset();
-  }, [createTask.isSuccess, createTask.reset, close]);
+  }, [createTask.isSuccess, createTask.reset, close, initialRequisitionId]);
 
   function open(): void {
     setDialogOpen(true);
     setValidationError(null);
+    setRequisitionId(initialRequisitionId);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
@@ -54,7 +74,16 @@ export function QuickTaskDialog({
       return;
     }
     setValidationError(null);
-    createTask.create({ companyId, title: normalizedTitle, priority });
+    createTask.create({
+      companyId,
+      title: normalizedTitle,
+      priority,
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(assigneeId ? { assigneeId } : {}),
+      ...(requisitionId ? { requisitionId } : {}),
+      ...(startDate ? { startDate } : {}),
+      ...(plannedEndDate ? { plannedEndDate } : {}),
+    });
   }
 
   const error = validationError ?? createTask.error;
@@ -63,7 +92,7 @@ export function QuickTaskDialog({
     <>
       {canCreate && (
         <Button ref={triggerRef} type="button" onClick={open} aria-label="Nova tarefa">
-          Nova tarefa
+          {triggerLabel}
         </Button>
       )}
       <ResponsiveDialog
@@ -113,6 +142,38 @@ export function QuickTaskDialog({
               )}
             </div>
             <div className="mt-4 grid gap-2">
+              <Label htmlFor="quick-task-description">Descrição</Label>
+              <textarea
+                id="quick-task-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={createTask.isPending}
+                className="min-h-20 rounded-md border bg-background p-3 text-sm"
+              />
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="quick-task-start-date">Data de início</Label>
+                <Input
+                  id="quick-task-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  disabled={createTask.isPending}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="quick-task-planned-end-date">Previsão de término</Label>
+                <Input
+                  id="quick-task-planned-end-date"
+                  type="date"
+                  value={plannedEndDate}
+                  onChange={(event) => setPlannedEndDate(event.target.value)}
+                  disabled={createTask.isPending}
+                />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2">
               <Label htmlFor="quick-task-priority">Prioridade</Label>
               <select
                 id="quick-task-priority"
@@ -124,6 +185,40 @@ export function QuickTaskDialog({
                 {PRIORITIES.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <Label htmlFor="quick-task-assignee">Responsável</Label>
+              <select
+                id="quick-task-assignee"
+                value={assigneeId}
+                onChange={(event) => setAssigneeId(event.target.value)}
+                disabled={createTask.isPending}
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">Sem responsável</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <Label htmlFor="quick-task-requisition">Requisition</Label>
+              <select
+                id="quick-task-requisition"
+                value={requisitionId}
+                onChange={(event) => setRequisitionId(event.target.value)}
+                disabled={createTask.isPending}
+                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="">Sem Requisition</option>
+                {requisitions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    #{item.number} · {item.title}
                   </option>
                 ))}
               </select>

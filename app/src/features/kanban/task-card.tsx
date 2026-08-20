@@ -1,6 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import type { TaskCard as TaskCardData, TaskStatus } from "@/features/tasks/task-contracts";
+import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
 import { QUICK_TASK_ACTIONS } from "@/features/tasks/task-transitions";
 import { EditTaskDialog } from "./edit-task-dialog";
 
@@ -17,6 +18,8 @@ export function TaskCard({
   onViewDetails,
   canEdit = false,
   companyId,
+  members = [],
+  requisitions = [],
 }: {
   task: TaskCardData;
   pending?: boolean;
@@ -24,6 +27,8 @@ export function TaskCard({
   onViewDetails?: (task: TaskCardData) => void;
   canEdit?: boolean;
   companyId?: string;
+  members?: TaskLookupMember[];
+  requisitions?: TaskLookupRequisition[];
 }) {
   const actions = QUICK_TASK_ACTIONS[task.status];
   const draggable = useDraggable({
@@ -62,6 +67,12 @@ export function TaskCard({
       </div>
       <h3 className="mt-3 break-words text-sm font-semibold leading-5">{task.title}</h3>
       <dl className="mt-4 grid gap-2 text-xs">
+        <div>
+          <dt className="text-muted-foreground">Período</dt>
+          <dd className="mt-0.5 font-medium">
+            {formatCalendarDate(task.startDate)} - {formatCalendarDate(task.plannedEndDate)}
+          </dd>
+        </div>
         <div>
           <dt className="text-muted-foreground">Responsável</dt>
           <dd className="mt-0.5 font-medium">{task.assignee?.name ?? "Sem responsável"}</dd>
@@ -105,7 +116,12 @@ export function TaskCard({
       </fieldset>
       {canEdit && companyId && (
         <div className="mt-4">
-          <EditTaskDialog companyId={companyId} task={task} />
+          <EditTaskDialog
+            companyId={companyId}
+            task={task}
+            members={members}
+            requisitions={requisitions}
+          />
         </div>
       )}
       {pending && (
@@ -115,4 +131,10 @@ export function TaskCard({
       )}
     </article>
   );
+}
+
+function formatCalendarDate(value: string | null): string {
+  if (!value) return "Sem datas";
+  const [year, month, day] = value.slice(0, 10).split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }

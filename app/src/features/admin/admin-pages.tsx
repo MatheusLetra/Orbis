@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Navigate, useOutletContext } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { QuickTaskDialog } from "@/features/kanban/quick-task-dialog";
 import { adminClient } from "./admin-client";
 import {
   ADMIN_PERMISSIONS,
   type AdminCompany,
   type AdminMember,
+  DEFAULT_PERMISSIONS_BY_POSITION,
+  PERMISSION_LABELS,
   type Permission,
   type Release,
   type Requisition,
@@ -26,14 +29,24 @@ import {
   useAdminVersions,
   useCapacitySettings,
 } from "./admin-queries";
-import { Card, Cards, Field, FormDialog, PageHeader, SelectField, State } from "./admin-ui";
+import {
+  adminActionError,
+  Card,
+  Cards,
+  Field,
+  FormDialog,
+  PageHeader,
+  SelectField,
+  State,
+} from "./admin-ui";
 
 const value = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const nullable = (data: FormData, key: string) => value(data, key) || null;
 const dateOrNull = (data: FormData, key: string) => {
   const input = value(data, key);
-  return input ? new Date(input).toISOString() : null;
+  return input || null;
 };
+const dateInput = (date: string | null | undefined) => (date ? date.slice(0, 10) : "");
 const displayDate = (date: string | null) =>
   date
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
@@ -132,7 +145,7 @@ export function CompaniesPage() {
         open={editing !== null}
         title={editing === "capacity" ? "Configuração de capacidade" : "Editar empresa"}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={close}
         onSubmit={save}
       >
@@ -243,7 +256,7 @@ export function UsersPage() {
         open={dialog !== null}
         title={dialog === "new" ? "Criar membro" : `Permissões de ${dialog?.name ?? "membro"}`}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={close}
         onSubmit={save}
       >
@@ -270,9 +283,18 @@ export function UsersPage() {
                 <input
                   type="checkbox"
                   name={permission}
-                  defaultChecked={dialog?.permissions.includes(permission)}
+                  aria-label={permission}
+                  defaultChecked={Boolean(
+                    dialog &&
+                      (dialog.permissions.length > 0
+                        ? dialog.permissions.includes(permission)
+                        : DEFAULT_PERMISSIONS_BY_POSITION[dialog.position]?.includes(permission)),
+                  )}
                 />
-                {permission}
+                <span>
+                  <span className="font-medium">{PERMISSION_LABELS[permission]}</span>
+                  <span className="block text-xs text-muted-foreground">{permission}</span>
+                </span>
               </label>
             ))}
           </div>
@@ -337,8 +359,18 @@ function RequisitionFields({
         type="number"
         defaultValue={item?.estimatedHours ?? ""}
       />
-      <Field label="Início" name="startDate" type="datetime-local" />
-      <Field label="Entrega planejada" name="plannedDeliveryDate" type="datetime-local" />
+      <Field
+        label="Início"
+        name="startDate"
+        type="date"
+        defaultValue={dateInput(item?.startDate)}
+      />
+      <Field
+        label="Entrega planejada"
+        name="plannedDeliveryDate"
+        type="date"
+        defaultValue={dateInput(item?.plannedDeliveryDate)}
+      />
     </>
   );
 }
@@ -350,7 +382,7 @@ export function RequisitionsPage() {
   const query = useAdminRequisitions(companyId, filters);
   const systems = useAdminSystems(companyId);
   const [systemId, setSystemId] = useState<string | null>(null);
-  const versions = useAdminVersions(companyId, systemId ?? systems.data?.[0]?.id ?? null);
+  const versions = useAdminVersions(companyId, systemId);
   const action = useAdminAction(companyId);
   const [dialog, setDialog] = useState<"new" | Requisition | null>(null);
   const close = () => {
@@ -367,11 +399,15 @@ export function RequisitionsPage() {
       startDate: dateOrNull(data, "startDate"),
       plannedDeliveryDate: dateOrNull(data, "plannedDeliveryDate"),
     };
+    const requestBody =
+      dialog === "new"
+        ? Object.fromEntries(Object.entries(body).filter(([, field]) => field !== null))
+        : body;
     action.mutate(
       () =>
         dialog === "new"
-          ? adminClient.createRequisition(companyId, body)
-          : adminClient.updateRequisition(companyId, (dialog as Requisition).id, body),
+          ? adminClient.createRequisition(companyId, requestBody)
+          : adminClient.updateRequisition(companyId, (dialog as Requisition).id, requestBody),
       { onSuccess: close },
     );
   };
@@ -441,7 +477,7 @@ export function RequisitionsPage() {
         open={dialog !== null}
         title={dialog === "new" ? "Nova requisição" : "Editar requisição"}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={close}
         onSubmit={save}
       >
@@ -473,7 +509,7 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
         open={open}
         title={`Requisição #${item.number}`}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={() => setOpen(false)}
         onSubmit={add}
         submit={capabilities["requisitions.update"] === true}
@@ -522,6 +558,16 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
           </SelectField>
         )}
       </FormDialog>
+      {capabilities["tasks.create"] && (
+        <QuickTaskDialog
+          companyId={companyId}
+          canCreate
+          triggerLabel="Adicionar tarefa"
+          initialRequisitionId={item.id}
+          members={members.data?.map((member) => ({ userId: member.userId, name: member.name }))}
+          requisitions={[{ id: item.id, number: item.number, title: item.title }]}
+        />
+      )}
     </>
   );
 }
@@ -531,8 +577,6 @@ export function SystemsPage() {
   const query = useAdminSystems(companyId);
   const action = useAdminAction(companyId);
   const [dialog, setDialog] = useState<"new" | SoftwareSystem | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const versions = useAdminVersions(companyId, selected);
   const save = (data: FormData) =>
     action.mutate(
       () =>
@@ -554,8 +598,8 @@ export function SystemsPage() {
   return (
     <Gate capability="systems.read">
       <PageHeader
-        title="Sistemas e versões"
-        description="Catálogo técnico da empresa."
+        title="Systems"
+        description="Cadastre e administre os Systems da empresa."
         action={
           capabilities["systems.manage"] && (
             <Button onClick={() => setDialog("new")}>Novo sistema</Button>
@@ -575,9 +619,13 @@ export function SystemsPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setSelected(selected === system.id ? null : system.id)}
+                  onClick={() =>
+                    window.location.assign(
+                      `/admin/versions?systemId=${encodeURIComponent(system.id)}`,
+                    )
+                  }
                 >
-                  Versões
+                  Versions
                 </Button>
                 {capabilities["systems.manage"] && (
                   <>
@@ -590,13 +638,6 @@ export function SystemsPage() {
                   </>
                 )}
               </Card>
-              {selected === system.id && (
-                <VersionsPanel
-                  system={system}
-                  versions={versions.data ?? []}
-                  pending={versions.isPending}
-                />
-              )}
             </div>
           ))}
         </Cards>
@@ -605,7 +646,7 @@ export function SystemsPage() {
         open={dialog !== null}
         title={dialog === "new" ? "Novo sistema" : "Editar sistema"}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={() => setDialog(null)}
         onSubmit={save}
       >
@@ -691,7 +732,7 @@ function VersionsPanel({
         open={dialog !== null}
         title={dialog === "new" ? "Nova versão" : "Editar versão"}
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={() => setDialog(null)}
         onSubmit={save}
       >
@@ -707,7 +748,52 @@ function VersionsPanel({
 }
 
 export function VersionsPage() {
-  return <SystemsPage />;
+  const { companyId, capabilities } = useAdmin();
+  const systems = useAdminSystems(companyId);
+  const [systemId, setSystemId] = useState(() =>
+    new URLSearchParams(window.location.search).get("systemId"),
+  );
+  const versions = useAdminVersions(companyId, systemId);
+  const system = systems.data?.find((item) => item.id === systemId);
+  return (
+    <Gate capability="systems.read">
+      <PageHeader title="Versions" description="Versões pertencentes a um System selecionado." />
+      <SelectField
+        label="System"
+        name="systemId"
+        value={systemId ?? ""}
+        onChange={(id) => {
+          setSystemId(id || null);
+          window.history.replaceState(
+            {},
+            "",
+            id ? `/admin/versions?systemId=${encodeURIComponent(id)}` : "/admin/versions",
+          );
+        }}
+      >
+        <option value="">Selecione um System</option>
+        {systems.data?.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </SelectField>
+      {system ? (
+        <VersionsPanel
+          system={system}
+          versions={versions.data ?? []}
+          pending={versions.isPending}
+        />
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Selecione um System para consultar suas Versions.
+        </p>
+      )}
+      {!capabilities["versions.manage"] && (
+        <p className="mt-3 text-sm text-muted-foreground">Acesso somente para consulta.</p>
+      )}
+    </Gate>
+  );
 }
 
 export function ReleasesPage() {
@@ -806,7 +892,7 @@ export function ReleasesPage() {
               : "Editar release"
         }
         pending={action.isPending}
-        error={action.isError}
+        error={adminActionError(action)}
         onClose={close}
         onSubmit={save}
       >

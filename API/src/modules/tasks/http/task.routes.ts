@@ -137,8 +137,18 @@ const createBody = {
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
     assigneeId: { type: "string", format: "uuid" },
     requisitionId: { type: "string", format: "uuid" },
-    startDate: { type: "string", format: "date-time" },
-    plannedEndDate: { type: "string", format: "date-time" },
+    startDate: {
+      anyOf: [
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
+    plannedEndDate: {
+      anyOf: [
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
   },
   required: ["title"],
   additionalProperties: false,
@@ -152,8 +162,20 @@ const updateBody = {
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
     assigneeId: { type: ["string", "null"], format: "uuid" },
     requisitionId: { type: ["string", "null"], format: "uuid" },
-    startDate: { type: ["string", "null"], format: "date-time" },
-    plannedEndDate: { type: ["string", "null"], format: "date-time" },
+    startDate: {
+      anyOf: [
+        { type: "null" },
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
+    plannedEndDate: {
+      anyOf: [
+        { type: "null" },
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
   },
   additionalProperties: false,
 } as const;
@@ -232,11 +254,31 @@ const listQuery = {
   additionalProperties: false,
 } as const;
 
+function parseCalendarDate(value: string): Date {
+  const calendar = value.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(calendar)) {
+    throw new ValidationError("Data de calendário inválida");
+  }
+
+  const [year = NaN, month = NaN, day = NaN] = calendar.split("-").map(Number);
+  const result = new Date(Date.UTC(year, month - 1, day));
+  if (
+    result.getUTCFullYear() !== year ||
+    result.getUTCMonth() !== month - 1 ||
+    result.getUTCDate() !== day ||
+    (value.length > 10 && Number.isNaN(Date.parse(value)))
+  ) {
+    throw new ValidationError("Data de calendário inválida");
+  }
+
+  return result;
+}
+
 function dates<T extends Record<string, unknown>>(data: T, fields: readonly string[]): T {
   const output: Record<string, unknown> = { ...data };
   for (const field of fields) {
     const value = output[field];
-    if (typeof value === "string") output[field] = new Date(value);
+    if (typeof value === "string") output[field] = parseCalendarDate(value);
   }
   return output as T;
 }

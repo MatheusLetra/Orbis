@@ -90,6 +90,8 @@ describe("EditTaskDialog", () => {
       taskId: "task-1",
       title: "Editada",
       priority: "LOW",
+      assigneeId: "user-1",
+      requisitionId: null,
     });
     state.isPending = true;
     cleanup();
@@ -105,5 +107,24 @@ describe("EditTaskDialog", () => {
     await user.click(screen.getByRole("button", { name: /Editar tarefa/ }));
     expect(screen.getByRole("alert")).toHaveTextContent("permissão");
     expect(screen.getByDisplayValue("Título atual")).toBeInTheDocument();
+  });
+
+  it("permite alterar responsável e Requisition", async () => {
+    const user = userEvent.setup();
+    render(
+      <EditTaskDialog
+        companyId="company-a"
+        task={task}
+        members={[{ userId: "user-2", name: "Bruno" }]}
+        requisitions={[{ id: "req-b", number: 8, title: "Correção" }]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Editar tarefa/ }));
+    await user.selectOptions(screen.getByLabelText("Responsável"), "user-2");
+    await user.selectOptions(screen.getByLabelText("Requisition"), "req-b");
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ assigneeId: "user-2", requisitionId: "req-b" }),
+    );
   });
 });

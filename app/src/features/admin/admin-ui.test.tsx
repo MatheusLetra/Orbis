@@ -1,8 +1,35 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { FormDialog, SelectField, State } from "./admin-ui";
+import { ApiError } from "@/lib/http/api-error";
+import { FormDialog, messageForAdminError, SelectField, State } from "./admin-ui";
 
 describe("admin ui", () => {
+  it("traduz erros HTTP administrativos sem apagar o contexto", () => {
+    expect(
+      messageForAdminError(new ApiError({ status: 400, code: "BAD", message: "Dados inválidos" })),
+    ).toBe("Dados inválidos");
+    expect(
+      messageForAdminError(
+        new ApiError({ status: 422, code: "INVALID", message: "Dados inválidos" }),
+      ),
+    ).toBe("Dados inválidos");
+    expect(
+      messageForAdminError(new ApiError({ status: 403, code: "FORBIDDEN", message: "x" })),
+    ).toContain("permissão");
+    expect(
+      messageForAdminError(new ApiError({ status: 404, code: "NOT_FOUND", message: "x" })),
+    ).toContain("não foi encontrado");
+    expect(
+      messageForAdminError(new ApiError({ status: 409, code: "CONFLICT", message: "x" })),
+    ).toContain("conflito");
+    expect(
+      messageForAdminError(new ApiError({ status: 500, code: "ERROR", message: "x" })),
+    ).toContain("API");
+    expect(
+      messageForAdminError(new ApiError({ status: 401, code: "UNAUTHORIZED", message: "x" })),
+    ).toContain("conexão");
+    expect(messageForAdminError(new Error("network"))).toContain("conexão");
+  });
   it("renderiza estados de carregamento, erro e vazio", () => {
     const view = render(
       <State pending error={false} empty={false}>

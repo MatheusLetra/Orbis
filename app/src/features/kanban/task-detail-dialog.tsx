@@ -702,11 +702,9 @@ function TaskDetailContent({
               ? detail.requisitionId
               : "Sem Requisition"}
         </DetailItem>
-        <DetailItem label="Data de início">
-          {detail.startDate ? formatDate(detail.startDate) : "Não definida"}
-        </DetailItem>
+        <DetailItem label="Data de início">{formatCalendarDate(detail.startDate)}</DetailItem>
         <DetailItem label="Previsão de término">
-          {detail.plannedEndDate ? formatDate(detail.plannedEndDate) : "Não definida"}
+          {formatCalendarDate(detail.plannedEndDate)}
         </DetailItem>
         <DetailItem label="Concluída em">
           {detail.completedAt ? formatDate(detail.completedAt) : "Não concluída"}
@@ -1005,6 +1003,12 @@ function formatDate(value: string): string {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function formatCalendarDate(value: string | null): string {
+  if (!value) return "Não definida";
+  const [year, month, day] = value.slice(0, 10).split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
 export function messageForDetailError(error: Error): string {

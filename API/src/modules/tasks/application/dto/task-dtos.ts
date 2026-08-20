@@ -19,6 +19,13 @@ export const createTaskSchema = z
     startDate: z.date().optional(),
     plannedEndDate: z.date().optional(),
   })
+  .refine(
+    (data) =>
+      data.startDate === undefined ||
+      data.plannedEndDate === undefined ||
+      data.startDate.getTime() <= data.plannedEndDate.getTime(),
+    { message: "Data de início não pode ser posterior à previsão de término" },
+  )
   .strict();
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;

@@ -226,6 +226,54 @@ describe("Task HTTP integration", () => {
     await app.close();
   });
 
+  it("aceita datas de calendário, persiste ambas sem deslocamento e rejeita datas inválidas", async () => {
+    const { app, modules } = await build();
+    await seedActor(modules);
+    const headers = await authHeaders(modules);
+
+    const created = await app.inject({
+      method: "POST",
+      url: `/companies/${COMPANY_ID}/tasks`,
+      headers,
+      payload: {
+        title: "Calendário",
+        startDate: "2026-08-20",
+        plannedEndDate: "2026-08-25",
+      },
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({
+      startDate: "2026-08-20T00:00:00.000Z",
+      plannedEndDate: "2026-08-25T00:00:00.000Z",
+    });
+    const stored = modules.repositories.tasks.items.get(created.json().id);
+    expect(stored?.startDate?.toISOString()).toBe("2026-08-20T00:00:00.000Z");
+    expect(stored?.plannedEndDate?.toISOString()).toBe("2026-08-25T00:00:00.000Z");
+
+    await expect(
+      app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers,
+        payload: { title: "Inválida", startDate: "2026-02-30" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 400 });
+    await expect(
+      app.inject({
+        method: "POST",
+        url: `/companies/${COMPANY_ID}/tasks`,
+        headers,
+        payload: {
+          title: "Invertida",
+          startDate: "2026-08-25",
+          plannedEndDate: "2026-08-20",
+        },
+      }),
+    ).resolves.toMatchObject({ statusCode: 400 });
+    await app.close();
+  });
+
   it("reutiliza o PATCH de status para pausar e concluir com um único histórico por transição", async () => {
     const { app, modules } = await build();
     await seedActor(modules);

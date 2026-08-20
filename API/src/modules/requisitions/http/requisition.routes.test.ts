@@ -120,10 +120,17 @@ describe("Requisition HTTP integration", () => {
       method: "PATCH",
       url: `/companies/${COMPANY_ID}/requisitions/${id}`,
       headers: await authHeaders(modules),
-      payload: { title: "Atualizada", priority: "HIGH" },
+      payload: {
+        title: "Atualizada",
+        priority: "HIGH",
+        startDate: "2026-08-20",
+        plannedDeliveryDate: "2026-08-25",
+      },
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.json()).toMatchObject({ title: "Atualizada", priority: "HIGH" });
+    expect(updated.json().startDate).toContain("2026-08-20");
+    expect(updated.json().plannedDeliveryDate).toContain("2026-08-25");
 
     const deleted = await app.inject({
       method: "DELETE",

@@ -5,6 +5,70 @@ import {
 
 export type Permission = CompanyCapability;
 export const ADMIN_PERMISSIONS = COMPANY_CAPABILITY_NAMES;
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  "tasks.read": "Consultar tarefas",
+  "tasks.create": "Criar tarefas",
+  "tasks.update": "Editar tarefas",
+  "tasks.delete": "Excluir tarefas",
+  "kanban.manage": "Gerenciar Kanban",
+  "timeline.manage": "Gerenciar timelines",
+  "hours.register": "Registrar horas",
+  "capacity.read": "Consultar capacidade",
+  "company.read": "Consultar empresa",
+  "company.update": "Editar empresa",
+  "users.read": "Consultar usuários",
+  "users.manage": "Gerenciar usuários",
+  "permissions.manage": "Gerenciar permissões",
+  "systems.read": "Consultar Systems",
+  "systems.manage": "Gerenciar Systems",
+  "versions.manage": "Gerenciar Versions",
+  "releases.read": "Consultar Releases",
+  "releases.manage": "Gerenciar Releases",
+  "requisitions.read": "Consultar requisições",
+  "requisitions.create": "Criar requisições",
+  "requisitions.update": "Editar requisições",
+  "requisitions.delete": "Excluir requisições",
+  "notifications.manage": "Gerenciar notificações",
+  "chat.use": "Usar chat",
+  "audit.read": "Consultar auditoria",
+};
+export const DEFAULT_PERMISSIONS_BY_POSITION: Record<string, readonly Permission[]> = {
+  ADMINISTRADOR: ADMIN_PERMISSIONS,
+  GESTOR: ADMIN_PERMISSIONS,
+  SUPORTE: [
+    "company.read",
+    "users.read",
+    "systems.read",
+    "releases.read",
+    "requisitions.read",
+    "tasks.read",
+    "chat.use",
+    "notifications.manage",
+  ],
+  TESTADOR: [
+    "company.read",
+    "systems.read",
+    "releases.read",
+    "requisitions.read",
+    "tasks.read",
+    "tasks.update",
+    "hours.register",
+    "chat.use",
+  ],
+  DESENVOLVEDOR: [
+    "company.read",
+    "systems.read",
+    "releases.read",
+    "requisitions.read",
+    "requisitions.create",
+    "requisitions.update",
+    "tasks.read",
+    "tasks.create",
+    "tasks.update",
+    "hours.register",
+    "chat.use",
+  ],
+};
 
 export interface AdminCompany {
   id: string;
@@ -144,7 +208,7 @@ export function parseMember(value: unknown): AdminMember {
     name: value.name as string,
     position: value.position as string,
     permissions: value.permissions as Permission[],
-    isActive: value.userIsActive as boolean,
+    isActive: (value.isActive ?? value.userIsActive) as boolean,
   };
 }
 export const parseMembers = (value: unknown) => parseList(value, parseMember, "membros");

@@ -91,6 +91,11 @@ describe("AppShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Sair" }));
     expect(authState.logout).toHaveBeenCalledOnce();
+
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+    await user.click(screen.getByRole("button", { name: "Voltar para a tela anterior" }));
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
   });
 
   it("integra o botão de notificações com o tenant ativo", () => {

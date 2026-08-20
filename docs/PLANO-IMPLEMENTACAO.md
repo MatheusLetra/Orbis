@@ -45,6 +45,26 @@ M21 foi concluída após PostgreSQL real serial sem skips, cobertura, gates de A
 
 Não existe atualmente uma próxima milestone numerada ou formalmente aprovada. M22 não foi iniciada. O backlog futuro abaixo é informativo e não representa escopo implementado nem bloqueio operacional.
 
+## Correções pós-M21 concluídas
+
+- Permissões: resposta compatível, persistência confirmada, refetch tenant-aware, pending/anti-duplicação, preservação em erro e mensagens HTTP/rede.
+- Requisitions: datas de calendário aceitas e criação de Task vinculada no detalhe com invalidação tenant-aware.
+- Tasks: criação pelo Kanban e pelo detalhe de Requisition envia `startDate`/`plannedEndDate` como `YYYY-MM-DD`; o backend persiste PostgreSQL `date` sem deslocamento e o card/detalhe exibem as datas.
+- Causa raiz investigada no browser: a mutation `useCreateTask` descartava descrição e datas ao converter a chamada legada para `tasksClient.create`; os inputs e o backend estavam corretos. A correção foi limitada ao fallback da mutation, preservando calendário `YYYY-MM-DD`, null/ausência e validação de intervalo.
+- Navegação global: Início, Voltar, breadcrumb administrativo e controles acessíveis em mobile.
+- Status de Task: corrigida apenas a projeção/UI de transições aprovadas; `DONE` continua terminal e não foi criada transição para `TODO`.
+- Testes unitários, HTTP, cobertura e Playwright global executados após os gates.
+
+Reabrir `DONE` e criar `IN_PROGRESS -> TODO` continuam decisões pendentes e bloqueantes.
+
+### Validação da correção de datas
+
+- API: 1042/1042 testes com PostgreSQL real serial; coverage 96,59% statements, 90,04% branches, 97,25% functions e 97,70% lines.
+- App: 681/681 testes; coverage 95,53% statements, 90,08% branches, 95,72% functions e 96,60% lines.
+- Browser: reprodução inicial real falha em `artifacts/browser-audit/2026-08-20T19-26-54-776Z-4173d9d6-6710-4a9c-8431-c9c755d6cc8a/`; validação dedicada Kanban/Requisition aprovada em `artifacts/browser-audit/2026-08-20T19-35-06-427Z-66286401-c23a-460f-bf80-4ca8355048dc/`, com request body, resposta, refetch, card, detalhe, screenshot, trace e PostgreSQL; auditoria global final aprovada em `artifacts/browser-audit/2026-08-20T19-46-29-924Z-b189f745-028f-4d23-83fe-3f686957d65d/`.
+- Typecheck, lint, builds, `npx tsc -p tsconfig.json --noEmit` e `git diff --check` aprovados. Nenhuma migration foi criada; Tasks, Requisitions, Timeline, Attachments, Releases, Capacity, Notifications, Chat, Reports e `commands/` foram preservados fora do necessário.
+- Status final da correção de datas: aprovado após reprodução no browser real e confirmação serial no PostgreSQL. Kanban sem Requisition e criação dentro da Requisition persistem e exibem `20/08/2026` a `25/08/2026`; a diferença `plannedDeliveryDate` permanece exclusiva de Requisition e não é usada no DTO de Task.
+
 ## Backlog futuro pós-M21
 
 ### Notifications Lifecycle

@@ -44,6 +44,7 @@ vi.mock("@/features/companies/active-company-provider", () => ({
 }));
 vi.mock("@/features/tasks/task-queries", () => ({
   useTasks: vi.fn(() => queryState),
+  useTaskLookups: vi.fn(() => ({ data: { members: [], requisitions: [] } })),
   useTaskDetail: vi.fn(() => detailState),
 }));
 vi.mock("@/features/tasks/time-entry-queries", () => ({

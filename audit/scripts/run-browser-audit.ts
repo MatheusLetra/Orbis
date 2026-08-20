@@ -73,13 +73,14 @@ async function main(): Promise<void> {
   const grep = suite === "all" ? undefined : `@${suite}`;
   await exec("npx", ["playwright", "test", ...(grep ? ["--grep", grep] : [])], {
     cwd: root,
-    env: {
-      ...process.env,
-      AUDIT_ARTIFACT_DIR: artifactDir,
-      AUDIT_FRONTEND_URL: frontendUrl,
-      AUDIT_API_URL: apiUrl,
-      AUDIT_HEADED: headed ? "1" : "0",
-    },
+      env: {
+        ...process.env,
+        AUDIT_ARTIFACT_DIR: artifactDir,
+        AUDIT_FRONTEND_URL: frontendUrl,
+        AUDIT_API_URL: apiUrl,
+        AUDIT_DATABASE_URL: database.databaseUrl,
+        AUDIT_HEADED: headed ? "1" : "0",
+      },
   });
   console.log(`Browser audit completed: ${suite}`);
 }

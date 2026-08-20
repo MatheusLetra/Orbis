@@ -59,6 +59,32 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
+      <nav
+        aria-label="Navegação principal"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2 text-sm sm:px-6 lg:px-8"
+      >
+        <a href="/" className="underline-offset-4 hover:underline">
+          Início
+        </a>
+        <a href="/kanban" className="underline-offset-4 hover:underline">
+          Tarefas
+        </a>
+        <a href="/timeline" className="underline-offset-4 hover:underline">
+          Timeline
+        </a>
+        <a href="/reports" className="underline-offset-4 hover:underline">
+          Relatórios
+        </a>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          aria-label="Voltar para a tela anterior"
+          className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Voltar
+        </button>
+      </nav>
+
       <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
 
       <footer className="border-t py-4">

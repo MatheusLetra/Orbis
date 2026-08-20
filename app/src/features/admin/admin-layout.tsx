@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "@/app/layouts/app-shell";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
 import type { CompanyCapability } from "@/features/companies/capabilities-contracts";
@@ -86,8 +86,38 @@ function AdminContext({
   companyId: string;
   capabilities: Partial<Record<CompanyCapability, boolean>>;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const label = ADMIN_NAV.find((item) => location.pathname === item.to)?.label ?? "Início";
   return (
     <main className="min-w-0">
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+      >
+        <NavLink className="underline-offset-4 hover:underline" to="/">
+          Início
+        </NavLink>
+        <span aria-hidden="true">›</span>
+        <NavLink className="underline-offset-4 hover:underline" to="/admin">
+          Administração
+        </NavLink>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{label}</span>
+      </nav>
+      <div className="mb-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="text-sm underline underline-offset-4"
+          onClick={() => navigate(-1)}
+          aria-label="Voltar"
+        >
+          Voltar
+        </button>
+        <NavLink className="text-sm underline underline-offset-4" to="/admin">
+          Início da administração
+        </NavLink>
+      </div>
       <Outlet context={{ companyId, capabilities }} />
     </main>
   );

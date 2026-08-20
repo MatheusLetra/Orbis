@@ -3,6 +3,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { ApiError } from "@/lib/http/api-error";
+
+export function messageForAdminError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400 || error.status === 422)
+      return error.message || "Revise os dados informados.";
+    if (error.status === 403) return "Você não tem permissão para realizar esta alteração.";
+    if (error.status === 404)
+      return "O registro não foi encontrado. Atualize a lista e tente novamente.";
+    if (error.status === 409)
+      return "A alteração entrou em conflito com outra operação. Tente novamente.";
+    if (error.status >= 500) return "A API não conseguiu concluir a alteração. Tente novamente.";
+  }
+  return "Não foi possível salvar. Verifique sua conexão e tente novamente.";
+}
+
+export function adminActionError(action: { isError: boolean; error: unknown }): string | undefined {
+  return action.isError ? messageForAdminError(action.error) : undefined;
+}
 
 export function PageHeader({
   title,
@@ -110,6 +129,7 @@ export function SelectField({
   label,
   name,
   defaultValue,
+  value,
   children,
   required = false,
   onChange,
@@ -117,6 +137,7 @@ export function SelectField({
   label: string;
   name: string;
   defaultValue?: string;
+  value?: string;
   children: ReactNode;
   required?: boolean;
   onChange?: (value: string) => void;
@@ -127,7 +148,8 @@ export function SelectField({
       <select
         id={`admin-${name}`}
         name={name}
-        defaultValue={defaultValue}
+        defaultValue={value === undefined ? defaultValue : undefined}
+        value={value}
         required={required}
         onChange={(event) => onChange?.(event.target.value)}
         className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -150,7 +172,7 @@ export function FormDialog({
   open: boolean;
   title: string;
   pending: boolean;
-  error?: boolean;
+  error?: boolean | string;
   onClose: () => void;
   onSubmit: (data: FormData) => void;
   children: ReactNode;
@@ -172,7 +194,9 @@ export function FormDialog({
           {children}
           {error && (
             <p role="alert" className="text-sm text-destructive">
-              Não foi possível salvar. Revise os dados e tente novamente.
+              {typeof error === "string"
+                ? error
+                : "Não foi possível salvar. Revise os dados e tente novamente."}
             </p>
           )}
         </div>

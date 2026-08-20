@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ADMIN_PERMISSIONS } from "./admin-contracts";
@@ -60,8 +61,8 @@ const requisition = {
   systemId: "system-a",
   systemVersionId: "version-a",
   estimatedHours: 8,
-  startDate: null,
-  plannedDeliveryDate: null,
+  startDate: null as string | null,
+  plannedDeliveryDate: null as string | null,
   deliveredAt: null,
   createdAt: company.createdAt,
   updatedAt: company.updatedAt,
@@ -94,11 +95,14 @@ const auditItem = {
 const action = {
   isPending: false,
   isError: false,
+  error: null as Error | null,
   mutate: vi.fn((operation: () => Promise<unknown>, options?: { onSuccess?: () => void }) => {
     void operation();
     options?.onSuccess?.();
   }),
 };
+const capabilities = Object.fromEntries(ADMIN_PERMISSIONS.map((permission) => [permission, true]));
+const systemsState = { data: [system], isPending: false, isError: false };
 const client = vi.hoisted(() =>
   Object.fromEntries(
     [
@@ -130,7 +134,7 @@ vi.mock("react-router-dom", async (original) => ({
   ...(await original<typeof import("react-router-dom")>()),
   useOutletContext: () => ({
     companyId: "company-a",
-    capabilities: Object.fromEntries(ADMIN_PERMISSIONS.map((permission) => [permission, true])),
+    capabilities,
   }),
 }));
 vi.mock("./admin-client", () => ({ adminClient: client }));
@@ -141,7 +145,7 @@ vi.mock("./admin-queries", () => ({
   useAdminMembers: () => ({ data: [member], isPending: false, isError: false }),
   useAdminRequisitions: () => ({ data: [requisition], isPending: false, isError: false }),
   useAdminRequisition: () => ({ data: requisition }),
-  useAdminSystems: () => ({ data: [system], isPending: false, isError: false }),
+  useAdminSystems: () => systemsState,
   useAdminVersions: () => ({ data: [version], isPending: false, isError: false }),
   useAdminReleases: () => ({ data: [release], isPending: false, isError: false }),
   useAdminAudit: () => ({
@@ -164,14 +168,27 @@ function submitDialog() {
   fireEvent.submit(screen.getByRole("dialog").querySelector("form") as HTMLFormElement);
 }
 
+function renderAdmin(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
+}
+
 describe("admin pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    systemsState.data = [system];
+    systemsState.isPending = false;
+    systemsState.isError = false;
   });
 
   it("abre edição e capacidade de empresas", () => {
-    render(<CompaniesPage />);
+    renderAdmin(<CompaniesPage />);
     click("Editar");
     expect(screen.getByLabelText("Nome")).toHaveValue("Orbis");
     submitDialog();
@@ -183,7 +200,7 @@ describe("admin pages", () => {
   });
 
   it("abre criação e permissões de membros", () => {
-    render(<UsersPage />);
+    renderAdmin(<UsersPage />);
     click("Novo membro");
     expect(screen.getByLabelText("E-mail")).toBeInTheDocument();
     submitDialog();
@@ -194,8 +211,26 @@ describe("admin pages", () => {
     expect(client.permissions).toHaveBeenCalled();
   });
 
+  it("exibe erro HTTP da ação e mantém o diálogo aberto", () => {
+    action.isError = true;
+    action.error = new Error("Falha de rede");
+    renderAdmin(<CompaniesPage />);
+    click("Editar");
+    expect(screen.getByRole("alert")).toHaveTextContent("conexão");
+    action.isError = false;
+    action.error = null;
+  });
+
+  it("inicia permissões vazias com o preset do cargo", () => {
+    member.permissions = [];
+    renderAdmin(<UsersPage />);
+    click("Permissões");
+    expect(screen.getByLabelText("company.read")).toBeChecked();
+    member.permissions = ["audit.read"];
+  });
+
   it("mostra detalhes, edição e exclusão de requisição", () => {
-    render(<RequisitionsPage />);
+    renderAdmin(<RequisitionsPage />);
     fireEvent.change(screen.getByPlaceholderText("Buscar por título"), {
       target: { value: "demanda" },
     });
@@ -219,28 +254,78 @@ describe("admin pages", () => {
     expect(client.removeAssignee).toHaveBeenCalled();
   });
 
+  it("não mostra criação de tarefa sem capability", () => {
+    capabilities["tasks.create"] = false;
+    renderAdmin(<RequisitionsPage />);
+    expect(screen.queryByRole("button", { name: "Adicionar tarefa" })).not.toBeInTheDocument();
+    capabilities["tasks.create"] = true;
+  });
+
   it("administra sistemas e versões nas duas rotas", () => {
-    const { unmount } = render(<SystemsPage />);
+    const { unmount } = renderAdmin(<SystemsPage />);
     click("Novo sistema");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     submitDialog();
     click("Editar");
     submitDialog();
-    click("Versões");
+    click("Versions");
+    unmount();
+    renderAdmin(<VersionsPage />);
+    expect(screen.getByText("Versions")).toBeInTheDocument();
+    expect(screen.getByLabelText("System")).toBeInTheDocument();
+  });
+
+  it("opera Versions no System indicado pela URL", () => {
+    window.history.replaceState({}, "", "/admin/versions?systemId=system-a");
+    renderAdmin(<VersionsPage />);
     expect(screen.getByText("1.0.0")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("System"), { target: { value: "" } });
+    expect(
+      screen.getByText("Selecione um System para consultar suas Versions."),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("System"), { target: { value: "system-a" } });
     click("Adicionar");
     submitDialog();
-    fireEvent.click(screen.getAllByRole("button", { name: "Editar" }).at(-1) as HTMLElement);
+    window.history.replaceState({}, "", "/admin/versions");
+  });
+
+  it("permite consulta de Versions sem permissão de alteração", () => {
+    capabilities["versions.manage"] = false;
+    window.history.replaceState({}, "", "/admin/versions?systemId=system-a");
+    renderAdmin(<VersionsPage />);
+    expect(screen.getByText("Acesso somente para consulta.")).toBeInTheDocument();
+    window.history.replaceState({}, "", "/admin/versions");
+    capabilities["versions.manage"] = true;
+  });
+
+  it("mostra loading, erro e vazio do catálogo de Systems", () => {
+    systemsState.isPending = true;
+    renderAdmin(<SystemsPage />);
+    expect(screen.getByText("Carregando...")).toBeInTheDocument();
+    systemsState.isPending = false;
+    systemsState.isError = true;
+    renderAdmin(<SystemsPage />);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    systemsState.isError = false;
+    systemsState.data = [];
+    renderAdmin(<SystemsPage />);
+    expect(screen.getByText("Nenhum registro encontrado.")).toBeInTheDocument();
+  });
+
+  it("preserva datas de calendário no formulário de Requisition", () => {
+    requisition.startDate = "2026-08-20T00:00:00.000Z";
+    requisition.plannedDeliveryDate = "2026-08-25T00:00:00.000Z";
+    renderAdmin(<RequisitionsPage />);
+    click("Editar");
+    expect(screen.getByLabelText("Início")).toHaveValue("2026-08-20");
+    expect(screen.getByLabelText("Entrega planejada")).toHaveValue("2026-08-25");
     submitDialog();
-    click("Versões");
-    click("Excluir");
-    unmount();
-    render(<VersionsPage />);
-    expect(screen.getByText("Sistemas e versões")).toBeInTheDocument();
+    requisition.startDate = null;
+    requisition.plannedDeliveryDate = null;
   });
 
   it("abre criação, edição e publicação textual de releases", () => {
-    render(<ReleasesPage />);
+    renderAdmin(<ReleasesPage />);
     click("Nova release");
     expect(screen.getByLabelText("Versão do sistema")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Versão do sistema"), {
@@ -261,7 +346,7 @@ describe("admin pages", () => {
   });
 
   it("filtra e pagina auditoria", () => {
-    render(<AuditPage />);
+    renderAdmin(<AuditPage />);
     expect(screen.getByText("COMPANY_UPDATED")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Ação"), { target: { value: "COMPANY_UPDATED" } });
     fireEvent.submit(

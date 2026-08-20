@@ -18,7 +18,8 @@ Fluxo backend: HTTP/parser/schema -> use case -> domain -> repository port -> Dr
 
 ## Contratos principais
 
-- Task statuses: `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`; `DONE` é terminal.
+- Task statuses: `TODO`, `IN_PROGRESS`, `PAUSED`, `DONE`; `DONE` é terminal. As transições aceitas são `TODO -> IN_PROGRESS`, `IN_PROGRESS -> PAUSED|DONE` e `PAUSED -> IN_PROGRESS|DONE`; `DONE -> outro status` e `IN_PROGRESS -> TODO` continuam decisões pendentes.
+- Datas de Task (`startDate` e `plannedEndDate`) são datas de calendário. O banco usa PostgreSQL `date`; o HTTP aceita `YYYY-MM-DD` e adapta explicitamente a resposta para ISO à meia-noite UTC, sem converter a data no frontend. A criação rejeita formato inválido e intervalo invertido.
 - Kanban: quatro colunas fixas, sem Board/Column persistidos ou reorder.
 - Capacity: `dailyCapacity = developers * dailyHours`; previsão usa dias úteis e `Math.ceil` para avanço, com estimativa explícita; a simulação não persiste.
 - TimeEntry: duração manual de 1 a 1440 minutos; separado de pausa e estimativa.
@@ -128,17 +129,17 @@ The API has no Release binary download route. M21 adds authenticated `/admin/*` 
 | Requisitions: CRUD | Sim | CRUD em `/companies/:companyId/requisitions` | Sim | `/admin/requisitions` | `requisitions.read/create/update/delete` | `m21.spec.ts` | Implementada |
 | Requisitions: leitura/filtros | Sim | `GET /companies/:companyId/requisitions` | Parcial | `/timeline/monthly`, `/timeline/yearly` | `requisitions.read` | Timelines | Implementada somente parcialmente |
 | Requisitions: assignees | Sim | `.../assignees` | Sim | `/admin/requisitions` | `requisitions.read/update` | `m21.spec.ts` | Implementada |
-| Tasks associadas a Requisition | Sim | `requisitionId` em Tasks | Parcial | `/kanban` | `tasks.create/update` | Kanban | Implementada somente parcialmente |
+| Tasks associadas a Requisition | Sim | `requisitionId` em Tasks | Sim | `/admin/requisitions` e `/kanban` | `tasks.create/update` | testes de Task/Kanban | Implementada; datas de calendário preservadas |
 | Systems | Sim | CRUD `/companies/:companyId/systems` | Sim | `/admin/systems` | `systems.read/manage` | `m21.spec.ts` | Implementada |
 | Versions | Sim | CRUD `/companies/:companyId/.../versions` | Sim | `/admin/versions` | `systems.read`, `versions.manage` | `m21.spec.ts` | Implementada |
 | Releases | Sim | CRUD/publicação `/companies/:companyId/releases` | Sim | `/admin/releases` | `releases.read/manage` | `m21.spec.ts` | Metadados somente textuais |
 | Release download | Não | Não existe | Não | — | — | Ausente | Não implementada |
 | Audit | Sim | `GET /companies/:companyId/audit` | Sim | `/admin/audit` | `audit.read` | `m21.spec.ts` | Implementada |
-| AppShell | — | — | Sim | Todas as rotas autenticadas | Sessão | Responsividade global | Implementada somente parcialmente |
+| AppShell | — | — | Sim | Todas as rotas autenticadas | Sessão | Responsividade global | Implementada |
 
 ### Rotas frontend reais
 
-`/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports`, `/chat` e `/admin/*`. O AppShell fornece seleção de empresa ativa, Chat, Notifications, tema e logout; o AdminLayout fornece navegação e gates administrativos.
+`/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports`, `/chat` e `/admin/*`. O AppShell fornece seleção de empresa ativa, Início/Voltar, navegação operacional, Chat, Notifications, tema e logout; o AdminLayout fornece breadcrumb, navegação e gates administrativos.
 
 ### Operações API-only
 

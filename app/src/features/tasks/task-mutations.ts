@@ -1,9 +1,17 @@
 import { type QueryKey, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { adminKeys } from "@/features/admin/admin-keys";
+import { requisitionKeys } from "@/features/requisitions/requisition-keys";
 import { timelineKeys } from "@/features/timeline/timeline-keys";
 import { ApiError } from "@/lib/http/api-error";
 import { tasksClient } from "./task-client";
-import type { TaskCard, TaskOutput, TaskStatus } from "./task-contracts";
+import type {
+  CreateTaskInput,
+  TaskCard,
+  TaskOutput,
+  TaskStatus,
+  UpdateTaskInput,
+} from "./task-contracts";
 import { taskKeys } from "./task-keys";
 import { canTransitionTask } from "./task-transitions";
 
@@ -165,15 +173,24 @@ export function useTaskTransition() {
 
 interface CreateTaskVariables {
   companyId: string;
-  title: string;
-  priority: "LOW" | "MEDIUM" | "HIGH";
+  input?: CreateTaskInput;
+  title?: string;
+  description?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
+  assigneeId?: string;
+  requisitionId?: string;
+  startDate?: string;
+  plannedEndDate?: string;
 }
 
 interface UpdateTaskVariables {
   companyId: string;
   taskId: string;
-  title: string;
-  priority: "LOW" | "MEDIUM" | "HIGH";
+  input?: UpdateTaskInput;
+  title?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
+  assigneeId?: string | null;
+  requisitionId?: string | null;
 }
 
 export function useUpdateTask() {
@@ -182,12 +199,18 @@ export function useUpdateTask() {
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation<TaskOutput, Error, UpdateTaskVariables>({
     mutationKey: ["tasks", "update"],
-    mutationFn: ({ companyId, taskId, title, priority }) =>
-      tasksClient.update(companyId, taskId, { title, priority }),
+    mutationFn: ({ companyId, taskId, input, title, priority, assigneeId, requisitionId }) =>
+      tasksClient.update(
+        companyId,
+        taskId,
+        input ?? { title, priority, assigneeId, requisitionId },
+      ),
     onSuccess: async (_output, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
         queryClient.invalidateQueries({ queryKey: timelineKeys.weeklyLists(variables.companyId) }),
+        queryClient.invalidateQueries({ queryKey: requisitionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: adminKeys.tenant(variables.companyId) }),
         queryClient.invalidateQueries({
           queryKey: taskKeys.detail(variables.companyId, variables.taskId),
         }),
@@ -241,12 +264,35 @@ export function useCreateTask() {
 
   const mutation = useMutation<TaskOutput, Error, CreateTaskVariables>({
     mutationKey: ["tasks", "create"],
-    mutationFn: ({ companyId, title, priority }) =>
-      tasksClient.create(companyId, { title, priority }),
+    mutationFn: ({
+      companyId,
+      input,
+      title,
+      description,
+      priority,
+      assigneeId,
+      requisitionId,
+      startDate,
+      plannedEndDate,
+    }) =>
+      tasksClient.create(
+        companyId,
+        input ?? {
+          title: title ?? "",
+          description,
+          priority,
+          assigneeId,
+          requisitionId,
+          startDate,
+          plannedEndDate,
+        },
+      ),
     onSuccess: async (_output, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: taskKeys.lists(variables.companyId) }),
         queryClient.invalidateQueries({ queryKey: timelineKeys.weeklyLists(variables.companyId) }),
+        queryClient.invalidateQueries({ queryKey: requisitionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: adminKeys.tenant(variables.companyId) }),
       ]);
     },
     onError: async (cause, variables) => {

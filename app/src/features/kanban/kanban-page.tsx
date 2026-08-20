@@ -9,7 +9,7 @@ import { useCompanyCapabilities } from "@/features/companies/capabilities-querie
 import { canEditTask } from "@/features/tasks/task-authorization";
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { useTaskTransition } from "@/features/tasks/task-mutations";
-import { useTasks } from "@/features/tasks/task-queries";
+import { useTaskLookups, useTasks } from "@/features/tasks/task-queries";
 import { KanbanBoard } from "./kanban-board";
 import { QuickTaskDialog } from "./quick-task-dialog";
 import { TaskDetailDialog } from "./task-detail-dialog";
@@ -18,8 +18,12 @@ export function KanbanPage() {
   const company = useActiveCompany();
   const auth = useAuth();
   const activeCompany = company.activeCompany;
-  const tasksQuery = useTasks(activeCompany?.id ?? null);
   const capabilitiesQuery = useCompanyCapabilities(activeCompany?.id ?? null);
+  const tasksQuery = useTasks(activeCompany?.id ?? null);
+  const lookupsQuery = useTaskLookups(activeCompany?.id ?? null, capabilitiesQuery.isSuccess, {
+    members: capabilitiesQuery.data?.capabilities["users.read"] === true,
+    requisitions: capabilitiesQuery.data?.capabilities["requisitions.read"] === true,
+  });
   const transition = useTaskTransition();
   const [selectedTask, setSelectedTask] = useState<TaskCard | null>(null);
 
@@ -131,6 +135,8 @@ export function KanbanPage() {
           }
           onViewDetails={(task) => setSelectedTask(task)}
           companyId={activeCompany.id}
+          members={lookupsQuery.data?.members}
+          requisitions={lookupsQuery.data?.requisitions}
           canEdit={(task) => canEditTask(task, capabilitiesQuery.data, auth.user?.id)}
         />
         {selectedTask && (
@@ -169,6 +175,11 @@ function BoardHeader({
   companyId: string;
   canCreate?: boolean;
 }) {
+  const capabilitiesQuery = useCompanyCapabilities(companyId);
+  const lookupsQuery = useTaskLookups(companyId, capabilitiesQuery.isSuccess, {
+    members: capabilitiesQuery.data?.capabilities["users.read"] === true,
+    requisitions: capabilitiesQuery.data?.capabilities["requisitions.read"] === true,
+  });
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -176,7 +187,12 @@ function BoardHeader({
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">Board de tarefas</h1>
       </div>
       <div className="flex items-center gap-3">
-        <QuickTaskDialog companyId={companyId} canCreate={canCreate} />
+        <QuickTaskDialog
+          companyId={companyId}
+          canCreate={canCreate}
+          members={lookupsQuery.data?.members}
+          requisitions={lookupsQuery.data?.requisitions}
+        />
         <p className="text-sm text-muted-foreground">Visão por status</p>
       </div>
     </header>

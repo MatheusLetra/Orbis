@@ -4,7 +4,7 @@
 
 Abra `/login`, informe as credenciais fornecidas pelo administrador e entre. O usuário precisa existir e estar ativo. A sessão usa o navegador; ao sair, use **Sair** no cabeçalho. Não há recuperação de senha implementada na interface.
 
-O cabeçalho permite trocar a empresa ativa quando o usuário possui mais de uma membership e alternar o tema. A empresa ativa altera todas as consultas; respostas de outra empresa não são reutilizadas. O layout é responsivo, mas o Kanban usa rolagem horizontal intencional no celular.
+O cabeçalho permite trocar a empresa ativa quando o usuário possui mais de uma membership e alternar o tema. A empresa ativa altera todas as consultas; respostas de outra empresa não são reutilizadas. A navegação global oferece Início, Voltar, Tasks, Timeline e Relatórios. O layout é responsivo, mas o Kanban usa rolagem horizontal intencional no celular.
 
 Usuários com capabilities administrativas possuem o painel em `/admin`. A seleção de empresa não cria tenants; criação de empresa, bootstrap MASTER, ativação/inativação e reset de senha continuam API-only.
 
@@ -24,7 +24,7 @@ Usuários com capabilities administrativas possuem o painel em `/admin`. A sele�
 
 ## Kanban e Tasks
 
-Na rota `/kanban`, abra **Nova tarefa** quando sua capability permitir. Informe título e prioridade. A Task começa em **A Fazer**. Para editar, use a ação do card; Tasks concluídas são imutáveis. Para abrir o detalhe, use a ação de detalhes.
+Na rota `/kanban`, abra **Nova tarefa** quando sua capability permitir. Informe título, **Data de início**, **Previsão de término** e prioridade. As datas são de calendário e permanecem no formato `AAAA-MM-DD`, sem deslocamento de fuso. A Task começa em **A Fazer**. Para editar, use a ação do card; Tasks concluídas são imutáveis. Para abrir o detalhe, use a ação de detalhes.
 
 As colunas são fixas: **A Fazer**, **Em Andamento**, **Pausado** e **Concluído**. Use as ações do card ou arraste para uma transição válida. O histórico aparece no detalhe. Transições inválidas, falta de permissão, Task de outro usuário ou Task concluída retornam erro.
 
@@ -46,7 +46,7 @@ Attachments de Requisition também existem na API, mas não há tela frontend de
 
 Requisitions aparecem como leitura indireta nas timelines mensal e anual. Essas telas permitem navegar, filtrar e consultar indicadores dos dados recebidos, mas não criam, editam, excluem ou detalham uma Requisition em uma página própria.
 
-O painel `/admin/requisitions` permite CRUD e assignees conforme as capabilities. Anexos de Requisition continuam operações de API.
+O painel `/admin/requisitions` permite CRUD e assignees conforme as capabilities. No detalhe, **Adicionar tarefa** abre o formulário reutilizado de Task com a Requisition pré-selecionada, responsável, prioridade, descrição e as mesmas datas de calendário. As datas da Requisition não são copiadas nem alteradas ao criar a Task. Anexos de Requisition continuam operações de API.
 
 ## Systems, Versions e Releases
 

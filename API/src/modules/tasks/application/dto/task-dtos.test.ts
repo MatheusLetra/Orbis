@@ -36,6 +36,16 @@ describe("task DTO schemas", () => {
     expect(createTaskSchema.safeParse(input).success).toBe(false);
   });
 
+  it("rejeita intervalo de calendário invertido na criação", () => {
+    expect(
+      createTaskSchema.safeParse({
+        title: "Tarefa",
+        startDate: new Date("2026-08-25T00:00:00Z"),
+        plannedEndDate: new Date("2026-08-20T00:00:00Z"),
+      }).success,
+    ).toBe(false);
+  });
+
   it("exige ao menos um campo no update e preserva null explícito", () => {
     expect(updateTaskSchema.safeParse({}).success).toBe(false);
     expect(updateTaskSchema.parse({ description: null, assigneeId: null })).toEqual({

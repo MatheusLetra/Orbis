@@ -192,13 +192,12 @@ describe("useTaskTransition", () => {
     successful.resolve({ ...output(task("task-b")), status: "IN_PROGRESS" });
   });
 
-  it("não altera outro tenant e rejeita transição inválida antes da API", () => {
+  it("não altera outro tenant e mantém isolamento durante transição válida", () => {
     const client = createQueryClient();
     client.setQueryData(taskKeys.list("company-a"), [task("task-a", "PAUSED")]);
     client.setQueryData(taskKeys.list("company-b"), [
       { ...task("task-a"), companyId: "company-b" },
     ]);
-    const transition = vi.spyOn(tasksClient, "transition");
     const { result } = renderHook(() => useTaskTransition(), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -212,9 +211,8 @@ describe("useTaskTransition", () => {
           fromStatus: "PAUSED",
           status: "DONE",
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
-    expect(transition).not.toHaveBeenCalled();
     expect(client.getQueryData<TaskCard[]>(taskKeys.list("company-b"))?.[0]?.status).toBe("TODO");
   });
 
@@ -360,6 +358,38 @@ describe("useCreateTask", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: timelineKeys.weeklyLists("company-a") });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: taskKeys.lists("company-b") });
     expect(client.getQueryData(timelineKeys.weekly("company-a", "2026-08-17"))).toBeUndefined();
+  });
+
+  it("preserva descrição e datas no payload legado da criação", async () => {
+    const request = Promise.resolve({ ...output(task("created")), title: "Com datas" });
+    const createSpy = vi.spyOn(tasksClient, "create").mockReturnValue(request);
+    const { result } = renderHook(() => useCreateTask(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={createQueryClient()}>{children}</QueryClientProvider>
+      ),
+    });
+
+    act(() => {
+      result.current.create({
+        companyId: "company-a",
+        title: "Com datas",
+        description: "Detalhes",
+        priority: "HIGH",
+        startDate: "2026-08-20",
+        plannedEndDate: "2026-08-25",
+      });
+    });
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+
+    expect(createSpy).toHaveBeenCalledWith("company-a", {
+      title: "Com datas",
+      description: "Detalhes",
+      priority: "HIGH",
+      assigneeId: undefined,
+      requisitionId: undefined,
+      startDate: "2026-08-20",
+      plannedEndDate: "2026-08-25",
+    });
   });
 
   it.each([

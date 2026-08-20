@@ -18,6 +18,7 @@ Este README é o índice operacional. Os procedimentos completos estão em [`doc
 - M19: concluída.
 - M20: concluída.
 - M21: concluída e aprovada após os gates de backend, PostgreSQL real, frontend e browser.
+- Pós-M21: correções de permissões, salvamento de Requisitions, Tasks vinculadas, datas de calendário em Tasks e navegação concluídas sem alterar `DONE` terminal.
 
 O estado detalhado e as decisões atuais estão em [`docs/ai_handoff.md`](docs/ai_handoff.md). O roadmap está em [`docs/PLANO-IMPLEMENTACAO.md`](docs/PLANO-IMPLEMENTACAO.md).
 
@@ -31,7 +32,7 @@ M01-M20 foram concluídas conforme seus escopos. Isso pode incluir domínio, bac
 - O painel administrativo é tenant-aware e protegido por capabilities; criação de empresa, bootstrap MASTER e operações sem contrato continuam API-only.
 - Releases continuam usando somente `artifactLocation` textual, sem storage ou download binário.
 
-Operações administrativas disponíveis somente pela API devem ser tratadas como API-only, não como funções disponíveis na interface.
+Operações administrativas disponíveis somente pela API devem ser tratadas como API-only, não como funções disponíveis na interface. O detalhe administrativo de Requisition permite criar Task com vínculo pré-selecionado e datas de calendário independentes.
 
 ## Backlog futuro pós-M21
 
@@ -133,7 +134,7 @@ cd app && npm test
 cd app && npm run test:coverage
 ```
 
-Os thresholds são definidos nos dois `vitest.config.ts`: 95% para statements/functions/lines e 90% para branches. O estado M20 validado foi API 1027/1027 e app 632/632, com coverage API 96,59%/90,05%/97,17%/97,71% e app 95,72%/90,54%/96,33%/96,85% (statements/branches/functions/lines). PostgreSQL real é executado serialmente; Playwright M20 foi 1/1 e global 57/57.
+Os thresholds são definidos nos dois `vitest.config.ts`: 95% para statements/functions/lines e 90% para branches. A validação pós-M21 passou com API 1040/1040 e app 679/679, coverage API 96,64%/90,07%/97,24%/97,76% e app 95,55%/90,08%/95,71%/96,60% (statements/branches/functions/lines). PostgreSQL real é executado serialmente; Playwright global foi concluído e os artifacts estão no handoff.
 
 ## Docker, backup e storage
 

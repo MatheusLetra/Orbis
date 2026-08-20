@@ -117,6 +117,35 @@ describe("QuickTaskDialog", () => {
     await waitFor(() => expect(reset).toHaveBeenCalled());
   });
 
+  it("permite associar responsável e Requisition pelo nome", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickTaskDialog
+        companyId="company-a"
+        canCreate
+        members={[{ userId: "user-a", name: "Ana" }]}
+        requisitions={[{ id: "req-a", number: 7, title: "Entrega" }]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Nova tarefa" }));
+    await user.type(screen.getByLabelText("Título"), "Associada");
+    await user.selectOptions(screen.getByLabelText("Responsável"), "user-a");
+    await user.selectOptions(screen.getByLabelText("Requisition"), "req-a");
+    await user.type(screen.getByLabelText("Descrição"), "Detalhes");
+    await user.type(screen.getByLabelText("Data de início"), "2026-08-20");
+    await user.type(screen.getByLabelText("Previsão de término"), "2026-08-25");
+    await user.click(screen.getByRole("button", { name: "Criar tarefa" }));
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigneeId: "user-a",
+        requisitionId: "req-a",
+        description: "Detalhes",
+        startDate: "2026-08-20",
+        plannedEndDate: "2026-08-25",
+      }),
+    );
+  });
+
   it("associa a mensagem de erro ao título e preserva valores", async () => {
     const user = userEvent.setup();
     mutationState.error = "Não foi possível criar a tarefa.";

@@ -127,8 +127,8 @@ const createBody = {
     systemId: { type: "string", format: "uuid" },
     systemVersionId: { type: "string", format: "uuid" },
     estimatedHours: { type: "number" },
-    startDate: { type: "string", format: "date-time" },
-    plannedDeliveryDate: { type: "string", format: "date-time" },
+    startDate: { type: "string", anyOf: [{ format: "date" }, { format: "date-time" }] },
+    plannedDeliveryDate: { type: "string", anyOf: [{ format: "date" }, { format: "date-time" }] },
   },
   required: ["title"],
   additionalProperties: true,
@@ -144,8 +144,20 @@ const updateBody = {
     systemId: { type: ["string", "null"], format: "uuid" },
     systemVersionId: { type: ["string", "null"], format: "uuid" },
     estimatedHours: { type: ["number", "null"] },
-    startDate: { type: ["string", "null"], format: "date-time" },
-    plannedDeliveryDate: { type: ["string", "null"], format: "date-time" },
+    startDate: {
+      anyOf: [
+        { type: "null" },
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
+    plannedDeliveryDate: {
+      anyOf: [
+        { type: "null" },
+        { type: "string", format: "date" },
+        { type: "string", format: "date-time" },
+      ],
+    },
     deliveredAt: { type: ["string", "null"], format: "date-time" },
   },
   additionalProperties: true,

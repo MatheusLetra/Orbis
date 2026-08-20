@@ -6,7 +6,7 @@ M01-M21 estão concluídas. M21 foi aprovada após todos os gates obrigatórios.
 
 M21 adicionou painel administrativo em `/admin/*`, com gates por capability e tenant ativo. Endpoint, client, fixture ou teste não equivale a operação aprovada sem os gates correspondentes.
 
-Validação registrada: API 1027/1027 testes, app 632/632; coverage API 96,59% statements, 90,05% branches, 97,17% functions, 97,71% lines; app 95,72%, 90,54%, 96,33%, 96,85%. PostgreSQL real serial, Playwright M20 1/1, Playwright global 57/57, typecheck, lint, builds, Docker builds, restore isolado e diff-check aprovados.
+Validação registrada de M21: API 1040/1040 testes, app 665/665; coverage API 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines; app 95,70%, 90,02%, 96,13%, 96,71%. PostgreSQL real serial sem skips, Playwright M21 3/3, Playwright global 60/60, typecheck, lint, builds, `tsc` raiz e diff-check aprovados.
 
 ## Contratos que não podem regredir
 
@@ -75,6 +75,52 @@ Playwright M21: 3/3. Playwright global: 60/60. Artifacts foram gerados em `artif
 
 O worktree está sujo e preservado, sem commit. Não há processos temporários de API/Vite/Vitest/Playwright. O container preexistente `orbis-postgres-test` permanece ativo na porta 5433. `commands/` não foi alterado.
 
+## Backlog futuro pós-M21
+
+M22 ainda não foi definida, não foi iniciada e não possui número, escopo ou critérios de aceitação aprovados. Os itens abaixo são backlog futuro, não funcionalidades implementadas e não bloqueiam o estado utilizável atual.
+
+### Notifications Lifecycle
+
+- `TASK_DUE_SOON` e `TASK_OVERDUE`;
+- regras de destinatários;
+- timezone e calendário;
+- scheduler;
+- idempotência e deduplicação;
+- concorrência e locks;
+- retenção, expiração e limpeza;
+- somente canal in-app inicialmente.
+
+### Tempo real e canais
+
+- WebSocket, SSE ou polling;
+- reconexão e recuperação de mensagens;
+- autorização de conexão;
+- e-mail, push, templates e preferências de canais.
+
+### Evolução do Chat
+
+- integração `CHAT_MESSAGE` com Notifications;
+- presença, menções e anexos;
+- edição e remoção de mensagens;
+- entrega em tempo real.
+
+### Administração complementar
+
+- ativação/inativação de Company, User e Membership;
+- reset/convite de senha;
+- bootstrap ou promoção MASTER;
+- administração avançada de permissões.
+
+### Operações
+
+- retenção de Notifications, Audit e refresh tokens;
+- expiração e limpeza;
+- deduplicação avançada;
+- filas/outbox e locks distribuídos;
+- métricas e tracing adicionais.
+
+Nenhum item deste backlog possui implementação, endpoint, migration, dependência ou tela aprovada. O runtime atual continua HTTP-only; PostgreSQL continua sendo a fonte da verdade; não há WebSocket, scheduler, e-mail, push, Redis ou storage externo. Releases usam somente `artifactLocation`; Attachments continuam em PostgreSQL BYTEA.
+
 ## Próximo passo recomendado
 
-Definir formalmente a M22. Não criar fluxo MASTER, ativação/inativação, reset de senha, status administrativo de Requisition ou storage/download binário de Release sem contrato aprovado.
+Definir formalmente uma futura milestone antes de implementar qualquer item acima. Não tratar o backlog como bloqueio do sistema atual e não criar fluxo MASTER, ativação/inativação, reset de senha, status administrativo de Requisition ou storage/download binário de Release sem contrato aprovado.

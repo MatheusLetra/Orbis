@@ -63,3 +63,9 @@ O schema canônico está em `API/src/infrastructure/database/schema.ts`; as migr
 ## Testes e evolução
 
 Vitest cobre domínio, aplicação, HTTP, PostgreSQL e app; Playwright usa Chromium real, fixtures isoladas, PostgreSQL temporário, um worker e artifacts. Novas features devem preservar contrato, parser, autorização, tenant isolation, UoW/concorrência, acessibilidade/mobile, OpenAPI, testes, coverage e documentação. M21 está concluída sem migration nova e sem storage de Release.
+
+## Backlog futuro pós-M21
+
+M22 ainda não foi definida ou iniciada. Notifications Lifecycle, transporte em tempo real, canais e-mail/push, evolução de Chat, administração complementar e operações de retenção/filas/observabilidade são apenas backlog futuro. Nenhum desses itens está implementado ou é bloqueio do sistema atual.
+
+O runtime continua HTTP-only e PostgreSQL permanece a fonte da verdade. Não há WebSocket, scheduler, e-mail, push, Redis ou storage externo. Releases continuam usando somente `artifactLocation`, e Attachments continuam armazenados em `attachment_blobs.data BYTEA`.

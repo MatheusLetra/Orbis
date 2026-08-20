@@ -43,7 +43,39 @@ O roadmap registra entregas por escopo. M21 adicionou as rotas administrativas `
 
 M21 foi concluída após PostgreSQL real serial sem skips, cobertura, gates de API/app e Playwright específico/global. O detalhamento está em [`milestones/M21.md`](milestones/M21.md).
 
-Próxima milestone: a definir formalmente. Ativação/inativação, bootstrap MASTER, reset de senha e mudanças de status de Requisition permanecem fora do contrato M21.
+Não existe atualmente uma próxima milestone numerada ou formalmente aprovada. M22 não foi iniciada. O backlog futuro abaixo é informativo e não representa escopo implementado nem bloqueio operacional.
+
+## Backlog futuro pós-M21
+
+### Notifications Lifecycle
+
+- `TASK_DUE_SOON` e `TASK_OVERDUE`;
+- regras de destinatários e timezone;
+- scheduler, idempotência, concorrência e locks;
+- retenção, expiração e limpeza;
+- somente in-app inicialmente.
+
+### Tempo real e canais
+
+- WebSocket, SSE ou polling;
+- reconexão, recuperação de mensagens e autorização de conexão;
+- e-mail, push, templates e preferências de canais.
+
+### Chat e administração
+
+- `CHAT_MESSAGE`, presença, menções, anexos, edição/remoção e tempo real;
+- ativação/inativação de Company, User/Membership;
+- reset/convite de senha;
+- bootstrap/promoção MASTER;
+- administração avançada de permissões.
+
+### Operações
+
+- retenção de Notifications/Audit/refresh tokens;
+- expiração, limpeza e deduplicação avançada;
+- filas/outbox, locks distribuídos, métricas e tracing adicionais.
+
+Nenhum item está implementado ou aprovado. O runtime atual permanece HTTP-only, PostgreSQL é a fonte da verdade, não há WebSocket, scheduler, e-mail, push ou storage externo, Releases usam `artifactLocation` e Attachments permanecem em PostgreSQL BYTEA.
 
 ## Regra de avanço
 

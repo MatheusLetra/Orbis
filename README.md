@@ -33,6 +33,19 @@ M01-M20 foram concluídas conforme seus escopos. Isso pode incluir domínio, bac
 
 Operações administrativas disponíveis somente pela API devem ser tratadas como API-only, não como funções disponíveis na interface.
 
+## Backlog futuro pós-M21
+
+M22 ainda não foi definida nem iniciada. O backlog futuro não reduz o status ou a usabilidade do sistema atual.
+
+- Notifications Lifecycle: `TASK_DUE_SOON`, `TASK_OVERDUE`, destinatários, timezone, scheduler, idempotência, concorrência, retenção e limpeza, inicialmente somente in-app.
+- Tempo real: WebSocket, SSE ou polling, reconexão, recuperação de mensagens e autorização de conexão.
+- Canais: e-mail, push, templates e preferências de canais.
+- Chat: `CHAT_MESSAGE`, presença, menções, anexos, edição/remoção e tempo real.
+- Administração: ativação/inativação, reset/convite de senha, MASTER e permissões avançadas.
+- Operações: retenção, expiração, limpeza, deduplicação, filas/outbox, locks distribuídos, métricas e tracing.
+
+Nenhum item está implementado. O runtime atual continua HTTP-only, PostgreSQL continua sendo a fonte da verdade, não há WebSocket, scheduler, e-mail, push ou storage externo, Releases usam `artifactLocation` e Attachments continuam em PostgreSQL BYTEA.
+
 ## Documentação
 
 - [Manual do usuário](docs/USER_MANUAL.md)

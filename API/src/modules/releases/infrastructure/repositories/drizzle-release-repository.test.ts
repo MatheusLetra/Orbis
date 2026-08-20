@@ -68,7 +68,10 @@ describe.skipIf(!available)("DrizzleReleaseRepository", () => {
     });
     expect(updated).toMatchObject({ versionLabel: "1.1.0", channel: "BETA", status: "DRAFT" });
 
-    await db.execute(sql`UPDATE releases SET status = 'PUBLISHED' WHERE id = ${RELEASE_ID}`);
+    await repository.publishIfDraft(RELEASE_ID, {
+      artifactName: "app.exe",
+      artifactLocation: "https://example.test/app.exe",
+    });
     await expect(
       repository.updateMetadataIfDraft(RELEASE_ID, COMPANY_A, { versionLabel: "2.0.0" }),
     ).resolves.toBeNull();

@@ -44,7 +44,7 @@ export const adminClient = {
       `${tenant(companyId)}/memberships/${encodeURIComponent(membershipId)}/permissions`,
       "PATCH",
       { permissions },
-    ),
+    ).then(parseMember),
   requisitions: (companyId: string, query: string, options?: Signal) =>
     request(`${tenant(companyId)}/requisitions${query ? `?${query}` : ""}`, options).then(
       parseRequisitions,

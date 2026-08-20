@@ -112,53 +112,53 @@ PATCH /companies/:companyId/conversations/:conversationId/read
 GET /companies/:companyId/audit
 ```
 
-The API has no Release binary download route. It also has no frontend route for CRUD de Requisitions, Systems, Versions, Releases or Audit; those contracts remain API/Scalar surfaces.
+The API has no Release binary download route. M21 adds authenticated `/admin/*` routes for the administrative surfaces below; operations without a confirmed contract remain API/Scalar-only.
 
 ## Matriz Backend/Frontend
 
 | Funcionalidade | Backend | Endpoint | Frontend | Rota | Permissão | Teste Playwright | Status |
 |---|---|---|---|---|---|---|---|
 | Companies: seleção/listagem | Sim | `GET /companies` | Sim | `/`, AppShell | Membership ativa | Responsividade/Capacity | Implementada no backend e frontend |
-| Companies: criar/editar/timezone | Sim | `POST /companies`, `PATCH /companies/:companyId` | Não | — | `company.update` na edição | Não | Implementada somente no backend |
+| Companies: criar/editar/timezone | Sim | `POST /companies`, `PATCH /companies/:companyId` | Parcial | `/admin/companies` (edição) | `company.update` | `m21.spec.ts` | Criação continua API-only |
 | Companies: ativar/inativar | Não há operação HTTP confirmada | — | Não | — | — | Não | Não implementada |
 | Capacity: simulação | Sim | `GET /companies/:companyId/capacity` | Sim | `/` | `capacity.read` | `capacity.spec.ts` | Implementada no backend e frontend |
-| Capacity: configuração persistida | Repository/use case | Sem endpoint HTTP confirmado | Não | — | `company.update`/`capacity.read` internamente | Não | Implementada somente parcialmente |
+| Capacity: configuração persistida | Sim | `GET/PATCH /companies/:companyId/capacity-settings` | Sim | `/admin/companies` | `capacity.read`, `company.update` | `m21.spec.ts` | Implementada |
 | Users | `POST /users` | `POST /users` | Não | — | Público | Não | Implementada somente no backend |
-| Users/Memberships administrativas | Parcial | `POST /memberships`, `GET /memberships`, `GET /companies/:companyId/members` | Lookup indireto, sem tela administrativa | `/chat`, features existentes | `users.read`, `users.manage` | Chat | Implementada somente parcialmente |
-| Requisitions: CRUD | Sim | CRUD em `/companies/:companyId/requisitions` | Não | — | `requisitions.read/create/update/delete` | Não | Implementada somente no backend |
+| Users/Memberships administrativas | Sim | `GET/POST/PATCH /companies/:companyId/members*` | Sim | `/admin/users` | `users.read`, `users.manage`, `permissions.manage` | `m21.spec.ts` | Implementada |
+| Requisitions: CRUD | Sim | CRUD em `/companies/:companyId/requisitions` | Sim | `/admin/requisitions` | `requisitions.read/create/update/delete` | `m21.spec.ts` | Implementada |
 | Requisitions: leitura/filtros | Sim | `GET /companies/:companyId/requisitions` | Parcial | `/timeline/monthly`, `/timeline/yearly` | `requisitions.read` | Timelines | Implementada somente parcialmente |
-| Requisitions: assignees | Sim | `.../assignees` | Não | — | `requisitions.read/update` | Não | Implementada somente no backend |
+| Requisitions: assignees | Sim | `.../assignees` | Sim | `/admin/requisitions` | `requisitions.read/update` | `m21.spec.ts` | Implementada |
 | Tasks associadas a Requisition | Sim | `requisitionId` em Tasks | Parcial | `/kanban` | `tasks.create/update` | Kanban | Implementada somente parcialmente |
-| Systems | Sim | CRUD `/companies/:companyId/systems` | Não | — | `systems.read/manage` | Não | Implementada somente no backend |
-| Versions | Sim | CRUD `/companies/:companyId/.../versions` | Não | — | `systems.read`, `versions.manage` | Não | Implementada somente no backend |
-| Releases | Sim | CRUD/publicação `/companies/:companyId/releases` | Não | — | `releases.read/manage` | M20 via API | Implementada somente no backend |
+| Systems | Sim | CRUD `/companies/:companyId/systems` | Sim | `/admin/systems` | `systems.read/manage` | `m21.spec.ts` | Implementada |
+| Versions | Sim | CRUD `/companies/:companyId/.../versions` | Sim | `/admin/versions` | `systems.read`, `versions.manage` | `m21.spec.ts` | Implementada |
+| Releases | Sim | CRUD/publicação `/companies/:companyId/releases` | Sim | `/admin/releases` | `releases.read/manage` | `m21.spec.ts` | Metadados somente textuais |
 | Release download | Não | Não existe | Não | — | — | Ausente | Não implementada |
-| Audit | Sim | `GET /companies/:companyId/audit` | Não | — | `audit.read` | M19 via API | Implementada somente no backend |
+| Audit | Sim | `GET /companies/:companyId/audit` | Sim | `/admin/audit` | `audit.read` | `m21.spec.ts` | Implementada |
 | AppShell | — | — | Sim | Todas as rotas autenticadas | Sessão | Responsividade global | Implementada somente parcialmente |
 
 ### Rotas frontend reais
 
-`/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. O AppShell fornece seleção de empresa ativa, Chat, Notifications, tema e logout. Não há menu ou layout de administração.
+`/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports`, `/chat` e `/admin/*`. O AppShell fornece seleção de empresa ativa, Chat, Notifications, tema e logout; o AdminLayout fornece navegação e gates administrativos.
 
 ### Operações API-only
 
-São API-only: criação/edição de Company; criação de User; criação e listagem administrativa de Memberships; CRUD e assignees de Requisitions; CRUD de Systems; CRUD de Versions; CRUD/publicação de Releases; consulta de Audit; e qualquer operação de ativação/inativação não exposta por endpoint confirmado. Requisitions possuem leitura indireta nas timelines, não CRUD frontend.
+São API-only: criação de Company, criação de User, bootstrap/promoção MASTER, ativação/inativação, reset/invite de senha, transição administrativa de status de Requisition e Attachments de Requisition. As demais superfícies administrativas de M21 possuem UI em `/admin/*`.
 
 ### Permissões sem UI correspondente
 
 Permissões existentes no backend: `company.read`, `company.update`, `users.read`, `users.manage`, `permissions.manage`, `systems.read`, `systems.manage`, `versions.manage`, `releases.read`, `releases.manage`, `requisitions.read`, `requisitions.create`, `requisitions.update`, `requisitions.delete`, `tasks.read`, `tasks.create`, `tasks.update`, `tasks.delete`, `kanban.manage`, `timeline.manage`, `capacity.read`, `hours.register`, `notifications.manage`, `chat.use` e `audit.read`.
 
-Sem tela administrativa correspondente estão, em especial, `company.read`, `company.update`, `users.read`, `users.manage`, `permissions.manage`, `systems.read`, `systems.manage`, `versions.manage`, `releases.read`, `releases.manage`, `requisitions.create`, `requisitions.update`, `requisitions.delete` e `audit.read`. As permissões operacionais de Tasks, Timelines, Capacity, Notifications e Chat têm uso em telas específicas, mas não formam um painel administrativo.
+As capabilities administrativas são usadas como gates em `/admin/*`: `company.read/update`, `users.read/manage`, `permissions.manage`, `systems.read/manage`, `versions.manage`, `releases.read/manage`, `requisitions.read/create/update/delete` e `audit.read`. As permissões operacionais de Tasks, Timelines, Capacity, Notifications e Chat têm uso nas telas específicas.
 
-O contrato de capabilities atualmente exposto ao app contém somente `tasks.create`, `tasks.update`, `kanban.manage`, `hours.register`, `capacity.read`, `users.read` e `requisitions.read`. A ausência de uma capability no app não transforma a permissão backend em tela disponível.
+O contrato de capabilities exposto ao app cobre o catálogo real do backend e é validado por parser runtime; a ausência de capability efetiva oculta a navegação e bloqueia a tela.
 
 ### MASTER
 
 Não existe fluxo oficial suportado de criação ou promoção MASTER. `POST /users` cria uma identidade; `POST /companies` cria empresa e membership conforme o contrato existente; `POST /memberships` associa usuários conforme autorização. Não há seed oficial, senha padrão, endpoint de promoção ou tela MASTER. Essa é uma lacuna futura, não um procedimento operacional.
 
-### Painel administrativo futuro
+### Próxima milestone
 
-Uma milestone administrativa futura deve ser decomposta, após aprovação de contratos e capabilities, em: Company Administration; Users/Memberships; Requisitions; Systems/Versions; Releases; Audit. Cada unidade deve distinguir explicitamente API existente, endpoint novo, tela, gate, testes e limitações.
+M21 está concluída. A próxima milestone deve ser formalmente definida antes de iniciar novas operações administrativas; não inventar MASTER, ativação/inativação, reset de senha ou storage de Release.
 
 ## Dicionário
 
@@ -265,4 +265,4 @@ Checklist: contrato OpenAPI; parser; autorização; tenant isolation; UoW/rollba
 
 ## Auditoria
 
-Antes de avançar milestone, execute a auditoria automatizada em browser real. O runner usa Chromium, PostgreSQL/fixtures isolados, `workers: 1` e artifacts. Falhas de ambiente devem ser distinguidas de falhas funcionais; auditorias não executadas continuam pendentes. M21 não deve ser iniciada sem solicitação formal.
+Antes de avançar milestone, execute a auditoria automatizada em browser real. O runner usa Chromium, PostgreSQL/fixtures isolados, `workers: 1` e artifacts. Falhas de ambiente devem ser distinguidas de falhas funcionais; auditorias não executadas continuam pendentes. M21 foi validada por `npm run audit:m21` e `npm run audit:browser`.

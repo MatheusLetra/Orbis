@@ -38,7 +38,7 @@ describe("buildModules", () => {
       ...Object.values(modules.auth),
     ];
 
-    expect(useCases).toHaveLength(50);
+    expect(useCases).toHaveLength(51);
     expect(useCases.every((useCase) => typeof useCase.execute === "function")).toBe(true);
     expect(typeof modules.permissionResolver.resolve).toBe("function");
     expect(typeof modules.tokenService.signAccessToken).toBe("function");

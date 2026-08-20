@@ -26,7 +26,7 @@ Este arquivo é o índice do roadmap. O detalhe histórico está em [`milestones
 | 18 | [M18 - Reports](milestones/M18.md) | Concluída |
 | 19 | [M19 - Audit](milestones/M19.md) | Concluída |
 | 20 | [M20 - Hardening, observabilidade e deploy](milestones/M20.md) | Concluída |
-| 21 | [M21 - Painel administrativo](milestones/M21.md) | Em andamento; checkpoint parcial, não aprovada |
+| 21 | [M21 - Painel administrativo](milestones/M21.md) | Concluída e aprovada |
 
 ## Decisões atuais
 
@@ -39,12 +39,12 @@ Este arquivo é o índice do roadmap. O detalhe histórico está em [`milestones
 
 ## Cobertura de produto
 
-O roadmap registra entregas por escopo, não uma promessa de painel administrativo completo. As rotas frontend atuais são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. Não existe painel administrativo formal.
+O roadmap registra entregas por escopo. M21 adicionou as rotas administrativas `/admin/*` com gates por capability, sem inventar fluxos MASTER, storage de Releases ou operações sem endpoint.
 
-M21 foi formalmente iniciada e está em checkpoint parcial. Endpoints administrativos e uma implementação frontend inicial existem no worktree, mas PostgreSQL real sem skips, gates globais e Playwright ainda não foram aprovados. Portanto, nenhuma superfície M21 deve ser considerada concluída. O estado retomável está em [`milestones/M21.md`](milestones/M21.md).
+M21 foi concluída após PostgreSQL real serial sem skips, cobertura, gates de API/app e Playwright específico/global. O detalhamento está em [`milestones/M21.md`](milestones/M21.md).
 
-Backlog administrativo sugerido, sujeito a aprovação formal: Company Administration; Users/Memberships; Requisitions; Systems/Versions; Releases; Audit.
+Próxima milestone: a definir formalmente. Ativação/inativação, bootstrap MASTER, reset de senha e mudanças de status de Requisition permanecem fora do contrato M21.
 
 ## Regra de avanço
 
-Antes de iniciar ou retomar uma milestone, ler o arquivo correspondente, validar código/testes/schema/OpenAPI e executar a auditoria automatizada em browser quando houver superfície aplicável. Registrar decisões, comandos reais, artifacts e pendências no handoff. Para M21, retomar pela validação PostgreSQL real do backend descrita no checkpoint; não avançar ao Playwright global antes dos gates intermediários.
+Antes de iniciar uma milestone, ler o arquivo correspondente, validar código/testes/schema/OpenAPI e executar a auditoria automatizada em browser quando houver superfície aplicável. Registrar decisões, comandos reais, artifacts e pendências no handoff.

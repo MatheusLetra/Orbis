@@ -170,19 +170,14 @@ describe("admin pages", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
-  it("abre criação, edição e capacidade de empresas", () => {
+  it("abre edição e capacidade de empresas", () => {
     render(<CompaniesPage />);
-    click("Nova empresa");
-    expect(screen.getByRole("dialog")).toHaveTextContent("Nova empresa");
-    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Nova" } });
-    submitDialog();
     click("Editar");
     expect(screen.getByLabelText("Nome")).toHaveValue("Orbis");
     submitDialog();
     click("Capacidade");
     expect(screen.getByLabelText("Horas diárias por desenvolvedor")).toHaveValue(8);
     submitDialog();
-    expect(client.createCompany).toHaveBeenCalled();
     expect(client.updateCompany).toHaveBeenCalled();
     expect(client.updateCapacity).toHaveBeenCalled();
   });

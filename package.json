@@ -6,6 +6,7 @@
     "audit:install": "playwright install chromium",
     "audit:browser": "tsx audit/scripts/run-browser-audit.ts all",
     "audit:m19": "tsx audit/scripts/run-browser-audit.ts m19",
+    "audit:m21": "tsx audit/scripts/run-browser-audit.ts m21",
     "audit:m20": "tsx audit/scripts/run-browser-audit.ts m20",
     "audit:browser:headed": "tsx audit/scripts/run-browser-audit.ts all --headed",
     "audit:responsive": "tsx audit/scripts/run-browser-audit.ts responsive",

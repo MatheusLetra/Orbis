@@ -2,9 +2,9 @@
 
 ## Estado atual
 
-M01-M20 estão concluídas. M21 foi iniciada e está em checkpoint parcial por limite de uso. **M21 não está concluída nem aprovada.** O estado persistente, arquivos e próximos comandos estão em [`milestones/M21.md`](milestones/M21.md).
+M01-M21 estão concluídas. M21 foi aprovada após todos os gates obrigatórios. O próximo trabalho depende da definição formal da M22.
 
-M01-M20 não significam que todos os módulos administrativos possuem UI. Endpoint, client, fixture ou teste não equivale a tela. As rotas frontend reais são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. Não existe painel administrativo formal.
+M21 adicionou painel administrativo em `/admin/*`, com gates por capability e tenant ativo. Endpoint, client, fixture ou teste não equivale a operação aprovada sem os gates correspondentes.
 
 Validação registrada: API 1027/1027 testes, app 632/632; coverage API 96,59% statements, 90,05% branches, 97,17% functions, 97,71% lines; app 95,72%, 90,54%, 96,33%, 96,85%. PostgreSQL real serial, Playwright M20 1/1, Playwright global 57/57, typecheck, lint, builds, Docker builds, restore isolado e diff-check aprovados.
 
@@ -22,14 +22,14 @@ Validação registrada: API 1027/1027 testes, app 632/632; coverage API 96,59% s
 - Chat e Notifications usam HTTP explícito e persistência; não há WebSocket, polling, EventSource, Redis, push ou e-mail.
 - Audit é append-only e tenant-aware; metadata não contém segredos, cookies, tokens, binários ou payloads integrais.
 
-## Superfícies pré-M21 e trabalho parcial
+## Superfícies M21
 
-- Antes de M21 não existia painel administrativo formal. O worktree agora contém uma implementação inicial em `/admin/*`, ainda não aprovada.
+- O painel administrativo possui Companies, Users/Memberships, Requisitions, Systems/Versions, Releases e Audit em `/admin/*`.
 - Backend parcial: memberships administrativas, criação atômica de membro, permissões explícitas, capacity settings e edição de Release DRAFT.
-- Frontend parcial: Companies, Users/Memberships, Requisitions, Systems/Versions, Releases e Audit em `app/src/features/admin/`.
+- Frontend: clients, parsers runtime, query keys tenant-aware, queries/mutations, gates, estados, dialogs acessíveis e auditoria browser em `app/src/features/admin/`.
 - Capabilities foram expandidas para o catálogo real do backend.
 - Nenhuma migration foi criada; Attachments e o modelo `artifactLocation` foram preservados.
-- Ativação/inativação, MASTER, reset/invite de senha e status de Requisition continuam não implementados.
+- Ativação/inativação, MASTER, reset/invite de senha, Attachments administrativos e status administrativo de Requisition continuam não implementados/API-only.
 - Não existe fluxo oficial de criação ou promoção MASTER. `POST /users`, `POST /companies` e `POST /memberships` são API-only; não inventar seed, senha ou procedimento de promoção.
 
 ## Execução oficial
@@ -63,16 +63,18 @@ Não há seed, script, endpoint MASTER ou credencial padrão. `POST /users` cria
 | M18 | Concluída, Reports e CSV |
 | M19 | Concluída, Audit |
 | M20 | Concluída, hardening, observabilidade, deploy e backup/restore |
-| M21 | Em andamento; checkpoint parcial, não concluída e não aprovada |
+| M21 | Concluída e aprovada |
 
 Os detalhes históricos das decisões e validações permanecem nos arquivos das milestones. Quando um registro histórico mencionar uma pendência que foi resolvida depois, a resolução posterior é a fonte do estado atual.
 
-## Checkpoint M21
+## Validação M21
 
-Testes executados antes da parada: backend focado 101 passed e 5 skips PostgreSQL; API typecheck/lint aprovados. App 664 passed, coverage acima dos thresholds, typecheck/lint/build aprovados. Não foram executados/aprovados API global, API coverage, PostgreSQL real sem skips, Playwright administrativo ou Playwright global.
+API: 1040/1040 testes, PostgreSQL real serial sem skips; coverage 96,61% statements, 90,01% branches, 97,24% functions, 97,73% lines. App: 665/665; coverage 95,70%, 90,02%, 96,13%, 96,71%. Typecheck, lint e builds de API/app, `tsc` raiz e `git diff --check` aprovados.
+
+Playwright M21: 3/3. Playwright global: 60/60. Artifacts foram gerados em `artifacts/browser-audit/`. Nenhuma migration M21 foi criada ou aplicada; Attachments e Releases/storage permaneceram inalterados.
 
 O worktree está sujo e preservado, sem commit. Não há processos temporários de API/Vite/Vitest/Playwright. O container preexistente `orbis-postgres-test` permanece ativo na porta 5433. `commands/` não foi alterado.
 
 ## Próximo passo recomendado
 
-Retomar pela revisão e execução dos testes backend com PostgreSQL real serial, começando pelos arquivos e comandos registrados em [`milestones/M21.md`](milestones/M21.md). Não continuar frontend ou Playwright antes de resolver skips e aprovar essa fase.
+Definir formalmente a M22. Não criar fluxo MASTER, ativação/inativação, reset de senha, status administrativo de Requisition ou storage/download binário de Release sem contrato aprovado.

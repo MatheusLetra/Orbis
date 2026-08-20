@@ -68,9 +68,9 @@ export function AdminHomePage() {
 export function CompaniesPage() {
   const { companyId, capabilities } = useAdmin();
   const query = useAdminCompanies(companyId);
-  const capacity = useCapacitySettings(companyId);
+  const capacity = useCapacitySettings(capabilities["capacity.read"] ? companyId : null);
   const action = useAdminAction(companyId);
-  const [editing, setEditing] = useState<AdminCompany | "new" | "capacity" | null>(null);
+  const [editing, setEditing] = useState<AdminCompany | "capacity" | null>(null);
   const close = () => {
     if (!action.isPending) setEditing(null);
   };
@@ -78,16 +78,6 @@ export function CompaniesPage() {
     if (editing === "capacity")
       action.mutate(
         () => adminClient.updateCapacity(companyId, Number(value(data, "dailyHoursPerDeveloper"))),
-        { onSuccess: close },
-      );
-    else if (editing === "new")
-      action.mutate(
-        () =>
-          adminClient.createCompany({
-            name: value(data, "name"),
-            timezone: value(data, "timezone") || undefined,
-            settings: JSON.parse(value(data, "settings") || "{}"),
-          }),
         { onSuccess: close },
       );
     else if (editing)
@@ -113,11 +103,15 @@ export function CompaniesPage() {
                 Capacidade
               </Button>
             )}
-            <Button onClick={() => setEditing("new")}>Nova empresa</Button>
           </div>
         }
       />
-      <State pending={query.isPending} error={query.isError} empty={!query.data?.length}>
+      <State
+        pending={query.isPending}
+        error={query.isError}
+        empty={!query.data?.length}
+        retry={query.refetch}
+      >
         <Cards>
           {query.data?.map((company) => (
             <Card
@@ -136,13 +130,7 @@ export function CompaniesPage() {
       </State>
       <FormDialog
         open={editing !== null}
-        title={
-          editing === "capacity"
-            ? "Configuração de capacidade"
-            : editing === "new"
-              ? "Nova empresa"
-              : "Editar empresa"
-        }
+        title={editing === "capacity" ? "Configuração de capacidade" : "Editar empresa"}
         pending={action.isPending}
         error={action.isError}
         onClose={close}
@@ -161,19 +149,23 @@ export function CompaniesPage() {
             <Field
               label="Nome"
               name="name"
-              defaultValue={editing && editing !== "new" ? editing.name : ""}
+              defaultValue={editing && typeof editing === "object" ? editing.name : ""}
               required
             />
             <Field
               label="Fuso horário"
               name="timezone"
-              defaultValue={editing && editing !== "new" ? editing.timezone : "America/Sao_Paulo"}
+              defaultValue={
+                editing && typeof editing === "object" ? editing.timezone : "America/Sao_Paulo"
+              }
               required
             />
             <Field
               label="Configurações (JSON)"
               name="settings"
-              defaultValue={editing && editing !== "new" ? JSON.stringify(editing.settings) : "{}"}
+              defaultValue={
+                editing && typeof editing === "object" ? JSON.stringify(editing.settings) : "{}"
+              }
               required
             />
           </>
@@ -225,7 +217,12 @@ export function UsersPage() {
           )
         }
       />
-      <State pending={query.isPending} error={query.isError} empty={!query.data?.length}>
+      <State
+        pending={query.isPending}
+        error={query.isError}
+        empty={!query.data?.length}
+        retry={query.refetch}
+      >
         <Cards>
           {query.data?.map((member) => (
             <Card
@@ -405,7 +402,12 @@ export function RequisitionsPage() {
           className="h-9 w-full rounded-md border bg-background px-3 text-sm sm:max-w-xs"
         />
       </div>
-      <State pending={query.isPending} error={query.isError} empty={!query.data?.length}>
+      <State
+        pending={query.isPending}
+        error={query.isError}
+        empty={!query.data?.length}
+        retry={query.refetch}
+      >
         <Cards>
           {query.data?.map((item) => (
             <Card
@@ -496,11 +498,12 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    action.mutate(() =>
-                      adminClient.removeAssignee(companyId, item.id, assignee.userId),
-                    )
-                  }
+                  onClick={() => {
+                    if (window.confirm("Remover este responsável?"))
+                      action.mutate(() =>
+                        adminClient.removeAssignee(companyId, item.id, assignee.userId),
+                      );
+                  }}
                 >
                   Remover
                 </Button>
@@ -559,7 +562,12 @@ export function SystemsPage() {
           )
         }
       />
-      <State pending={query.isPending} error={query.isError} empty={!query.data?.length}>
+      <State
+        pending={query.isPending}
+        error={query.isError}
+        empty={!query.data?.length}
+        retry={query.refetch}
+      >
         <Cards>
           {query.data?.map((system) => (
             <div key={system.id}>
@@ -667,9 +675,10 @@ function VersionsPanel({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    action.mutate(() => adminClient.deleteVersion(companyId, version.id))
-                  }
+                  onClick={() => {
+                    if (window.confirm(`Excluir a versão ${version.version}?`))
+                      action.mutate(() => adminClient.deleteVersion(companyId, version.id));
+                  }}
                 >
                   Excluir
                 </Button>
@@ -750,7 +759,12 @@ export function ReleasesPage() {
           )
         }
       />
-      <State pending={query.isPending} error={query.isError} empty={!query.data?.length}>
+      <State
+        pending={query.isPending}
+        error={query.isError}
+        empty={!query.data?.length}
+        retry={query.refetch}
+      >
         <Cards>
           {query.data?.map((release) => (
             <Card
@@ -769,9 +783,10 @@ export function ReleasesPage() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() =>
-                      action.mutate(() => adminClient.deleteRelease(companyId, release.id))
-                    }
+                    onClick={() => {
+                      if (window.confirm(`Excluir a release ${release.versionLabel}?`))
+                        action.mutate(() => adminClient.deleteRelease(companyId, release.id));
+                    }}
                   >
                     Excluir
                   </Button>
@@ -885,6 +900,7 @@ export function AuditPage() {
         pending={query.isPending}
         error={query.isError}
         empty={!query.data?.pages.some((page) => page.items.length)}
+        retry={query.refetch}
       >
         <Cards>
           {query.data?.pages

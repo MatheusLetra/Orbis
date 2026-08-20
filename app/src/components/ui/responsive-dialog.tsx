@@ -21,12 +21,31 @@ export function ResponsiveDialog({
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const handleDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
     document.body.style.overflow = "hidden";
-    window.setTimeout(() => initialFocusRef?.current?.focus(), 0);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    const focusTimer = window.setTimeout(() => {
+      if (initialFocusRef?.current) {
+        initialFocusRef.current.focus();
+        return;
+      }
+      modalRef.current
+        ?.querySelector<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+        )
+        ?.focus();
+    }, 0);
     return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [initialFocusRef, open]);
+  }, [initialFocusRef, onClose, open]);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Escape") {

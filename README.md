@@ -17,7 +17,7 @@ Este README é o índice operacional. Os procedimentos completos estão em [`doc
 - M18: concluída.
 - M19: concluída.
 - M20: concluída.
-- M21: não iniciada e bloqueada até solicitação formal.
+- M21: concluída e aprovada após os gates de backend, PostgreSQL real, frontend e browser.
 
 O estado detalhado e as decisões atuais estão em [`docs/ai_handoff.md`](docs/ai_handoff.md). O roadmap está em [`docs/PLANO-IMPLEMENTACAO.md`](docs/PLANO-IMPLEMENTACAO.md).
 
@@ -27,12 +27,9 @@ M01-M20 foram concluídas conforme seus escopos. Isso pode incluir domínio, bac
 
 - Endpoint não equivale a tela.
 - Client, fixture ou teste não equivale a tela.
-- As rotas frontend reais são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`.
-- O `AppShell` fornece seleção de empresa ativa, Chat, Notifications, tema e logout.
-- Não existe painel administrativo formal.
-- Companies, Users/Memberships, Systems, Versions, Releases e Audit possuem operações API-only ou parcialmente expostas.
-- Requisitions são lidas indiretamente nas timelines, mas não possuem CRUD frontend.
-- M21 não foi iniciada.
+- As rotas frontend incluem `/admin`, `/admin/companies`, `/admin/users`, `/admin/requisitions`, `/admin/systems`, `/admin/versions`, `/admin/releases` e `/admin/audit`, além das rotas operacionais existentes.
+- O painel administrativo é tenant-aware e protegido por capabilities; criação de empresa, bootstrap MASTER e operações sem contrato continuam API-only.
+- Releases continuam usando somente `artifactLocation` textual, sem storage ou download binário.
 
 Operações administrativas disponíveis somente pela API devem ser tratadas como API-only, não como funções disponíveis na interface.
 
@@ -110,7 +107,7 @@ No diretório `API/`: `npm run dev`, `npm run build`, `npm start`, `npm run type
 
 No diretório `app/`: `npm run dev`, `npm run build`, `npm run preview`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:coverage`.
 
-Na raiz: `npm install`, `npm run audit:install`, `npm run audit:browser`, `npm run audit:browser:headed`, `npm run audit:responsive`, `npm run audit:attachments`, `npm run audit:time-entries`, `npm run audit:capacity`, `npm run audit:notifications`, `npm run audit:chat`, `npm run audit:timeline`, `npm run audit:timeline-monthly`, `npm run audit:reports` e `npm run audit:m20`.
+Na raiz: `npm install`, `npm run audit:install`, `npm run audit:browser`, `npm run audit:m21`, `npm run audit:browser:headed`, `npm run audit:responsive`, `npm run audit:attachments`, `npm run audit:time-entries`, `npm run audit:capacity`, `npm run audit:notifications`, `npm run audit:chat`, `npm run audit:timeline`, `npm run audit:timeline-monthly`, `npm run audit:reports` e `npm run audit:m20`.
 
 Os detalhes, diretórios e limitações estão em [`docs/DEVELOPER_MANUAL.md`](docs/DEVELOPER_MANUAL.md). A auditoria de browser é serial (`workers: 1`) e gera artefatos em `artifacts/browser-audit/`.
 
@@ -150,4 +147,4 @@ Limites relevantes: upload de Attachment até 10 MB; TimeEntry de 1 a 1440 minut
 
 ## Contribuição e auditoria
 
-Mudanças devem preservar contratos, autorização, tenant isolation, Attachments e `artifactLocation`. Atualize o plano, a documentação relevante e os testes. Antes de avançar uma milestone, execute a auditoria automatizada obrigatória em browser e registre o resultado. M21 continua bloqueada até solicitação formal.
+Mudanças devem preservar contratos, autorização, tenant isolation, Attachments e `artifactLocation`. Atualize o plano, a documentação relevante e os testes. Antes de avançar uma milestone, execute a auditoria automatizada obrigatória em browser e registre o resultado. M21 foi concluída; a próxima milestone ainda depende de definição formal.

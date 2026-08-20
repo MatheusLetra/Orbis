@@ -24,6 +24,17 @@ describe("admin ui", () => {
     expect(screen.getByText("Nenhum registro encontrado.")).toBeInTheDocument();
   });
 
+  it("permite repetir uma leitura que falhou", () => {
+    const retry = vi.fn();
+    render(
+      <State pending={false} error empty={false} retry={retry}>
+        ok
+      </State>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it("exibe erro sem submit e propaga seleção", () => {
     const change = vi.fn();
     render(

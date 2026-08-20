@@ -28,7 +28,7 @@ docs/{milestones,operations}
 
 Módulos reais: auth, users, companies, memberships, permissions, systems, versions, releases, requisitions, tasks, capacity, timeline, notifications, chat, reports, attachments e audit. Application usa ports, DTOs, parsers e UoW quando necessário. Frontend usa clients, parsers runtime, React Query/query keys tenant-aware, AbortSignal e stale protection.
 
-As únicas rotas frontend registradas são `/login`, `/`, `/kanban`, `/timeline`, `/timeline/monthly`, `/timeline/yearly`, `/reports` e `/chat`. O `AppShell` oferece seleção de empresa ativa, Chat, Notifications, tema e logout. Não existe painel administrativo formal. Os módulos administrativos têm cobertura de API maior que a cobertura de UI; endpoint, client, fixture e teste não equivalem a tela.
+Além das rotas operacionais, M21 registra `/admin`, `/admin/companies`, `/admin/users`, `/admin/requisitions`, `/admin/systems`, `/admin/versions`, `/admin/releases` e `/admin/audit`. O painel é tenant-aware, usa capabilities efetivas e mantém operações sem contrato como API-only.
 
 ## Identidade e tenant
 
@@ -62,4 +62,4 @@ O schema canônico está em `API/src/infrastructure/database/schema.ts`; as migr
 
 ## Testes e evolução
 
-Vitest cobre domínio, aplicação, HTTP, PostgreSQL e app; Playwright usa Chromium real, fixtures isoladas, PostgreSQL temporário, um worker e artifacts. Novas features devem preservar contrato, parser, autorização, tenant isolation, UoW/concorrência, acessibilidade/mobile, OpenAPI, testes, coverage e documentação. M21 está bloqueada até solicitação formal.
+Vitest cobre domínio, aplicação, HTTP, PostgreSQL e app; Playwright usa Chromium real, fixtures isoladas, PostgreSQL temporário, um worker e artifacts. Novas features devem preservar contrato, parser, autorização, tenant isolation, UoW/concorrência, acessibilidade/mobile, OpenAPI, testes, coverage e documentação. M21 está concluída sem migration nova e sem storage de Release.

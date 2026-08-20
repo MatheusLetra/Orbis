@@ -27,18 +27,25 @@ export function State({
   pending,
   error,
   empty,
+  retry,
   children,
 }: {
   pending: boolean;
   error: boolean;
   empty: boolean;
+  retry?: () => void;
   children: ReactNode;
 }) {
   if (pending) return <p aria-busy="true">Carregando...</p>;
   if (error)
     return (
       <p role="alert" className="text-destructive">
-        Não foi possível carregar os dados.
+        <span>Não foi possível carregar os dados.</span>
+        {retry && (
+          <Button type="button" variant="outline" size="sm" onClick={retry}>
+            Tentar novamente
+          </Button>
+        )}
       </p>
     );
   if (empty)

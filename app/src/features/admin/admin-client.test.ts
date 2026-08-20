@@ -6,7 +6,15 @@ describe("adminClient", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("usa membershipId e rota tenant-aware ao substituir permissões", async () => {
-    const request = vi.spyOn(apiClient, "request").mockResolvedValue({ id: "membership-a" });
+    const request = vi.spyOn(apiClient, "request").mockResolvedValue({
+      id: "membership-a",
+      userId: "user-a",
+      email: "a@b.com",
+      name: "Ana",
+      position: "GESTOR",
+      permissions: ["audit.read"],
+      userIsActive: true,
+    });
     await adminClient.permissions("company/a", "membership/a", ["audit.read"]);
     expect(request).toHaveBeenCalledWith(
       "/companies/company%2Fa/memberships/membership%2Fa/permissions",

@@ -416,6 +416,56 @@ describe("membership administration", () => {
     await app.close();
   });
 
+  it("não cria membro em empresa inativa nem duplica e-mail", async () => {
+    const { app, modules } = await build();
+    const company = await seedCompany(modules);
+    await seedActorMembership(modules, company.id);
+    const headers = await authHeaders(modules, USER_ID);
+    const payload = {
+      email: "new@example.com",
+      name: "New User",
+      password: "password123",
+      position: "SUPORTE",
+    };
+
+    const created = await app.inject({
+      method: "POST",
+      url: `/companies/${company.id}/members`,
+      headers,
+      payload,
+    });
+    expect(created.statusCode).toBe(201);
+    const duplicate = await app.inject({
+      method: "POST",
+      url: `/companies/${company.id}/members`,
+      headers,
+      payload,
+    });
+    expect(duplicate.statusCode).toBe(409);
+
+    company.deactivate();
+    await modules.repositories.companies.update(company);
+    const inactive = await app.inject({
+      method: "POST",
+      url: `/companies/${company.id}/members`,
+      headers,
+      payload: { ...payload, email: "inactive@example.com" },
+    });
+    expect(inactive.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("valida dados também no caso de uso, antes da autorização", async () => {
+    const { app, modules } = await build();
+    await expect(
+      modules.createCompanyMember.execute({
+        actor: {} as never,
+        data: { email: "inválido", name: "", password: "short", position: "MASTER" } as never,
+      }),
+    ).rejects.toThrow("Dados do membro inválidos");
+    await app.close();
+  });
+
   it("altera permissões estritamente e isola membership de outro tenant", async () => {
     const { app, modules } = await build();
     const company = await seedCompany(modules);
@@ -457,6 +507,20 @@ describe("membership administration", () => {
       payload: { permissions: ["invented.permission"] },
     });
     expect(invalid.statusCode).toBe(400);
+    await expect(
+      modules.updateMembershipPermissions.execute({
+        actor: await modules.permissionResolver.resolve(USER_ID, company.id),
+        membershipId: actorMembership?.id ?? "",
+        data: { permissions: ["invented.permission"] as never },
+      }),
+    ).rejects.toThrow("Permissões inválidas");
+    const missing = await app.inject({
+      method: "PATCH",
+      url: `/companies/${company.id}/memberships/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/permissions`,
+      headers,
+      payload: { permissions: ["tasks.read"] },
+    });
+    expect(missing.statusCode).toBe(404);
     await app.close();
   });
 });

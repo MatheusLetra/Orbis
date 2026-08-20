@@ -6,7 +6,7 @@ Abra `/login`, informe as credenciais fornecidas pelo administrador e entre. O u
 
 O cabeçalho permite trocar a empresa ativa quando o usuário possui mais de uma membership e alternar o tema. A empresa ativa altera todas as consultas; respostas de outra empresa não são reutilizadas. O layout é responsivo, mas o Kanban usa rolagem horizontal intencional no celular.
 
-O produto não possui painel administrativo formal. A seleção de empresa não é cadastro de empresa: criar, editar, ativar/inativar, alterar timezone, gerenciar usuários ou configurar capacidade persistida não estão disponíveis na interface.
+Usuários com capabilities administrativas possuem o painel em `/admin`. A seleção de empresa não cria tenants; criação de empresa, bootstrap MASTER, ativação/inativação e reset de senha continuam API-only.
 
 ## Rotas disponíveis
 
@@ -20,6 +20,7 @@ O produto não possui painel administrativo formal. A seleção de empresa não 
 | `/timeline/yearly` | Timeline anual |
 | `/reports` | Relatório e CSV |
 | `/chat` | Chat direto |
+| `/admin/*` | Administração tenant-aware, conforme capability |
 
 ## Kanban e Tasks
 
@@ -37,7 +38,7 @@ Attachments de Requisition também existem na API, mas não há tela frontend de
 
 ## Empresas, usuários e memberships
 
-É possível selecionar uma empresa acessível no início ou pelo cabeçalho. A interface não permite criar ou editar empresas, ativar/inativar empresas, alterar timezone, criar usuários, listar usuários administrativamente, criar memberships, alterar cargo ou alterar permissões.
+É possível selecionar uma empresa acessível no início ou pelo cabeçalho. Em `/admin/companies`, usuários autorizados editam a empresa e a configuração persistida de capacidade. Em `/admin/users`, administram membros e permissões explícitas. Não há ativação/inativação, reset de senha ou promoção MASTER.
 
 `POST /users`, `POST /companies` e `POST /memberships` são operações de API, não ações disponíveis no menu. Não existe fluxo oficial de criação ou promoção de usuário MASTER.
 
@@ -45,13 +46,13 @@ Attachments de Requisition também existem na API, mas não há tela frontend de
 
 Requisitions aparecem como leitura indireta nas timelines mensal e anual. Essas telas permitem navegar, filtrar e consultar indicadores dos dados recebidos, mas não criam, editam, excluem ou detalham uma Requisition em uma página própria.
 
-CRUD, assignees, associação administrativa com System/Version e anexos de Requisition são operações de API. Não estão disponíveis na interface.
+O painel `/admin/requisitions` permite CRUD e assignees conforme as capabilities. Anexos de Requisition continuam operações de API.
 
 ## Systems, Versions e Releases
 
-Não existem telas frontend para cadastrar, listar, editar ou excluir Systems e Versions.
+`/admin/systems` e `/admin/versions` permitem administrar Systems e Versions conforme `systems.manage` e `versions.manage`.
 
-Não existe tela frontend para criar, listar, editar, publicar ou excluir Releases. A API aceita `artifactLocation` como localização textual opaca. Não há download de Release e o Orbis não armazena artefatos. Essa limitação é independente dos Attachments, que permanecem em PostgreSQL BYTEA.
+`/admin/releases` permite criar, editar, publicar e excluir metadados de Release conforme capability. `artifactLocation` continua somente texto: não há download e o Orbis não armazena artefatos. Attachments permanecem em PostgreSQL BYTEA.
 
 ## Horas e pausas
 
@@ -83,11 +84,11 @@ Em `/chat`, selecione um membro ativo e crie uma conversa. Envie texto de 1 a 50
 
 ## Releases
 
-Não há tela frontend de catálogo de Releases neste estado. Na API, uma Release é metadado ligado a uma Version. A publicação exige `artifactLocation`, um texto de até 2048 caracteres. O Orbis não armazena nem baixa o artefato, não valida URL/caminho e não oferece download binário.
+Uma Release é metadado ligado a uma Version e pode ser administrada em `/admin/releases`. A publicação exige `artifactLocation`, um texto de até 2048 caracteres. O Orbis não armazena nem baixa o artefato, não valida URL/caminho e não oferece download binário.
 
 ## Audit
 
-Auditoria é uma consulta administrativa/técnica em `/companies/:companyId/audit`, disponível a usuários com `audit.read`. Ela lista ações sensíveis com ator, entidade, data e metadados mínimos. Senhas, tokens, cookies, binários e conteúdo integral não são exibidos. A interface frontend de Audit não está implementada; o acesso é pela API/Scalar.
+Auditoria é uma consulta administrativa/técnica em `/admin/audit` ou pela API `/companies/:companyId/audit`, disponível a usuários com `audit.read`. Ela lista ações sensíveis com ator, entidade, data e metadados mínimos. Senhas, tokens, cookies, binários e conteúdo integral não são exibidos.
 
 ## Funções fora da interface
 

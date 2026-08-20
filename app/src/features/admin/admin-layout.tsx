@@ -33,9 +33,16 @@ export function AdminLayout() {
   if (capabilities.isError)
     return (
       <AppShell>
-        <p role="alert" className="text-destructive">
-          Não foi possível validar suas permissões.
-        </p>
+        <div role="alert" className="grid gap-3 text-destructive">
+          <p>Não foi possível validar suas permissões.</p>
+          <button
+            type="button"
+            className="w-fit underline"
+            onClick={() => void capabilities.refetch()}
+          >
+            Tentar novamente
+          </button>
+        </div>
       </AppShell>
     );
   const allowed = ADMIN_NAV.filter((item) => capabilities.data?.capabilities[item.capability]);

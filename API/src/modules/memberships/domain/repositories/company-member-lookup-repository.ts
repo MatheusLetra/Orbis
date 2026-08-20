@@ -4,7 +4,11 @@ export interface CompanyMemberLookup {
 }
 
 export interface CompanyMemberLookupRepository {
-  listActiveByCompany(companyId: string, search?: string): Promise<CompanyMemberLookup[]>;
+  listActiveByCompany(
+    companyId: string,
+    search?: string,
+    limit?: number,
+  ): Promise<CompanyMemberLookup[]>;
   listMembershipsByCompany(companyId: string): Promise<CompanyMembershipLookup[]>;
 }
 

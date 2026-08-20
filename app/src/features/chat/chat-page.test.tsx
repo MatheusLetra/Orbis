@@ -41,6 +41,9 @@ vi.mock("@/features/auth/auth-provider", () => ({
 vi.mock("@/features/companies/active-company-provider", () => ({
   useActiveCompany: () => state.company,
 }));
+vi.mock("@/features/companies/capabilities-queries", () => ({
+  useCompanyCapabilities: () => ({ data: { capabilities: { "chat.use": false } } }),
+}));
 vi.mock("./chat-queries", async (importOriginal) => {
   const original = await importOriginal<typeof import("./chat-queries")>();
   return {

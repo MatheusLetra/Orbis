@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { getCurrentUserId } from "@/infrastructure/http/current-user";
 import type { CreateDirectConversation } from "@/modules/chat/application/use-cases/create-direct-conversation";
+import type { ListChatParticipants } from "@/modules/chat/application/use-cases/list-chat-participants";
 import type { ListConversations } from "@/modules/chat/application/use-cases/list-conversations";
 import type { ListMessages } from "@/modules/chat/application/use-cases/list-messages";
 import type { MarkConversationRead } from "@/modules/chat/application/use-cases/mark-conversation-read";
@@ -102,8 +103,27 @@ const scopedErrors = {
   ...authorizationErrors,
   404: { ...errorResponse, description: "Conversa ou participante não encontrado no tenant." },
 } as const;
+const participantQuery = {
+  type: "object",
+  properties: { search: { type: "string", maxLength: 200 } },
+  additionalProperties: false,
+} as const;
+const participantList = {
+  type: "array",
+  maxItems: 50,
+  items: {
+    type: "object",
+    properties: {
+      userId: { type: "string", format: "uuid" },
+      name: { type: "string" },
+    },
+    required: ["userId", "name"],
+    additionalProperties: false,
+  },
+} as const;
 
 export interface ChatRouteOptions {
+  listParticipants: ListChatParticipants;
   createConversation: CreateDirectConversation;
   listConversations: ListConversations;
   listMessages: ListMessages;
@@ -128,6 +148,32 @@ function assertNoBody(value: unknown): void {
 }
 
 export async function registerChatRoutes(app: FastifyInstance, options: ChatRouteOptions) {
+  app.get(
+    "/companies/:companyId/chat/participants",
+    {
+      schema: {
+        tags: ["Chat"],
+        description: "Lista usuários ativos do tenant para iniciar uma conversa direta.",
+        headers,
+        params: companyParams,
+        querystring: participantQuery,
+        response: {
+          200: { ...participantList, description: "Participantes ativos do tenant." },
+          ...inputError,
+          ...authorizationErrors,
+        },
+      },
+    },
+    async (request) => {
+      const { companyId } = request.params as { companyId: string };
+      const actor = await options.permissionResolver.resolve(getCurrentUserId(request), companyId);
+      return options.listParticipants.execute({
+        actor,
+        search: (request.query as { search?: string }).search,
+      });
+    },
+  );
+
   app.post(
     "/companies/:companyId/conversations",
     {

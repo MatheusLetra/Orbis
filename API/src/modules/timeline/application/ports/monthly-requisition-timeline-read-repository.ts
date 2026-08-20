@@ -18,6 +18,7 @@ export interface MonthlyRequisitionTimelineRow {
   title: string;
   priority: RequisitionPriority;
   assigneeId: string | null;
+  assigneeName: string | null;
   startDate: string | null;
   plannedDeliveryDate: string | null;
   deliveredAt: Date | null;

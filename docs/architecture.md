@@ -16,6 +16,8 @@ HTTP + JWT -> Fastify/HTTP -> Application -> Domain
 
 O domínio não depende de Fastify, Drizzle, Zod, JWT ou APIs do browser. Redis, WebSocket, polling, EventSource, e-mail, providers externos e storage externo não fazem parte do runtime atual.
 
+O frontend possui um padrão incremental de lookup visual por ID em `app/src/components/common/id-lookup-field.tsx`. O componente é orientado por adapter, mantém o ID separado do label, usa React Query com `companyId` na query key, propaga `AbortSignal` e só consulta quando o diálogo abre. O Chat usa o endpoint específico `GET /companies/:companyId/chat/participants?search=` com `chat.use`; o lookup genérico de membros continua exigindo `users.read`.
+
 ## Estrutura
 
 ```text
@@ -63,6 +65,10 @@ O schema canônico está em `API/src/infrastructure/database/schema.ts`; as migr
 ## Testes e evolução
 
 Vitest cobre domínio, aplicação, HTTP, PostgreSQL e app; Playwright usa Chromium real, fixtures isoladas, PostgreSQL temporário, um worker e artifacts. Novas features devem preservar contrato, parser, autorização, tenant isolation, UoW/concorrência, acessibilidade/mobile, OpenAPI, testes, coverage e documentação. M21 está concluída sem migration nova e sem storage de Release.
+
+## Chat participant lookup
+
+O Chat possui uma leitura tenant-aware específica para seleção de participante. A rota não amplia `users.read`: `ChatAuthorizationService` exige `chat.use`, valida o ator no tenant ativo e o repository retorna somente usuários ativos com membership ativa, nome e ID, limitados a 50. A criação da conversa continua validando novamente o participante no backend; o frontend não é autoridade.
 
 ## Backlog futuro pós-M21
 

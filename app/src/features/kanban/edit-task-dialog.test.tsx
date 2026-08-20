@@ -127,4 +127,23 @@ describe("EditTaskDialog", () => {
       expect.objectContaining({ assigneeId: "user-2", requisitionId: "req-b" }),
     );
   });
+
+  it("expõe os dois lookups quando as capabilities estão habilitadas", async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <EditTaskDialog
+          companyId="company-a"
+          task={task}
+          enableMemberLookup
+          enableRequisitionLookup
+        />
+      </QueryClientProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: /Editar tarefa/ }));
+    expect(screen.getByRole("button", { name: "Buscar responsável" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Buscar requisition" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Buscar requisition" }));
+    expect(screen.getByRole("dialog", { name: "Buscar Requisition" })).toBeInTheDocument();
+  });
 });

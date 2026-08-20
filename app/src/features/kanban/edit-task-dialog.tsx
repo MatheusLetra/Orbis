@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { IdLookupField } from "@/components/common/id-lookup-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsiveDialog } from "@/components/ui/responsive-dialog";
+import { createMemberLookup, createRequisitionLookup } from "@/features/lookups/lookup-adapters";
 import type { TaskCard } from "@/features/tasks/task-contracts";
 import { useUpdateTask } from "@/features/tasks/task-mutations";
 import type { TaskLookupMember, TaskLookupRequisition } from "@/features/tasks/task-queries";
@@ -18,11 +20,15 @@ export function EditTaskDialog({
   task,
   members = [],
   requisitions = [],
+  enableMemberLookup = false,
+  enableRequisitionLookup = false,
 }: {
   companyId: string;
   task: TaskCard;
   members?: TaskLookupMember[];
   requisitions?: TaskLookupRequisition[];
+  enableMemberLookup?: boolean;
+  enableRequisitionLookup?: boolean;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -154,38 +160,78 @@ export function EditTaskDialog({
               </select>
             </div>
             <div className="mt-4 grid gap-2">
-              <Label htmlFor={`edit-task-assignee-${task.id}`}>Responsável</Label>
-              <select
-                id={`edit-task-assignee-${task.id}`}
-                value={assigneeId}
-                onChange={(event) => setAssigneeId(event.target.value)}
-                disabled={updateTask.isPending}
-                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="">Sem responsável</option>
-                {members.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
+              {enableMemberLookup ? (
+                <IdLookupField
+                  label="Responsável"
+                  value={assigneeId}
+                  displayValue={
+                    members.find((member) => member.userId === assigneeId)?.name ?? null
+                  }
+                  lookup={createMemberLookup(companyId)}
+                  initialItems={members.map((member) => ({
+                    id: member.userId,
+                    label: member.name,
+                  }))}
+                  disabled={updateTask.isPending}
+                  onChange={(item) => setAssigneeId(item?.id ?? "")}
+                />
+              ) : (
+                <>
+                  <Label htmlFor={`edit-task-assignee-${task.id}`}>Responsável</Label>
+                  <select
+                    id={`edit-task-assignee-${task.id}`}
+                    value={assigneeId}
+                    onChange={(event) => setAssigneeId(event.target.value)}
+                    disabled={updateTask.isPending}
+                    className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">Sem responsável</option>
+                    {members.map((member) => (
+                      <option key={member.userId} value={member.userId}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
             <div className="mt-4 grid gap-2">
-              <Label htmlFor={`edit-task-requisition-${task.id}`}>Requisition</Label>
-              <select
-                id={`edit-task-requisition-${task.id}`}
-                value={requisitionId}
-                onChange={(event) => setRequisitionId(event.target.value)}
-                disabled={updateTask.isPending}
-                className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="">Sem Requisition</option>
-                {requisitions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    #{item.number} · {item.title}
-                  </option>
-                ))}
-              </select>
+              {enableRequisitionLookup ? (
+                <IdLookupField
+                  label="Requisition"
+                  value={requisitionId}
+                  displayValue={
+                    requisitions.find((item) => item.id === requisitionId)
+                      ? `#${requisitions.find((item) => item.id === requisitionId)?.number} · ${requisitions.find((item) => item.id === requisitionId)?.title}`
+                      : null
+                  }
+                  lookup={createRequisitionLookup(companyId)}
+                  initialItems={requisitions.map((item) => ({
+                    id: item.id,
+                    label: `#${item.number} · ${item.title}`,
+                  }))}
+                  disabled={updateTask.isPending}
+                  onChange={(item) => setRequisitionId(item?.id ?? "")}
+                />
+              ) : (
+                <>
+                  <Label htmlFor={`edit-task-requisition-${task.id}`}>Requisition</Label>
+                  <select
+                    id={`edit-task-requisition-${task.id}`}
+                    value={requisitionId}
+                    onChange={(event) => setRequisitionId(event.target.value)}
+                    disabled={updateTask.isPending}
+                    className="responsive-dialog-control h-9 rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">Sem Requisition</option>
+                    {requisitions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        #{item.number} · {item.title}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
           </main>
           <footer className="responsive-dialog-footer">

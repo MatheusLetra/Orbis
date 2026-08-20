@@ -100,3 +100,28 @@ Nenhum item está implementado ou aprovado. O runtime atual permanece HTTP-only,
 ## Regra de avanço
 
 Antes de iniciar uma milestone, ler o arquivo correspondente, validar código/testes/schema/OpenAPI e executar a auditoria automatizada em browser quando houver superfície aplicável. Registrar decisões, comandos reais, artifacts e pendências no handoff.
+
+## BUILD 1 - Lookup visual de membros
+
+Unidade técnica concluída, sem formalizar M22. O núcleo reutilizável `IdLookupField`/`RecordLookupDialog` foi criado em `app/src/components/common/` e integrado apenas ao campo `assigneeId` do `QuickTaskDialog` em `/kanban`.
+
+- Reutiliza `GET /companies/:companyId/members?search=`.
+- Não cria endpoint, migration ou alteração de contrato de backend.
+- Usa `AbortSignal`, query key tenant-aware, `users.read`, loading/error/empty/retry, seleção, cancelamento, limpeza e paginação por cursor.
+- Mantém entrada manual quando o lookup não está habilitado.
+- Não altera `requisitionId`, Edit Task, Reports, Timelines, Admin ou Auditoria; Chat foi integrado no BUILD 2 abaixo.
+
+Gates aprovados: 689 testes do app; coverage 95,58%/90,22%/95,84%/96,67% (statements/branches/functions/lines); lint, typecheck e build; `audit:m21` e auditoria global. Artifacts estão registrados em `docs/ai_handoff.md`.
+
+## BUILD 2 - Lookup visual de participante no Chat
+
+Unidade técnica concluída sem criar milestone M22. O formulário de criação de conversa em `/chat` usa o lookup visual compartilhado para pesquisar por nome e envia o `userId` selecionado no mesmo payload `participantId`.
+
+- Endpoint novo documentado em Scalar/OpenAPI: `GET /companies/:companyId/chat/participants?search=`.
+- A rota exige autenticação, `chat.use`, empresa ativa e membership ativa do ator; o `companyId` é validado pelo contexto autorizado.
+- O resultado é limitado a 50 e contém somente `userId`/`name` de usuários ativos com membership ativa no tenant.
+- `users.read` não é necessário nem concedido implicitamente. Sem `chat.use`, a UI mantém somente a digitação manual e o backend continua sendo a autoridade.
+- `IdLookupField`/`RecordLookupDialog` fornecem foco, debounce, AbortSignal, stale response, retry, vazio, seleção, limpeza, cancelamento, Escape, Tab/Shift+Tab, restauração de foco e troca de tenant.
+- Chat segue HTTP-only; Attachments, Releases e `commands/` não foram alterados.
+
+Gates aprovados: app 705/705 e API 1043/1043 com coverage acima dos thresholds; PostgreSQL real serial sem skips indevidos; lint, typecheck, builds, `tsc` raiz e diff-check; auditoria Chat, `audit:id-lookup` e Playwright global 65/65. Artifacts estão registrados no handoff.

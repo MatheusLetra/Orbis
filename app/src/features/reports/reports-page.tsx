@@ -3,9 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/app/layouts/app-shell";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
+import { IdLookupField } from "@/components/common/id-lookup-field";
 import { LoadingState } from "@/components/common/loading-state";
 import { Button } from "@/components/ui/button";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
+import { createMemberLookup, createRequisitionLookup } from "@/features/lookups/lookup-adapters";
 import { reportClient } from "./report-client";
 import {
   REPORT_PRIORITIES,
@@ -29,6 +32,7 @@ const field =
 
 export function ReportsPage() {
   const company = useActiveCompany();
+  const capabilities = useCompanyCapabilities(company.activeCompany?.id ?? null);
   const [filters, setFilters] = useState<TaskReportFilters>({});
   const [page, setPage] = useState(1);
   const [downloading, setDownloading] = useState(false);
@@ -111,6 +115,9 @@ export function ReportsPage() {
         </header>
         <Filters
           filters={filters}
+          companyId={company.activeCompany.id}
+          canLookupMembers={capabilities.data?.capabilities["users.read"] === true}
+          canLookupRequisitions={capabilities.data?.capabilities["requisitions.read"] === true}
           onChange={(next) => {
             setFilters(next);
             setPage(1);
@@ -151,9 +158,15 @@ export function ReportsPage() {
 
 function Filters({
   filters,
+  companyId,
+  canLookupMembers,
+  canLookupRequisitions,
   onChange,
 }: {
   filters: TaskReportFilters;
+  companyId: string;
+  canLookupMembers: boolean;
+  canLookupRequisitions: boolean;
   onChange: (value: TaskReportFilters) => void;
 }) {
   const set = (key: keyof TaskReportFilters, value: string) =>
@@ -179,22 +192,42 @@ function Filters({
             onChange={(e) => set("periodEnd", e.target.value)}
           />
         </label>
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          Requisition ID
-          <input
-            className={field}
+        {canLookupRequisitions ? (
+          <IdLookupField
+            label="Requisition"
             value={filters.requisitionId ?? ""}
-            onChange={(e) => set("requisitionId", e.target.value)}
+            displayValue={null}
+            lookup={createRequisitionLookup(companyId)}
+            onChange={(item) => set("requisitionId", item?.id ?? "")}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          Funcionário ID
-          <input
-            className={field}
+        ) : (
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Requisition ID
+            <input
+              className={field}
+              value={filters.requisitionId ?? ""}
+              onChange={(e) => set("requisitionId", e.target.value)}
+            />
+          </label>
+        )}
+        {canLookupMembers ? (
+          <IdLookupField
+            label="Funcionário"
             value={filters.employeeId ?? ""}
-            onChange={(e) => set("employeeId", e.target.value)}
+            displayValue={null}
+            lookup={createMemberLookup(companyId)}
+            onChange={(item) => set("employeeId", item?.id ?? "")}
           />
-        </label>
+        ) : (
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Funcionário ID
+            <input
+              className={field}
+              value={filters.employeeId ?? ""}
+              onChange={(e) => set("employeeId", e.target.value)}
+            />
+          </label>
+        )}
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Status
           <select

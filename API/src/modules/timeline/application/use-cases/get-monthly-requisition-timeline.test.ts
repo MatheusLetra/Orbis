@@ -150,6 +150,7 @@ describe("GetMonthlyRequisitionTimeline", () => {
       "title",
       "priority",
       "assigneeId",
+      "assigneeName",
       "startDate",
       "plannedDeliveryDate",
       "deliveredAt",

@@ -26,6 +26,8 @@ Usuários com capabilities administrativas possuem o painel em `/admin`. A sele�
 
 Na rota `/kanban`, abra **Nova tarefa** quando sua capability permitir. Informe título, **Data de início**, **Previsão de término** e prioridade. As datas são de calendário e permanecem no formato `AAAA-MM-DD`, sem deslocamento de fuso. A Task começa em **A Fazer**. Para editar, use a ação do card; Tasks concluídas são imutáveis. Para abrir o detalhe, use a ação de detalhes.
 
+Quando sua membership possuir `users.read`, o campo **Responsável** oferece uma lupa. Pesquise pelo nome, selecione o membro permitido e confirme a tarefa; o sistema mantém o ID real e mostra o nome selecionado. Use o botão de limpar para remover o responsável. Sem essa capability, o campo manual continua disponível e a API valida o ID e o tenant.
+
 As colunas são fixas: **A Fazer**, **Em Andamento**, **Pausado** e **Concluído**. Use as ações do card ou arraste para uma transição válida. O histórico aparece no detalhe. Transições inválidas, falta de permissão, Task de outro usuário ou Task concluída retornam erro.
 
 O detalhe permite ver dados, histórico, Attachments e horas. Ações de criação/edição/transição dependem das permissões resolvidas pelo backend e da empresa ativa. Em telas pequenas, o conteúdo do detalhe rola internamente.
@@ -80,7 +82,7 @@ Abra a central pelo cabeçalho. Ela lista notificações próprias, mostra não 
 
 ## Chat direto
 
-Em `/chat`, selecione um membro ativo e crie uma conversa. Envie texto de 1 a 5000 caracteres; Enter envia e Shift+Enter quebra linha. O histórico usa paginação por cursor e o marcador de leitura é por conversa. Só existem conversas diretas entre duas pessoas da mesma empresa. Não há edição, remoção, anexos, menções, tempo real ou polling.
+Em `/chat`, abra a lupa de **Participante**, pesquise pelo nome e selecione um membro ativo para criar uma conversa; a entrada manual por UUID continua disponível quando a busca visual não está autorizada. Envie texto de 1 a 5000 caracteres; Enter envia e Shift+Enter quebra linha. O histórico usa paginação por cursor e o marcador de leitura é por conversa. Só existem conversas diretas entre duas pessoas da mesma empresa. Não há edição, remoção, anexos, menções, tempo real ou polling.
 
 ## Releases
 

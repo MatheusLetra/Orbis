@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Navigate, useOutletContext } from "react-router-dom";
+import { IdLookupField } from "@/components/common/id-lookup-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { QuickTaskDialog } from "@/features/kanban/quick-task-dialog";
+import { createMemberLookup } from "@/features/lookups/lookup-adapters";
 import { adminClient } from "./admin-client";
 import {
   ADMIN_PERMISSIONS,
@@ -498,8 +500,11 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
   const detail = useAdminRequisition(companyId, open ? item.id : null);
   const members = useAdminMembers(companyId);
   const action = useAdminAction(companyId);
+  const [assigneeId, setAssigneeId] = useState("");
   const add = (data: FormData) =>
-    action.mutate(() => adminClient.addAssignee(companyId, item.id, value(data, "userId")));
+    action.mutate(() => adminClient.addAssignee(companyId, item.id, value(data, "userId")), {
+      onSuccess: () => setAssigneeId(""),
+    });
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
@@ -548,14 +553,18 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
           ))}
         </div>
         {capabilities["requisitions.update"] && (
-          <SelectField label="Adicionar responsável" name="userId" required>
-            <option value="">Selecione</option>
-            {members.data?.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.name}
-              </option>
-            ))}
-          </SelectField>
+          <IdLookupField
+            name="userId"
+            label="Adicionar responsável"
+            value={assigneeId}
+            displayValue={null}
+            lookup={createMemberLookup(companyId)}
+            initialItems={members.data
+              ?.filter((member) => member.isActive)
+              .map((member) => ({ id: member.userId, label: member.name }))}
+            required
+            onChange={(selected) => setAssigneeId(selected?.id ?? "")}
+          />
         )}
       </FormDialog>
       {capabilities["tasks.create"] && (
@@ -566,6 +575,8 @@ function RequisitionDetailButton({ item }: { item: Requisition }) {
           initialRequisitionId={item.id}
           members={members.data?.map((member) => ({ userId: member.userId, name: member.name }))}
           requisitions={[{ id: item.id, number: item.number, title: item.title }]}
+          enableMemberLookup={capabilities["users.read"] === true}
+          enableRequisitionLookup={capabilities["requisitions.read"] === true}
         />
       )}
     </>

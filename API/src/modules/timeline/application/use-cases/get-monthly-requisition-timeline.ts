@@ -118,6 +118,7 @@ function normalize(
     title: row.title,
     priority: row.priority,
     assigneeId: row.assigneeId,
+    assigneeName: row.assigneeName,
     startDate: row.startDate,
     plannedDeliveryDate: row.plannedDeliveryDate,
     deliveredAt: row.deliveredAt?.toISOString() ?? null,

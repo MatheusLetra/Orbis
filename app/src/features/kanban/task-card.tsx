@@ -20,6 +20,8 @@ export function TaskCard({
   companyId,
   members = [],
   requisitions = [],
+  enableMemberLookup = false,
+  enableRequisitionLookup = false,
 }: {
   task: TaskCardData;
   pending?: boolean;
@@ -29,6 +31,8 @@ export function TaskCard({
   companyId?: string;
   members?: TaskLookupMember[];
   requisitions?: TaskLookupRequisition[];
+  enableMemberLookup?: boolean;
+  enableRequisitionLookup?: boolean;
 }) {
   const actions = QUICK_TASK_ACTIONS[task.status];
   const draggable = useDraggable({
@@ -121,6 +125,8 @@ export function TaskCard({
             task={task}
             members={members}
             requisitions={requisitions}
+            enableMemberLookup={enableMemberLookup}
+            enableRequisitionLookup={enableRequisitionLookup}
           />
         </div>
       )}

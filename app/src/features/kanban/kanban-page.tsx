@@ -137,6 +137,10 @@ export function KanbanPage() {
           companyId={activeCompany.id}
           members={lookupsQuery.data?.members}
           requisitions={lookupsQuery.data?.requisitions}
+          enableMemberLookup={capabilitiesQuery.data?.capabilities["users.read"] === true}
+          enableRequisitionLookup={
+            capabilitiesQuery.data?.capabilities["requisitions.read"] === true
+          }
           canEdit={(task) => canEditTask(task, capabilitiesQuery.data, auth.user?.id)}
         />
         {selectedTask && (
@@ -192,6 +196,10 @@ function BoardHeader({
           canCreate={canCreate}
           members={lookupsQuery.data?.members}
           requisitions={lookupsQuery.data?.requisitions}
+          enableMemberLookup={capabilitiesQuery.data?.capabilities["users.read"] === true}
+          enableRequisitionLookup={
+            capabilitiesQuery.data?.capabilities["requisitions.read"] === true
+          }
         />
         <p className="text-sm text-muted-foreground">Visão por status</p>
       </div>

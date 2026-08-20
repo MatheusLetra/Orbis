@@ -3,9 +3,12 @@ import { useState } from "react";
 import { AppShell } from "@/app/layouts/app-shell";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
+import { IdLookupField } from "@/components/common/id-lookup-field";
 import { LoadingState } from "@/components/common/loading-state";
 import { Button } from "@/components/ui/button";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
+import { createMemberLookup } from "@/features/lookups/lookup-adapters";
 import {
   REQUISITION_PRIORITIES,
   REQUISITION_STATUSES,
@@ -24,6 +27,7 @@ const STATUS_LABELS = {
 
 export function YearlyTimelinePage() {
   const company = useActiveCompany();
+  const capabilities = useCompanyCapabilities(company.activeCompany?.id ?? null);
   const [year, setYear] = useState(String(new Date().getUTCFullYear()));
   const [filters, setFilters] = useState<YearlyFilters>({});
   const timeline = useYearlyTimeline(company.activeCompany?.id ?? null, year, filters);
@@ -69,7 +73,13 @@ export function YearlyTimelinePage() {
           </div>
           <YearNavigation year={year} onChange={setYear} />
         </header>
-        <Filters filters={filters} assigneeIds={assigneeIds} onChange={setFilters} />
+        <Filters
+          filters={filters}
+          companyId={company.activeCompany.id}
+          canLookupMembers={capabilities.data?.capabilities["users.read"] === true}
+          assigneeIds={assigneeIds}
+          onChange={setFilters}
+        />
         <p className="sr-only" role="status" aria-live="polite">
           {timeline.isPending
             ? "Carregando timeline anual"
@@ -134,10 +144,14 @@ function YearNavigation({ year, onChange }: { year: string; onChange: (year: str
 
 function Filters({
   filters,
+  companyId,
+  canLookupMembers,
   assigneeIds,
   onChange,
 }: {
   filters: YearlyFilters;
+  companyId: string;
+  canLookupMembers: boolean;
   assigneeIds: string[];
   onChange: (filters: YearlyFilters) => void;
 }) {
@@ -146,24 +160,34 @@ function Filters({
   return (
     <section className="my-6 rounded-xl border bg-card p-4" aria-label="Filtros da timeline anual">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-          Responsável
-          <select
-            className={selectClass}
-            aria-label="Responsável"
+        {canLookupMembers ? (
+          <IdLookupField
+            label="Responsável"
             value={filters.assigneeId ?? ""}
-            onChange={(event) =>
-              onChange({ ...filters, assigneeId: event.target.value || undefined })
-            }
-          >
-            <option value="">Todos</option>
-            {assigneeIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
+            displayValue={null}
+            lookup={createMemberLookup(companyId)}
+            onChange={(item) => onChange({ ...filters, assigneeId: item?.id || undefined })}
+          />
+        ) : (
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Responsável
+            <select
+              className={selectClass}
+              aria-label="Responsável"
+              value={filters.assigneeId ?? ""}
+              onChange={(event) =>
+                onChange({ ...filters, assigneeId: event.target.value || undefined })
+              }
+            >
+              <option value="">Todos</option>
+              {assigneeIds.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Status
           <select
@@ -292,7 +316,9 @@ function YearlyCard({ item }: { item: YearlyItem }) {
         <h3 className="text-sm font-medium">{item.title}</h3>
         <span className="text-xs text-muted-foreground">#{item.number}</span>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{item.assigneeId ?? "Sem responsável"}</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {item.assigneeName ?? item.assigneeId ?? "Sem responsável"}
+      </p>
       <div className="mt-2 grid gap-1 text-xs">
         <p>Início: {item.startDate ?? "Sem data"}</p>
         <p>Entrega: {item.plannedDeliveryDate ?? "Sem data"}</p>

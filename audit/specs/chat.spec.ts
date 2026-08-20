@@ -157,17 +157,26 @@ test.describe.serial("Chat M17 @chat", () => {
     const finishObservation = observePage(page, testInfo, [401, 409]);
     await login(page);
     await page.goto("/chat");
-    const participant = page.getByLabel("Iniciar conversa por ID do participante");
-    await participant.fill(fixture.developerAId);
+    const participant = page.getByRole("button", { name: "Buscar participante" });
+    await participant.click();
+    const lookup = page.getByRole("dialog", { name: "Buscar Participante" });
+    await expect(lookup.getByLabel("Busca")).toBeFocused();
+    await lookup.getByLabel("Busca").fill("Audit Developer");
+    await lookup.getByRole("option", { name: "Audit Developer" }).click();
+    await expect(page.getByText("Selecionado: Audit Developer", { exact: true })).toBeVisible();
     const created = page.waitForResponse((response) =>
       response.request().method() === "POST" && conversationsPath.test(new URL(response.url()).pathname) && response.status() === 201,
     );
     await page.getByRole("button", { name: "Criar", exact: true }).click();
-    await created;
+    const createdResponse = await created;
+    expect(createdResponse.request().postDataJSON()).toEqual({ participantId: fixture.developerAId });
     await expect(page.getByRole("heading", { name: "Audit Developer", level: 2 })).toBeVisible();
     await expect(page.getByText("Nenhuma mensagem ainda. Escreva a primeira.", { exact: true })).toBeVisible();
 
-    await participant.fill(fixture.developerAId);
+    await page.getByRole("button", { name: "Buscar participante" }).click();
+    const duplicateLookup = page.getByRole("dialog", { name: "Buscar Participante" });
+    await duplicateLookup.getByLabel("Busca").fill("Audit Developer");
+    await duplicateLookup.getByRole("option", { name: "Audit Developer" }).click();
     const duplicate = page.waitForResponse((response) =>
       response.request().method() === "POST" && conversationsPath.test(new URL(response.url()).pathname) && response.status() === 409,
     );

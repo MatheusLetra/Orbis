@@ -28,6 +28,7 @@ import { DrizzleCompanyCapacitySettingsRepository } from "@/modules/capacity/inf
 import { DrizzleDeveloperAvailabilityRepository } from "@/modules/capacity/infrastructure/repositories/drizzle-developer-availability-repository";
 import { ChatAuthorizationService } from "@/modules/chat/application/services/chat-authorization-service";
 import { CreateDirectConversation } from "@/modules/chat/application/use-cases/create-direct-conversation";
+import { ListChatParticipants } from "@/modules/chat/application/use-cases/list-chat-participants";
 import { ListConversations } from "@/modules/chat/application/use-cases/list-conversations";
 import { ListMessages } from "@/modules/chat/application/use-cases/list-messages";
 import { MarkConversationRead } from "@/modules/chat/application/use-cases/mark-conversation-read";
@@ -136,6 +137,7 @@ export interface OrbisModules {
   setDailyHoursPerDeveloper: SetDailyHoursPerDeveloper;
   permissionResolver: PermissionResolver;
   chat?: {
+    listParticipants: ListChatParticipants;
     createConversation: CreateDirectConversation;
     listConversations: ListConversations;
     listMessages: ListMessages;
@@ -353,6 +355,7 @@ export function buildModules(database: Database, env: AppEnv): OrbisModules {
     ),
     permissionResolver,
     chat: {
+      listParticipants: new ListChatParticipants(companyMemberLookupRepository, chatAuthorization),
       createConversation: new CreateDirectConversation(chatUnitOfWork, chatAuthorization),
       listConversations: new ListConversations(
         conversationRepository,

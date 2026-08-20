@@ -42,7 +42,12 @@ test.describe("Timeline mensal M15.1 @timeline-monthly", () => {
       await expect(page.getByText(formatMonth(period), { exact: true })).toBeVisible();
     }
     const filters = page.getByRole("region", { name: /Filtros da timeline mensal/i });
-    await selectAndWait(page, filters.getByLabel("Responsável"), fixture.thirdId);
+    const assigneeResponse = waitForMonthly(page, (url) => url.searchParams.get("assigneeId") === fixture.thirdId);
+    await filters.getByRole("button", { name: "Buscar responsável" }).click();
+    const lookup = page.getByRole("dialog", { name: "Buscar Responsável" });
+    await lookup.getByLabel("Busca").fill("Audit Third");
+    await lookup.getByRole("option", { name: "Audit Third" }).click();
+    await assigneeResponse;
     await selectAndWait(page, filters.getByLabel("Status"), "IN_PROGRESS");
     const empty = waitForMonthly(page, (url) => url.searchParams.get("priority") === "LOW");
     await filters.getByLabel("Prioridade").selectOption("LOW");

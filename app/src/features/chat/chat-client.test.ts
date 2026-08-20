@@ -22,6 +22,19 @@ describe("chatClient", () => {
     );
   });
 
+  it("consulta participantes do Chat por nome com AbortSignal", async () => {
+    const request = vi
+      .spyOn(apiClient, "request")
+      .mockResolvedValue([{ userId: "u-1", name: "Ana" }]);
+    const signal = new AbortController().signal;
+    await expect(chatClient.listParticipants("company/a", " Ana ", { signal })).resolves.toEqual([
+      { userId: "u-1", name: "Ana" },
+    ]);
+    expect(request).toHaveBeenCalledWith("/companies/company%2Fa/chat/participants?search=Ana", {
+      signal,
+    });
+  });
+
   it("envia bodies estritos e PATCH sem body", async () => {
     const request = vi
       .spyOn(apiClient, "request")

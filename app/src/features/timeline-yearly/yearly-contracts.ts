@@ -10,6 +10,7 @@ export interface YearlyItem {
   title: string;
   priority: RequisitionPriority;
   assigneeId: string | null;
+  assigneeName?: string | null;
   startDate: string | null;
   plannedDeliveryDate: string | null;
   deliveredAt: string | null;
@@ -78,7 +79,7 @@ export function parseYearlyTimeline(value: unknown): YearlyTimeline {
 function parseMonth(value: unknown): YearlyMonth {
   if (
     !record(value) ||
-    !only(value, [
+    !itemKeys(value, [
       "period",
       "requisitionCount",
       "countsByPriority",
@@ -114,12 +115,13 @@ function parseMonth(value: unknown): YearlyMonth {
 function parseItem(value: unknown): YearlyItem {
   if (
     !record(value) ||
-    !only(value, [
+    !itemKeys(value, [
       "requisitionId",
       "number",
       "title",
       "priority",
       "assigneeId",
+      "assigneeName",
       "startDate",
       "plannedDeliveryDate",
       "deliveredAt",
@@ -173,6 +175,14 @@ function nullableInstant(value: unknown) {
   return (
     value === null ||
     (typeof value === "string" && INSTANT.test(value) && !Number.isNaN(new Date(value).getTime()))
+  );
+}
+function itemKeys(value: Record<string, unknown>, keys: string[]) {
+  const required = keys.filter((key) => key !== "assigneeName");
+  const actual = Object.keys(value);
+  return (
+    (actual.length === required.length || actual.length === keys.length) &&
+    actual.every((key) => keys.includes(key))
   );
 }
 function record(value: unknown): value is Record<string, unknown> {

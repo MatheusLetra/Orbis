@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/common/error-state";
 import { LoadingState } from "@/components/common/loading-state";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useActiveCompany } from "@/features/companies/active-company-provider";
+import { useCompanyCapabilities } from "@/features/companies/capabilities-queries";
 import { useMarkConversationRead } from "./chat-mutations";
 import { orderedUniqueMessages, useConversations, useMessages } from "./chat-queries";
 import { ConversationList, conversationName } from "./conversation-list";
@@ -17,6 +18,7 @@ export function ChatPage() {
   const auth = useAuth();
   const companyId = company.activeCompany?.id ?? null;
   const currentUserId = auth.user?.id ?? "";
+  const capabilities = useCompanyCapabilities(companyId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const conversations = useConversations(companyId);
   const messages = useMessages(companyId, selectedId);
@@ -82,6 +84,7 @@ export function ChatPage() {
               conversations={conversations.data.items}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              enableParticipantLookup={capabilities.data?.capabilities["chat.use"] === true}
             />
             <section className="chat-thread" aria-labelledby="chat-thread-title">
               {!selectedId ? (

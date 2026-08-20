@@ -65,6 +65,25 @@ describe("ResponsiveDialog", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("ignora Escape originado em outro diálogo portalizado", () => {
+    const outerClose = vi.fn();
+    const innerClose = vi.fn();
+    render(
+      <>
+        <ResponsiveDialog open titleId="outer-title" onClose={outerClose}>
+          <h2 id="outer-title">Outer</h2>
+        </ResponsiveDialog>
+        <ResponsiveDialog open titleId="inner-title" onClose={innerClose}>
+          <h2 id="inner-title">Inner</h2>
+          <button type="button">Inner control</button>
+        </ResponsiveDialog>
+      </>,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: "Inner control" }), { key: "Escape" });
+    expect(outerClose).not.toHaveBeenCalled();
+    expect(innerClose).toHaveBeenCalledOnce();
+  });
+
   it("acompanha resize/scroll do visual viewport e remove listeners", () => {
     const listeners = new Map<string, () => void>();
     const viewport = {
@@ -93,5 +112,29 @@ describe("ResponsiveDialog", () => {
     unmount();
     expect(viewport.removeEventListener).toHaveBeenCalledWith("resize", listeners.get("resize"));
     expect(viewport.removeEventListener).toHaveBeenCalledWith("scroll", listeners.get("scroll"));
+  });
+
+  it("ignora teclas sem navegação quando não há controles focáveis", () => {
+    const onClose = vi.fn();
+    render(
+      <ResponsiveDialog open titleId="title" onClose={onClose}>
+        <h2 id="title">Dialog</h2>
+      </ResponsiveDialog>,
+    );
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Enter" });
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("fecha quando Escape é emitido fora do conteúdo do modal", () => {
+    const onClose = vi.fn();
+    render(
+      <ResponsiveDialog open titleId="title" onClose={onClose}>
+        <h2 id="title">Dialog</h2>
+      </ResponsiveDialog>,
+    );
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

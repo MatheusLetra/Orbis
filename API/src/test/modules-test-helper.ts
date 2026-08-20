@@ -23,6 +23,7 @@ import { BusinessCalendar } from "@/modules/capacity/domain/services/business-ca
 import { CapacityCalculator } from "@/modules/capacity/domain/services/capacity-calculator";
 import { ChatAuthorizationService } from "@/modules/chat/application/services/chat-authorization-service";
 import { CreateDirectConversation } from "@/modules/chat/application/use-cases/create-direct-conversation";
+import { ListChatParticipants } from "@/modules/chat/application/use-cases/list-chat-participants";
 import { ListConversations } from "@/modules/chat/application/use-cases/list-conversations";
 import { ListMessages } from "@/modules/chat/application/use-cases/list-messages";
 import { MarkConversationRead } from "@/modules/chat/application/use-cases/mark-conversation-read";
@@ -286,6 +287,7 @@ class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupReposi
   async listActiveByCompany(
     companyId: string,
     search?: string,
+    limit = 50,
   ): Promise<{ userId: string; name: string }[]> {
     const normalized = search?.toLocaleLowerCase();
     const companyMemberships: Membership[] = await this.memberships.listByCompany(companyId);
@@ -300,10 +302,11 @@ class InMemoryCompanyMemberLookupRepository implements CompanyMemberLookupReposi
     return entries
       .filter(
         ({ user }) =>
-          user !== null &&
+          user?.isActive &&
           (normalized === undefined || user.name.toLocaleLowerCase().includes(normalized)),
       )
-      .map(({ membership, user }) => ({ userId: membership.userId, name: user?.name ?? "" }));
+      .map(({ membership, user }) => ({ userId: membership.userId, name: user?.name ?? "" }))
+      .slice(0, limit);
   }
 
   async listMembershipsByCompany(companyId: string) {
@@ -501,6 +504,10 @@ export function buildTestModules(
     ),
     permissionResolver,
     chat: {
+      listParticipants: new ListChatParticipants(
+        new InMemoryCompanyMemberLookupRepository(memberships, users),
+        chatAuthorization,
+      ),
       createConversation: new CreateDirectConversation(chatUnitOfWork, chatAuthorization),
       listConversations: new ListConversations(
         conversations,

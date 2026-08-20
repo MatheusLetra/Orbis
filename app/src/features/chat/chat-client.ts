@@ -1,5 +1,6 @@
 import { apiClient, type RequestOptions } from "@/lib/http/api-client";
 import {
+  parseChatParticipantList,
   parseConversation,
   parseConversationList,
   parseMessage,
@@ -15,6 +16,17 @@ export const chatClient = {
     return apiClient
       .request<unknown>(`/companies/${encodeURIComponent(companyId)}/conversations`, options)
       .then(parseConversationList);
+  },
+
+  listParticipants(companyId: string, search: string, options?: SignalOptions) {
+    const query = new URLSearchParams();
+    if (search.trim()) query.set("search", search.trim());
+    return apiClient
+      .request<unknown>(
+        `/companies/${encodeURIComponent(companyId)}/chat/participants${query.toString() ? `?${query}` : ""}`,
+        options,
+      )
+      .then(parseChatParticipantList);
   },
 
   createConversation(companyId: string, participantId: string, options?: SignalOptions) {

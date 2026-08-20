@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, gte, isNull, lt, lte, or } from "drizzle-orm";
 
 import type { Database } from "@/infrastructure/database/client";
-import { requisitions } from "@/infrastructure/database/schema";
+import { memberships, requisitions, users } from "@/infrastructure/database/schema";
 import type {
   MonthlyRequisitionTimelineQuery,
   MonthlyRequisitionTimelineReadRepository,
@@ -48,12 +48,22 @@ export class DrizzleMonthlyRequisitionTimelineReadRepository
         title: requisitions.title,
         priority: requisitions.priority,
         assigneeId: requisitions.responsibleId,
+        assigneeName: users.name,
         startDate: requisitions.startDate,
         plannedDeliveryDate: requisitions.plannedDeliveryDate,
         deliveredAt: requisitions.deliveredAt,
         estimatedHours: requisitions.estimatedHours,
       })
       .from(requisitions)
+      .leftJoin(
+        memberships,
+        and(
+          eq(memberships.companyId, requisitions.companyId),
+          eq(memberships.userId, requisitions.responsibleId),
+          eq(memberships.isActive, true),
+        ),
+      )
+      .leftJoin(users, and(eq(users.id, requisitions.responsibleId), eq(users.isActive, true)))
       .where(and(...conditions))
       .orderBy(
         asc(requisitions.startDate),

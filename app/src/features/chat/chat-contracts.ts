@@ -92,6 +92,11 @@ export function parseConversationList(value: unknown): ConversationListOutput {
   return { items: value.items.map(parseConversation) };
 }
 
+export function parseChatParticipantList(value: unknown): ChatParticipant[] {
+  if (!Array.isArray(value)) throw new Error("Contrato de participantes do Chat inválido");
+  return value.map(parseParticipant);
+}
+
 export function parseMessagePage(value: unknown): MessagePageOutput {
   if (
     !isRecord(value) ||

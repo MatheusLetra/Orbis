@@ -299,6 +299,8 @@ Chat interno por empresa.
 
 M17 implementa conversas diretas entre exatamente dois membros ativos, uma conversa por par/tenant, mensagens persistidas, histórico por cursor e leitura por membro. O acesso exige `chat.use`, membership ativa e participação na conversa.
 
+O formulário de criação usa `GET /companies/:companyId/chat/participants?search=` para lookup visual por nome. A leitura exige apenas `chat.use`, retorna até 50 usuários ativos com membership ativa no tenant e mantém o `userId` selecionado no payload `participantId`; `users.read` não é concedido implicitamente.
+
 PostgreSQL é a fonte de verdade. O transporte implementado é somente HTTP explícito; não há WebSocket, polling, EventSource, Redis, presença ou refresh automático. Tempo real e pub/sub permanecem evoluções futuras condicionadas a necessidade concreta.
 
 ## 12. Segurança

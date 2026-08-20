@@ -1,8 +1,19 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { membersClient } from "@/features/members/members-client";
 import type { YearlyTimeline } from "./yearly-contracts";
 import { YearlyTimelinePage } from "./yearly-page";
+
+const renderPage = () =>
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <YearlyTimelinePage />
+    </QueryClientProvider>,
+  );
 
 const companyState = vi.hoisted(() => ({
   status: "ready",
@@ -15,8 +26,14 @@ const queryState = vi.hoisted(() => ({
   refetch: vi.fn(),
 }));
 const querySpy = vi.hoisted(() => vi.fn(() => queryState));
+const capabilityState = vi.hoisted(() => ({ members: false }));
 vi.mock("@/features/companies/active-company-provider", () => ({
   useActiveCompany: () => companyState,
+}));
+vi.mock("@/features/companies/capabilities-queries", () => ({
+  useCompanyCapabilities: () => ({
+    data: { capabilities: { "users.read": capabilityState.members } },
+  }),
 }));
 vi.mock("./yearly-queries", () => ({ useYearlyTimeline: querySpy }));
 vi.mock("@/app/layouts/app-shell", () => ({
@@ -45,6 +62,7 @@ describe("YearlyTimelinePage", () => {
     vi.clearAllMocks();
     queryState.isPending = false;
     queryState.isError = false;
+    capabilityState.members = false;
     queryState.data = {
       ...yearly,
       months: yearly.months.map((month, index) =>
@@ -88,7 +106,7 @@ describe("YearlyTimelinePage", () => {
     };
   });
   it("exibe doze meses, expansão e navegação", async () => {
-    render(<YearlyTimelinePage />);
+    renderPage();
     expect(screen.getByRole("heading", { name: "Timeline anual" })).toBeInTheDocument();
     expect(screen.getAllByText(/2026/).length).toBeGreaterThanOrEqual(12);
     expect(screen.getByText("Anual")).toBeInTheDocument();
@@ -121,7 +139,7 @@ describe("YearlyTimelinePage", () => {
   });
   it("exibe loading, erro e vazio", async () => {
     queryState.isPending = true;
-    const view = render(<YearlyTimelinePage />);
+    const view = renderPage();
     expect(screen.getByText("Carregando timeline anual...")).toBeInTheDocument();
     queryState.isPending = false;
     queryState.isError = true;
@@ -134,5 +152,15 @@ describe("YearlyTimelinePage", () => {
     expect(
       screen.getByRole("heading", { name: "Nenhuma requisição neste ano" }),
     ).toBeInTheDocument();
+  });
+  it("abre o lookup de responsável com users.read", async () => {
+    capabilityState.members = true;
+    vi.spyOn(membersClient, "list").mockResolvedValue([{ userId: "user-a", name: "Ana" }]);
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Buscar responsável" }));
+    expect(screen.getByRole("dialog", { name: "Buscar Responsável" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: "Ana" }));
+    await user.click(screen.getByRole("button", { name: "Limpar responsável" }));
   });
 });

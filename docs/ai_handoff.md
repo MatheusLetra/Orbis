@@ -150,3 +150,31 @@ Nenhum item deste backlog possui implementação, endpoint, migration, dependên
 ## Próximo passo recomendado
 
 Definir formalmente uma futura milestone antes de implementar qualquer item acima. Não tratar o backlog como bloqueio do sistema atual e não criar fluxo MASTER, ativação/inativação, reset de senha, status administrativo de Requisition ou storage/download binário de Release sem contrato aprovado.
+
+## BUILD 1 - Lookup visual de membros
+
+BUILD 1 foi concluído como unidade técnica, sem criar milestone M22. O app adicionou `IdLookupField`, `RecordLookupDialog` e o adapter `createMemberLookup`, integrando somente o `assigneeId` do `QuickTaskDialog` no `/kanban`.
+
+- Endpoint reutilizado: `GET /companies/:companyId/members?search=`, sem endpoint novo e sem migration.
+- Capability: a lupa só é habilitada com `users.read`; o campo manual permanece disponível sem essa capability.
+- Segurança: `companyId` vem do tenant ativo; a query key inclui entidade, tenant e capability; React Query propaga `AbortSignal` e protege respostas stale.
+- Estados cobertos: loading, erro, retry, vazio, seleção, cancelamento, limpeza, paginação por cursor e registros desabilitados.
+- `ResponsiveDialog` passou a ignorar Escape somente quando o alvo está dentro de outro diálogo portalizado, preservando Escape no `body`.
+- `requisitionId`, Edit Task, Admin, Reports, Timelines, Chat e Auditoria continuam fora desta unidade.
+
+Validação final: app 689/689 testes, coverage 95,58% statements, 90,22% branches, 95,84% functions e 96,67% lines; lint, typecheck e build aprovados. `audit:m21` passou em `artifacts/browser-audit/2026-08-20T20-27-55-504Z-c811c7ff-38fa-4d2f-9830-0127dda0ffa0/`. A auditoria dedicada `audit:id-lookup` passou em `artifacts/browser-audit/2026-08-20T20-34-13-083Z-d25a193f-7187-49cc-a10e-7cd6ad9b7a79/` e a auditoria global passou em `artifacts/browser-audit/2026-08-20T20-34-34-006Z-4330214c-e105-4d20-9c3a-a49b3d2d8a1b/`.
+
+Próximo BUILD: integrar `requisitionId` e Edit Task somente após confirmar limites, status selecionáveis e política de registros inativos.
+
+## BUILD 2 - Lookup visual de participante no Chat
+
+BUILD 2 foi concluído como unidade técnica, sem formalizar M22. O Chat agora usa `IdLookupField`/`RecordLookupDialog` para selecionar o participante por nome e manter o `userId` real no payload de criação da conversa.
+
+- Foi criado `GET /companies/:companyId/chat/participants?search=` com limite de 50, pois o endpoint de membros exige `users.read`.
+- A rota exige autenticação e `chat.use`; valida empresa ativa, membership ativa e contexto tenant-aware. Nenhuma permissão `users.read` foi concedida implicitamente.
+- A consulta retorna somente `userId` e `name` de usuários ativos com membership ativa dentro do `actor.companyId`.
+- Sem `chat.use`, a UI mantém a digitação manual já existente; o backend continua sendo a autoridade sobre o participante.
+- O componente compartilhado fornece nome amigável, limpeza, cancelamento, foco, debounce, loading, erro/retry, vazio, AbortSignal, stale protection, teclado e troca de tenant.
+- Chat permanece HTTP-only. Attachments, Releases, Notifications CHAT_MESSAGE, WebSocket, polling, SSE, Redis e `commands/` não foram alterados.
+
+Validação final: app 705/705 testes, coverage 95,67% statements, 90,10% branches, 95,81% functions e 96,78% lines; API 1043/1043 testes com PostgreSQL real serial, sem skips indevidos, coverage 96,60%/90,05%/97,26%/97,71%. Lint, typecheck, builds, `npx tsc -p tsconfig.json --noEmit` e `git diff --check` passaram. Chat: `artifacts/browser-audit/2026-08-20T22-08-43-596Z-7a7cd861-bb8a-41a4-a6b2-949547ecdaa4/`; `audit:id-lookup`: `artifacts/browser-audit/2026-08-20T22-10-13-360Z-b15bfe27-694b-43a0-b58f-e7d48d8e9dc2/`; global 65/65: `artifacts/browser-audit/2026-08-20T22-13-28-009Z-959d212c-f4c5-402e-b8f1-b173c61195ca/`.

@@ -60,6 +60,7 @@ const monthlyItem = {
     title: { type: "string" },
     priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
     assigneeId: { type: ["string", "null"], format: "uuid" },
+    assigneeName: { type: ["string", "null"] },
     startDate: { type: ["string", "null"], format: "date" },
     plannedDeliveryDate: { type: ["string", "null"], format: "date" },
     deliveredAt: { type: ["string", "null"], format: "date-time" },

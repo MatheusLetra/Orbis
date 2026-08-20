@@ -23,6 +23,11 @@ export function ResponsiveDialog({
     const previousOverflow = document.body.style.overflow;
     const handleDocumentKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        const targetModal =
+          event.target instanceof Element ? event.target.closest(".responsive-dialog-modal") : null;
+        if (targetModal && targetModal !== modalRef.current) {
+          return;
+        }
         event.preventDefault();
         onClose();
       }

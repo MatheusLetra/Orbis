@@ -1,7 +1,8 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { membersClient } from "@/features/members/members-client";
 import { createQueryClient } from "@/lib/query/query-client";
 import { QuickTaskDialog } from "./quick-task-dialog";
 
@@ -34,6 +35,7 @@ describe("QuickTaskDialog", () => {
     mutationState.isSuccess = false;
     mutationState.error = null;
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it("oculta a ação sem tasks.create e abre com foco no título", async () => {
     const user = userEvent.setup();
@@ -143,6 +145,38 @@ describe("QuickTaskDialog", () => {
         startDate: "2026-08-20",
         plannedEndDate: "2026-08-25",
       }),
+    );
+  });
+
+  it("usa a busca server-side de membros quando users.read está habilitado", async () => {
+    const user = userEvent.setup();
+    const list = vi
+      .spyOn(membersClient, "list")
+      .mockResolvedValue([{ userId: "user-a", name: "Ana" }]);
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <QuickTaskDialog
+          companyId="company-a"
+          canCreate
+          enableMemberLookup
+          enableRequisitionLookup
+          members={[{ userId: "user-a", name: "Ana" }]}
+        />
+      </QueryClientProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Nova tarefa" }));
+    await user.click(screen.getByRole("button", { name: "Buscar responsável" }));
+    await user.click(await screen.findByRole("option", { name: "Ana" }));
+    expect(screen.getByRole("button", { name: "Buscar requisition" })).toBeEnabled();
+    await user.type(screen.getByLabelText("Título"), "Com lookup");
+    await user.click(screen.getByRole("button", { name: "Criar tarefa" }));
+    expect(list).toHaveBeenCalledWith(
+      "company-a",
+      { search: "" },
+      { signal: expect.any(AbortSignal) },
+    );
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ assigneeId: "user-a", title: "Com lookup" }),
     );
   });
 

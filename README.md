@@ -19,6 +19,8 @@ Este README é o índice operacional. Os procedimentos completos estão em [`doc
 - M20: concluída.
 - M21: concluída e aprovada após os gates de backend, PostgreSQL real, frontend e browser.
 - Pós-M21: correções de permissões, salvamento de Requisitions, Tasks vinculadas, datas de calendário em Tasks e navegação concluídas sem alterar `DONE` terminal.
+- BUILD 1 de lookup visual: lupa pesquisável para `assigneeId` no Quick Task, usando membros autorizados do tenant.
+- BUILD 2 de lookup visual: participante do Chat pesquisável por nome com `chat.use`, tenant isolation e payload `participantId` preservado.
 
 O estado detalhado e as decisões atuais estão em [`docs/ai_handoff.md`](docs/ai_handoff.md). O roadmap está em [`docs/PLANO-IMPLEMENTACAO.md`](docs/PLANO-IMPLEMENTACAO.md).
 
@@ -162,3 +164,5 @@ Limites relevantes: upload de Attachment até 10 MB; TimeEntry de 1 a 1440 minut
 ## Contribuição e auditoria
 
 Mudanças devem preservar contratos, autorização, tenant isolation, Attachments e `artifactLocation`. Atualize o plano, a documentação relevante e os testes. Antes de avançar uma milestone, execute a auditoria automatizada obrigatória em browser e registre o resultado. M21 foi concluída; a próxima milestone ainda depende de definição formal.
+
+O lookup visual reutiliza `GET /companies/:companyId/members?search=` quando `users.read` está presente e `GET /companies/:companyId/chat/participants?search=` quando `chat.use` está presente. `requisitionId`, Edit Task, Reports, Timelines e Auditoria permanecem integrados conforme os builds registrados no handoff.

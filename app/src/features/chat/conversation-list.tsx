@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { IdLookupField } from "@/components/common/id-lookup-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createChatParticipantLookup } from "@/features/lookups/lookup-adapters";
 import type { ConversationOutput } from "./chat-contracts";
 import { useCreateConversation } from "./chat-mutations";
 
@@ -12,6 +14,7 @@ interface ConversationListProps {
   conversations: ConversationOutput[];
   selectedId: string | null;
   onSelect: (conversationId: string) => void;
+  enableParticipantLookup?: boolean;
 }
 
 export function ConversationList({
@@ -20,14 +23,17 @@ export function ConversationList({
   conversations,
   selectedId,
   onSelect,
+  enableParticipantLookup = false,
 }: ConversationListProps) {
   const [participantId, setParticipantId] = useState("");
+  const [participantName, setParticipantName] = useState<string | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
   const createConversation = useCreateConversation(companyId);
 
   useEffect(() => {
     if (!createConversation.isSuccess) return;
     setParticipantId("");
+    setParticipantName(null);
     onSelect(createConversation.data.id);
     createConversation.reset();
   }, [createConversation.data, createConversation.isSuccess, createConversation.reset, onSelect]);
@@ -51,21 +57,41 @@ export function ConversationList({
         <span>{conversations.length}</span>
       </div>
       <form className="chat-create-form" onSubmit={submit} noValidate>
-        <label htmlFor="chat-participant-id">Iniciar conversa por ID do participante</label>
-        <div className="chat-create-row">
-          <Input
-            id="chat-participant-id"
+        {enableParticipantLookup ? (
+          <IdLookupField
+            label="Participante"
             value={participantId}
-            placeholder="00000000-0000-0000-0000-000000000000"
-            autoComplete="off"
+            displayValue={participantName}
+            placeholder="Informe ou selecione um ID"
+            lookup={createChatParticipantLookup(companyId)}
             disabled={createConversation.isPending}
-            aria-describedby="chat-participant-help chat-create-feedback"
-            aria-invalid={Boolean(validation || createConversation.isError)}
-            onChange={(event) => {
-              setParticipantId(event.target.value);
+            onChange={(item) => {
+              setParticipantId(item?.id ?? "");
+              setParticipantName(item?.label ?? null);
               setValidation(null);
             }}
           />
+        ) : (
+          <label htmlFor="chat-participant-id">Iniciar conversa por ID do participante</label>
+        )}
+        {!enableParticipantLookup && (
+          <div className="chat-create-row">
+            <Input
+              id="chat-participant-id"
+              value={participantId}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              autoComplete="off"
+              disabled={createConversation.isPending}
+              aria-describedby="chat-participant-help chat-create-feedback"
+              aria-invalid={Boolean(validation || createConversation.isError)}
+              onChange={(event) => {
+                setParticipantId(event.target.value);
+                setValidation(null);
+              }}
+            />
+          </div>
+        )}
+        <div className="chat-create-row">
           <Button className="chat-target" type="submit" disabled={createConversation.isPending}>
             {createConversation.isPending ? "Criando..." : "Criar"}
           </Button>

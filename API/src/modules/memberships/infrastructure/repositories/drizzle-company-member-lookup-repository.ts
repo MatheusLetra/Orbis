@@ -11,8 +11,16 @@ import type {
 export class DrizzleCompanyMemberLookupRepository implements CompanyMemberLookupRepository {
   constructor(private readonly db: Database) {}
 
-  async listActiveByCompany(companyId: string, search?: string): Promise<CompanyMemberLookup[]> {
-    const conditions = [eq(memberships.companyId, companyId), eq(memberships.isActive, true)];
+  async listActiveByCompany(
+    companyId: string,
+    search?: string,
+    limit = 50,
+  ): Promise<CompanyMemberLookup[]> {
+    const conditions = [
+      eq(memberships.companyId, companyId),
+      eq(memberships.isActive, true),
+      eq(users.isActive, true),
+    ];
     const normalizedSearch = search?.trim();
     if (normalizedSearch) {
       conditions.push(
@@ -25,7 +33,8 @@ export class DrizzleCompanyMemberLookupRepository implements CompanyMemberLookup
       .from(memberships)
       .innerJoin(users, eq(users.id, memberships.userId))
       .where(and(...conditions))
-      .orderBy(asc(users.name), asc(users.id));
+      .orderBy(asc(users.name), asc(users.id))
+      .limit(limit);
 
     return rows;
   }

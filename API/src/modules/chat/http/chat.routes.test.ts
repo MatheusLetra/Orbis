@@ -105,6 +105,39 @@ describe("chat HTTP/OpenAPI", () => {
     await app.close();
   });
 
+  it("lista participantes ativos por nome usando somente chat.use e o tenant ativo", async () => {
+    const app = await buildApp({ logger: false, modules });
+    const result = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY}/chat/participants?search=Bia`,
+      headers: { authorization },
+    });
+    expect(result.statusCode).toBe(200);
+    expect(result.json()).toEqual([{ userId: OTHER, name: "Bia" }]);
+
+    const inactive = User.create({
+      email: "inactive-chat@orbis.dev",
+      name: "Bia Inativa",
+      passwordHash: "x",
+    });
+    inactive.deactivate();
+    await modules.repositories.users.create(inactive);
+    const membership = Membership.create({
+      companyId: COMPANY,
+      userId: inactive.id,
+      position: "developer",
+    });
+    membership.changePermissions(["chat.use"]);
+    await modules.repositories.memberships.create(membership);
+    const excluded = await app.inject({
+      method: "GET",
+      url: `/companies/${COMPANY}/chat/participants?search=Bia`,
+      headers: { authorization },
+    });
+    expect(excluded.json()).toEqual([{ userId: OTHER, name: "Bia" }]);
+    await app.close();
+  });
+
   it("rejeita payload/query/cursor extras e duplicata com os status contratuais", async () => {
     const app = await buildApp({ logger: false, modules });
     const request = () =>
@@ -367,16 +400,24 @@ describe("chat HTTP/OpenAPI", () => {
     await app.close();
   });
 
-  it("publica schemas sem campos internos e somente respostas aplicáveis nos cinco endpoints", async () => {
+  it("publica schemas sem campos internos e somente respostas aplicáveis nos seis endpoints", async () => {
     const app = await buildApp({ logger: false, modules });
     await app.ready();
     const paths = app.swagger().paths;
     const collection = paths["/companies/{companyId}/conversations"];
     const messages = paths["/companies/{companyId}/conversations/{conversationId}/messages"];
     const read = paths["/companies/{companyId}/conversations/{conversationId}/read"];
+    const participants = paths["/companies/{companyId}/chat/participants"];
     expect(collection).toMatchObject({ post: expect.any(Object), get: expect.any(Object) });
     expect(messages).toMatchObject({ post: expect.any(Object), get: expect.any(Object) });
     expect(read).toMatchObject({ patch: expect.any(Object) });
+    expect(participants).toMatchObject({ get: expect.any(Object) });
+    expect(Object.keys(participants?.get?.responses ?? {}).sort()).toEqual([
+      "200",
+      "400",
+      "401",
+      "403",
+    ]);
     expect(Object.keys(collection?.post?.responses ?? {}).sort()).toEqual([
       "201",
       "400",
@@ -407,7 +448,7 @@ describe("chat HTTP/OpenAPI", () => {
     await app.close();
   });
 
-  it("exige autenticação e chat.use nos cinco endpoints", async () => {
+  it("exige autenticação e chat.use nos seis endpoints", async () => {
     const app = await buildApp({ logger: false, modules });
     const conversationId = crypto.randomUUID();
     const requests = [
@@ -417,6 +458,7 @@ describe("chat HTTP/OpenAPI", () => {
         payload: { participantId: OTHER },
       },
       { method: "GET", url: `/companies/${COMPANY}/conversations` },
+      { method: "GET", url: `/companies/${COMPANY}/chat/participants?search=Bia` },
       { method: "GET", url: `/companies/${COMPANY}/conversations/${conversationId}/messages` },
       {
         method: "POST",

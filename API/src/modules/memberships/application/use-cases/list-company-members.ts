@@ -44,6 +44,6 @@ export class ListCompanyMembers
       });
     }
 
-    return this.repository.listActiveByCompany(input.actor.companyId, parsed.data.search);
+    return this.repository.listActiveByCompany(input.actor.companyId, parsed.data.search, 50);
   }
 }

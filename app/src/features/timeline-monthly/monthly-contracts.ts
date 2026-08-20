@@ -10,6 +10,7 @@ export interface MonthlyItem {
   title: string;
   priority: RequisitionPriority;
   assigneeId: string | null;
+  assigneeName?: string | null;
   startDate: string | null;
   plannedDeliveryDate: string | null;
   deliveredAt: string | null;
@@ -47,6 +48,7 @@ const ITEM_KEYS = [
   "title",
   "priority",
   "assigneeId",
+  "assigneeName",
   "startDate",
   "plannedDeliveryDate",
   "deliveredAt",
@@ -101,7 +103,7 @@ export function parseMonthlyTimeline(value: unknown): MonthlyTimeline {
 function parseMonthlyItem(value: unknown): MonthlyItem {
   if (
     !isRecord(value) ||
-    !hasOnlyKeys(value, ITEM_KEYS) ||
+    !hasItemKeys(value) ||
     typeof value.requisitionId !== "string" ||
     !Number.isInteger(value.number) ||
     typeof value.title !== "string" ||
@@ -118,6 +120,15 @@ function parseMonthlyItem(value: unknown): MonthlyItem {
     return invalid();
   }
   return value as unknown as MonthlyItem;
+}
+
+function hasItemKeys(value: Record<string, unknown>): boolean {
+  const keys = Object.keys(value);
+  const required = ITEM_KEYS.filter((key) => key !== "assigneeName");
+  return (
+    (keys.length === required.length || keys.length === ITEM_KEYS.length) &&
+    keys.every((key) => ITEM_KEYS.includes(key as (typeof ITEM_KEYS)[number]))
+  );
 }
 
 function isIndicators(value: unknown): value is MonthlyIndicators {

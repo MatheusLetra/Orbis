@@ -23,6 +23,12 @@ Fluxo backend: HTTP/parser/schema -> use case -> domain -> repository port -> Dr
 - Kanban: quatro colunas fixas, sem Board/Column persistidos ou reorder.
 - Capacity: `dailyCapacity = developers * dailyHours`; previsão usa dias úteis e `Math.ceil` para avanço, com estimativa explícita; a simulação não persiste.
 - TimeEntry: duração manual de 1 a 1440 minutos; separado de pausa e estimativa.
+
+### Lookup visual por ID
+
+O app possui `IdLookupField` e `RecordLookupDialog` em `app/src/components/common/id-lookup-field.tsx`. Adapters devem fornecer `entity`, `companyId`, `capability`, query key tenant-aware e uma função de busca que receba `AbortSignal` e retorne `{ items, nextCursor }`.
+
+O BUILD 1 integra somente `assigneeId` no `QuickTaskDialog` usando `GET /companies/:companyId/members?search=` e `users.read`. Não adicionar lookup para `companyId`, IDs técnicos, relações derivadas ou entidades sem listagem segura. Novos adapters devem respeitar tenant ativo, capability, limite/cursor, registros ativos e proteção contra respostas stale.
 - Cursor: chat e audit usam cursores opacos; relatórios JSON são paginados e CSV tem teto de 10.000 Tasks.
 - Readiness: `/health/ready` consulta banco e retorna 503 quando indisponível; liveness não depende do banco.
 
@@ -105,6 +111,7 @@ GET /companies/:companyId/notifications
 PATCH /companies/:companyId/notifications/:notificationId/read
 GET /companies/:companyId/notification-preferences
 PATCH /companies/:companyId/notification-preferences
+GET /companies/:companyId/chat/participants?search=
 GET /companies/:companyId/conversations
 POST /companies/:companyId/conversations
 GET /companies/:companyId/conversations/:conversationId/messages

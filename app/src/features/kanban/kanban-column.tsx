@@ -16,6 +16,8 @@ export function KanbanColumn({
   companyId,
   members,
   requisitions,
+  enableMemberLookup,
+  enableRequisitionLookup,
 }: {
   label: string;
   status: TaskStatus;
@@ -28,6 +30,8 @@ export function KanbanColumn({
   companyId?: string;
   members?: TaskLookupMember[];
   requisitions?: TaskLookupRequisition[];
+  enableMemberLookup?: boolean;
+  enableRequisitionLookup?: boolean;
 }) {
   const droppable = useDroppable({ id: `column:${status}`, data: { status } });
   return (
@@ -59,6 +63,8 @@ export function KanbanColumn({
               companyId={companyId}
               members={members}
               requisitions={requisitions}
+              enableMemberLookup={enableMemberLookup}
+              enableRequisitionLookup={enableRequisitionLookup}
             />
           ))
         ) : (

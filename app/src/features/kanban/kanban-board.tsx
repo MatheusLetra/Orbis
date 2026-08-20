@@ -27,6 +27,8 @@ export function KanbanBoard({
   companyId,
   members,
   requisitions,
+  enableMemberLookup,
+  enableRequisitionLookup,
 }: {
   tasks: readonly TaskCard[];
   pendingTaskIds?: ReadonlySet<string>;
@@ -36,6 +38,8 @@ export function KanbanBoard({
   companyId?: string;
   members?: TaskLookupMember[];
   requisitions?: TaskLookupRequisition[];
+  enableMemberLookup?: boolean;
+  enableRequisitionLookup?: boolean;
 }) {
   const grouped = groupTasksByStatus(tasks);
   const [activeTask, setActiveTask] = useState<TaskCard | null>(null);
@@ -96,6 +100,8 @@ export function KanbanBoard({
                 companyId={companyId}
                 members={members}
                 requisitions={requisitions}
+                enableMemberLookup={enableMemberLookup}
+                enableRequisitionLookup={enableRequisitionLookup}
               />
             </div>
           ))}
